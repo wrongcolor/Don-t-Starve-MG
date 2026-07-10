@@ -3,6 +3,7 @@ import { ModMetaForm } from './components/forms/ModMetaForm'
 import { ItemsPanel } from './components/panels/ItemsPanel'
 import { CharactersPanel } from './components/panels/CharactersPanel'
 import { CreaturesPanel } from './components/panels/CreaturesPanel'
+import { ReaderPanel } from './components/panels/ReaderPanel'
 import { GenerateButton } from './components/GenerateButton'
 
 const TABS = [
@@ -10,6 +11,7 @@ const TABS = [
   { key: 'items', label: 'Itens' },
   { key: 'characters', label: 'Personagens' },
   { key: 'creatures', label: 'Criaturas' },
+  { key: 'reader', label: 'Leitura' },
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
@@ -54,6 +56,7 @@ function App() {
         {tab === 'items' && <ItemsPanel />}
         {tab === 'characters' && <CharactersPanel />}
         {tab === 'creatures' && <CreaturesPanel />}
+        {tab === 'reader' && <ReaderPanel />}
       </main>
     </div>
   )
