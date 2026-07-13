@@ -1,6 +1,12 @@
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { itemDefSchema, TECH_LEVELS, RECIPE_FILTERS, type ItemDef } from '../../types/modProject'
+import {
+  itemDefSchema,
+  TECH_LEVELS,
+  RECIPE_FILTERS,
+  VANILLA_ITEM_BUILDS,
+  type ItemDef,
+} from '../../types/modProject'
 import { FormField, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
 
 interface ItemFormProps {
@@ -14,6 +20,7 @@ const emptyItem: ItemDef = {
   displayName: '',
   description: '',
   category: 'generic',
+  animation: { source: 'custom' },
   recipe: { ingredients: [{ prefab: 'twigs', amount: 1 }], techLevel: 'NONE', filters: ['TOOLS'], placer: false },
 }
 
@@ -32,6 +39,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
 
   const { fields, append, remove } = useFieldArray({ control, name: 'recipe.ingredients' })
 
+  const animationSource = watch('animation.source') ?? 'custom'
   const enableStackable = watch('stackable') !== undefined
   const enablePerishable = watch('perishable') !== undefined
   const enableWeapon = watch('weapon') !== undefined
@@ -66,6 +74,47 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
       <FormField label="Descrição (crafting + inspect)" error={errors.description?.message}>
         <textarea className={inputClass} rows={2} {...register('description')} />
       </FormField>
+
+      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
+        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Animação</legend>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="radio"
+            checked={animationSource === 'custom'}
+            onChange={() => setValue('animation', { source: 'custom' })}
+          />
+          Vou criar minha própria animação (build próprio, anim/&lt;id&gt;.zip)
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="radio"
+            checked={animationSource === 'vanilla'}
+            onChange={() => setValue('animation', { source: 'vanilla', build: VANILLA_ITEM_BUILDS[0].build })}
+          />
+          Usar uma animação já existente no jogo
+        </label>
+
+        {animationSource === 'vanilla' && (
+          <FormField
+            label="Animação"
+            error={(errors.animation as { build?: { message?: string } } | undefined)?.build?.message}
+          >
+            <select className={inputClass} {...register('animation.build' as const)}>
+              {VANILLA_ITEM_BUILDS.map((b) => (
+                <option key={b.build} value={b.build}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+          </FormField>
+        )}
+
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Reaproveitar uma animação do jogo dispensa o build próprio — mas o ícone de inventário
+          (images/inventoryimages) ainda precisa ser fornecido em ambos os casos.
+        </p>
+      </fieldset>
 
       <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
         <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Componentes</legend>

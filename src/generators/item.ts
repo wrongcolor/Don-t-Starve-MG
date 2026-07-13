@@ -1,5 +1,16 @@
 import type { ItemDef } from '../types/modProject'
-import { toUpperSnake } from './luaUtils'
+import { luaString, toUpperSnake } from './luaUtils'
+
+// Items with no animation choice keep the previous default: a custom build named
+// after the item's own id, which the user must supply as anim/<id>.zip (see README).
+function resolveAnimationBuild(item: ItemDef): string {
+  const anim = item.animation ?? { source: 'custom' as const }
+  return anim.source === 'vanilla' ? anim.build : item.id
+}
+
+function isVanillaAnimation(item: ItemDef): boolean {
+  return (item.animation ?? { source: 'custom' as const }).source === 'vanilla'
+}
 
 function componentBlock(item: ItemDef): string {
   const upper = toUpperSnake(item.id)
@@ -53,14 +64,21 @@ function componentBlock(item: ItemDef): string {
   return lines.join('\n')
 }
 
-// PLACEHOLDER assets: every mod needs real anim/build files produced with Klei's
-// Spriter tooling — this generator cannot create art. See the bundled README.
+// Assets: when the item reuses a vanilla build (item.animation.source === 'vanilla'),
+// no Asset("ANIM", ...) is declared — that animation data is already loaded by the
+// base game. Otherwise this is a PLACEHOLDER: the user must supply anim/<id>.zip
+// produced with Klei's Spriter tooling — this generator cannot create art.
 export function generateItemPrefab(item: ItemDef): string {
   const lines: string[] = []
+  const build = resolveAnimationBuild(item)
 
   lines.push('local assets =')
   lines.push('{')
-  lines.push(`    Asset("ANIM", "anim/${item.id}.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)`)
+  if (isVanillaAnimation(item)) {
+    lines.push(`    -- Build "${build}" reaproveitado do jogo base, sem asset próprio necessário.`)
+  } else {
+    lines.push(`    Asset("ANIM", "anim/${item.id}.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)`)
+  }
   lines.push(`    Asset("INV_IMAGE", "${item.id}"),`)
   lines.push('}')
   lines.push('')
@@ -75,8 +93,8 @@ export function generateItemPrefab(item: ItemDef): string {
   lines.push('')
   lines.push('    MakeInventoryPhysics(inst)')
   lines.push('')
-  lines.push(`    inst.AnimState:SetBank("${item.id}")`)
-  lines.push(`    inst.AnimState:SetBuild("${item.id}")`)
+  lines.push(`    inst.AnimState:SetBank(${luaString(build)})`)
+  lines.push(`    inst.AnimState:SetBuild(${luaString(build)})`)
   lines.push('    inst.AnimState:PlayAnimation("idle")')
   lines.push('')
   lines.push('    inst:AddTag("item")')
@@ -98,13 +116,19 @@ export function generateItemPrefab(item: ItemDef): string {
 
 export function generateItemPlacerPrefab(item: ItemDef): string {
   const lines: string[] = []
+  const build = resolveAnimationBuild(item)
+
   lines.push('local assets =')
   lines.push('{')
-  lines.push(`    Asset("ANIM", "anim/${item.id}.zip"), -- PLACEHOLDER: mesmo build do item, ver README`)
+  if (isVanillaAnimation(item)) {
+    lines.push(`    -- Build "${build}" reaproveitado do jogo base, sem asset próprio necessário.`)
+  } else {
+    lines.push(`    Asset("ANIM", "anim/${item.id}.zip"), -- PLACEHOLDER: mesmo build do item, ver README`)
+  }
   lines.push('}')
   lines.push('')
   lines.push('local function fn()')
-  lines.push(`    return MakePlacer("${item.id}_placer", "${item.id}", "${item.id}", "idle")`)
+  lines.push(`    return MakePlacer(${luaString(item.id + '_placer')}, ${luaString(build)}, ${luaString(build)}, "idle")`)
   lines.push('end')
   lines.push('')
   lines.push(`return Prefab("${item.id}_placer", fn, assets)`)

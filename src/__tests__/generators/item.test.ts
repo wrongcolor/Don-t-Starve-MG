@@ -3,7 +3,7 @@ import { generateItemFiles, generateItemPrefab } from '../../generators/item'
 import { sampleProject } from '../fixtures'
 
 describe('generateItemFiles', () => {
-  const [sword, structure] = sampleProject.items
+  const [sword, structure, trinket] = sampleProject.items
 
   it('checks TheWorld.ismastersim right after SetPristine, before server components', () => {
     const code = generateItemPrefab(sword)
@@ -31,5 +31,20 @@ describe('generateItemFiles', () => {
     expect(code).toContain('inst:AddComponent("weapon")')
     expect(code).toContain('inst.components.weapon:SetDamage(TUNING.TESTSWORD_DAMAGE)')
     expect(code).toContain('inst:AddComponent("finiteuses")')
+  })
+
+  it('defaults to a custom build named after the item id when no animation is chosen', () => {
+    const code = generateItemPrefab(sword)
+    expect(code).toContain('Asset("ANIM", "anim/testsword.zip")')
+    expect(code).toContain('inst.AnimState:SetBank("testsword")')
+    expect(code).toContain('inst.AnimState:SetBuild("testsword")')
+  })
+
+  it('reuses a vanilla build without declaring an ANIM asset when animation.source is vanilla', () => {
+    const code = generateItemPrefab(trinket)
+    expect(code).not.toContain('Asset("ANIM"')
+    expect(code).toContain('inst.AnimState:SetBank("trinket_1")')
+    expect(code).toContain('inst.AnimState:SetBuild("trinket_1")')
+    expect(code).toContain('Asset("INV_IMAGE", "testtrinket")')
   })
 })

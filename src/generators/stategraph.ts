@@ -1,10 +1,16 @@
 import type { CreatureDef } from '../types/modProject'
+import { luaString } from './luaUtils'
+import { resolveCreatureAnimation } from './creatureAnimation'
 
 // Minimal but complete stategraph: idle/moving/attack/hit/death, driven by the
 // standard "locomote"/"attacked"/"death" events every creature with a locomotor +
-// combat + health component emits.
+// combat + health component emits. The animation clip names (as opposed to the SG
+// state names, which are always "idle"/"moving"/"attack"/"hit"/"death") come from
+// resolveCreatureAnimation — user-editable when reusing a vanilla build, since this
+// tool can't verify clip names against the actual game files.
 export function generateStategraph(creature: CreatureDef): string {
   const name = `SG${creature.id}`
+  const { clips } = resolveCreatureAnimation(creature)
 
   return `local states =
 {
@@ -13,7 +19,7 @@ export function generateStategraph(creature: CreatureDef): string {
         tags = { "idle", "canrotate" },
         onenter = function(inst)
             inst.components.locomotor:StopMoving()
-            inst.AnimState:PlayAnimation("idle", true)
+            inst.AnimState:PlayAnimation(${luaString(clips.idle)}, true)
         end,
     },
 
@@ -21,7 +27,7 @@ export function generateStategraph(creature: CreatureDef): string {
         name = "moving",
         tags = { "moving", "running", "canrotate" },
         onenter = function(inst)
-            inst.AnimState:PlayAnimation("walk", true)
+            inst.AnimState:PlayAnimation(${luaString(clips.walk)}, true)
         end,
         onupdate = function(inst)
             if not inst.components.locomotor:WantsToMoveForward() then
@@ -35,7 +41,7 @@ export function generateStategraph(creature: CreatureDef): string {
         tags = { "attack", "busy" },
         onenter = function(inst)
             inst.components.locomotor:StopMoving()
-            inst.AnimState:PlayAnimation("atk")
+            inst.AnimState:PlayAnimation(${luaString(clips.atk)})
         end,
         timeline =
         {
@@ -56,7 +62,7 @@ export function generateStategraph(creature: CreatureDef): string {
         tags = { "hit", "busy" },
         onenter = function(inst)
             inst.components.locomotor:StopMoving()
-            inst.AnimState:PlayAnimation("hit")
+            inst.AnimState:PlayAnimation(${luaString(clips.hit)})
         end,
         events =
         {
@@ -70,7 +76,7 @@ export function generateStategraph(creature: CreatureDef): string {
         onenter = function(inst)
             inst.components.locomotor:StopMoving()
             inst:RemoveComponent("locomotor")
-            inst.AnimState:PlayAnimation("death")
+            inst.AnimState:PlayAnimation(${luaString(clips.death)})
             RemovePhysicsColliders(inst)
         end,
     },

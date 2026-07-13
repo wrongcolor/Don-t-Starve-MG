@@ -46,6 +46,23 @@ export const CHARACTER_GENDERS = ['MALE', 'FEMALE', 'ROBOT', 'NEUTRAL', 'PLURAL'
 
 export const CREATURE_BEHAVIORS = ['passive', 'neutral', 'hostile'] as const
 
+// Simple pickup-item builds bundled with the base game — safe to reuse via SetBank/SetBuild
+// without shipping an anim/*.zip, since the game already has this animation data loaded.
+export const VANILLA_ITEM_BUILDS = [
+  { build: 'trinket_1', label: 'Bugalho estranho 1 (formato genérico)' },
+  { build: 'trinket_2', label: 'Bugalho estranho 2 (formato genérico)' },
+  { build: 'trinket_3', label: 'Bugalho estranho 3 (formato genérico)' },
+  { build: 'trinket_4', label: 'Bugalho estranho 4 (formato genérico)' },
+  { build: 'trinket_5', label: 'Bugalho estranho 5 (formato genérico)' },
+  { build: 'rocks', label: 'Pedra' },
+  { build: 'flint', label: 'Pederneira' },
+  { build: 'log', label: 'Tora de madeira' },
+  { build: 'twigs', label: 'Gravetos' },
+  { build: 'cutgrass', label: 'Grama cortada' },
+  { build: 'goldnugget', label: 'Pepita de ouro' },
+  { build: 'nightmarefuel', label: 'Combustível de pesadelo' },
+] as const
+
 export const CHARACTER_PERKS = [
   'no_hunger',
   'no_sanity_drain',
@@ -98,11 +115,20 @@ export const ingredientSchema = z.object({
   amount: z.number().int().min(1),
 })
 
+// 'vanilla' reuses an existing base-game build (no art required from the user).
+// 'custom' keeps the previous behavior: bank/build named after the item's own id,
+// which the user must supply as anim/<id>.zip (see README).
+export const itemAnimationSchema = z.discriminatedUnion('source', [
+  z.object({ source: z.literal('custom') }),
+  z.object({ source: z.literal('vanilla'), build: z.string().min(1, 'Escolha uma animação') }),
+])
+
 export const itemDefSchema = z.object({
   id: luaIdentifier,
   displayName: z.string().min(1, 'Obrigatório'),
   description: z.string().min(1, 'Obrigatório'),
   category: z.enum(['tool', 'weapon', 'armor', 'food', 'generic']),
+  animation: itemAnimationSchema.optional(),
   stackable: z.object({ maxSize: z.number().int().min(2).max(99) }).optional(),
   perishable: z.object({ perishTimeDays: z.number().min(0.1) }).optional(),
   weapon: z.object({ damage: z.number().min(1) }).optional(),
@@ -133,10 +159,40 @@ export const characterDefSchema = z.object({
   perks: z.array(z.enum(CHARACTER_PERKS)),
 })
 
+// Unlike items (where "idle" is near-universal across every inventory build), creature
+// builds vary a lot in exactly which animation clip names they ship, and this tool has
+// no way to verify that against the actual game files — so the clip names are always
+// user-editable, defaulting to the same names the 'custom' stategraph already expects.
+export const creatureAnimationClipsSchema = z.object({
+  idle: z.string().min(1, 'Obrigatório'),
+  walk: z.string().min(1, 'Obrigatório'),
+  atk: z.string().min(1, 'Obrigatório'),
+  hit: z.string().min(1, 'Obrigatório'),
+  death: z.string().min(1, 'Obrigatório'),
+})
+
+export const creatureAnimationSchema = z.discriminatedUnion('source', [
+  z.object({ source: z.literal('custom') }),
+  z.object({
+    source: z.literal('vanilla'),
+    build: z.string().min(1, 'Escolha uma animação'),
+    clips: creatureAnimationClipsSchema,
+  }),
+])
+
+// Builds commonly cited in the DST modding community as safe to reuse for a simple
+// custom hostile mob (idle/walk/atk/hit/death). Not verified against the live game
+// files — always confirm each clip plays correctly in-game before publishing.
+export const VANILLA_CREATURE_BUILDS = [
+  { build: 'spider', label: 'Aranha (spider)' },
+  { build: 'hound', label: 'Cão selvagem (hound)' },
+] as const
+
 export const creatureDefSchema = z.object({
   id: luaIdentifier,
   displayName: z.string().min(1, 'Obrigatório'),
   description: z.string().min(1, 'Obrigatório'),
+  animation: creatureAnimationSchema.optional(),
   stats: z.object({
     health: z.number().int().min(1),
     damage: z.number().min(0),
@@ -162,6 +218,8 @@ export type CreatureBehavior = (typeof CREATURE_BEHAVIORS)[number]
 export type CharacterPerk = (typeof CHARACTER_PERKS)[number]
 
 export type ConfigOption = z.infer<typeof configOptionSchema>
+export type ItemAnimation = z.infer<typeof itemAnimationSchema>
+export type CreatureAnimation = z.infer<typeof creatureAnimationSchema>
 export type ModMeta = z.infer<typeof modMetaSchema>
 export type Ingredient = z.infer<typeof ingredientSchema>
 export type ItemDef = z.infer<typeof itemDefSchema>

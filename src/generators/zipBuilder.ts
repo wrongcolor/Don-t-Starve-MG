@@ -22,9 +22,15 @@ function generateReadme(project: ModProject): string {
   lines.push('')
 
   if (project.items.length > 0) {
-    lines.push('- **Itens**: `anim/<id>.zip` (build/bank do item) e `images/inventoryimages/<id>.xml`/`.tex`.')
+    lines.push('- **Itens**: `images/inventoryimages/<id>.xml`/`.tex` (ícone de inventário, sempre necessário).')
     for (const item of project.items) {
-      lines.push(`  - \`${item.id}\`: build/bank "${item.id}", animação "idle".`)
+      if (item.animation?.source === 'vanilla') {
+        lines.push(
+          `  - \`${item.id}\`: reaproveita o build "${item.animation.build}" do jogo base — nenhum \`anim/*.zip\` próprio é necessário.`,
+        )
+      } else {
+        lines.push(`  - \`${item.id}\`: precisa de \`anim/${item.id}.zip\` (build/bank "${item.id}", animação "idle").`)
+      }
     }
   }
   if (project.characters.length > 0) {
@@ -36,9 +42,16 @@ function generateReadme(project: ModProject): string {
     }
   }
   if (project.creatures.length > 0) {
-    lines.push('- **Criaturas**: `anim/<id>.zip` — sem um build próprio o prefab não carrega (sem fallback seguro possível).')
+    lines.push('- **Criaturas**: build próprio em `anim/<id>.zip`, a menos que a criatura reaproveite um build do jogo base.')
     for (const creature of project.creatures) {
-      lines.push(`  - \`${creature.id}\`: precisa de build/bank "${creature.id}" com pelo menos as animações idle/walk/atk/hit/death.`)
+      if (creature.animation?.source === 'vanilla') {
+        const { build, clips } = creature.animation
+        lines.push(
+          `  - \`${creature.id}\`: reaproveita o build "${build}" do jogo base — confirme em-jogo que as animações "${clips.idle}"/"${clips.walk}"/"${clips.atk}"/"${clips.hit}"/"${clips.death}" existem nesse build antes de publicar (não verificado por esta ferramenta).`,
+        )
+      } else {
+        lines.push(`  - \`${creature.id}\`: precisa de build/bank "${creature.id}" com pelo menos as animações idle/walk/atk/hit/death.`)
+      }
     }
   }
 

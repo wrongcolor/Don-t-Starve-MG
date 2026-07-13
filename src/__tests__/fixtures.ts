@@ -49,6 +49,19 @@ export const sampleProject: ModProject = {
         placer: true,
       },
     },
+    {
+      id: 'testtrinket',
+      displayName: 'Test Trinket',
+      description: 'A trinket reusing a vanilla build',
+      category: 'generic',
+      animation: { source: 'vanilla', build: 'trinket_1' },
+      recipe: {
+        ingredients: [{ prefab: 'flint', amount: 1 }],
+        techLevel: 'NONE',
+        filters: ['TOOLS'],
+        placer: false,
+      },
+    },
   ],
   characters: [
     {
@@ -73,6 +86,20 @@ export const sampleProject: ModProject = {
       loot: [{ prefab: 'monstermeat', chance: 1 }],
       behavior: 'hostile',
       tags: ['largecreature'],
+    },
+    {
+      id: 'testspidermob',
+      displayName: 'Test Spider Mob',
+      description: 'A mob reusing a vanilla build',
+      animation: {
+        source: 'vanilla',
+        build: 'spider',
+        clips: { idle: 'idle', walk: 'walk', atk: 'atk', hit: 'hit', death: 'death' },
+      },
+      stats: { health: 80, damage: 15, attackPeriod: 2, walkSpeed: 4 },
+      loot: [{ prefab: 'silk', chance: 1 }],
+      behavior: 'hostile',
+      tags: [],
     },
   ],
 }

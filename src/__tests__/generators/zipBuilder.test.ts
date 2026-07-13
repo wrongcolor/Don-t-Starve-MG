@@ -32,6 +32,20 @@ describe('buildModFiles', () => {
     expect(readme).toContain('testchar')
     expect(readme).toContain('testmob')
   })
+
+  it('tells apart vanilla-build items (no anim.zip needed) from custom-build items in the README', () => {
+    const readme = files['README.md']
+    expect(readme).toContain('precisa de `anim/testsword.zip`')
+    expect(readme).toContain('reaproveita o build "trinket_1" do jogo base')
+    expect(readme).not.toContain('precisa de `anim/testtrinket.zip`')
+  })
+
+  it('tells apart vanilla-build creatures from custom-build creatures in the README', () => {
+    const readme = files['README.md']
+    expect(readme).toContain('build/bank "testmob" com pelo menos as animações idle/walk/atk/hit/death')
+    expect(readme).toContain('reaproveita o build "spider" do jogo base')
+    expect(readme).toContain('confirme em-jogo')
+  })
 })
 
 describe('buildModZip round-trip', () => {
