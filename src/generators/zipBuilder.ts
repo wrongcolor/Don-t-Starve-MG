@@ -2,7 +2,7 @@ import JSZip from 'jszip'
 import type { ModProject } from '../types/modProject'
 import { generateModInfo } from './modinfo'
 import { generateModMain } from './modmain'
-import { generateItemFiles } from './item'
+import { generateItemFiles, isHandheld } from './item'
 import { generateCharacterFiles } from './character'
 import { generateSpeechFile } from './speech'
 import { generateCreatureFiles } from './creature'
@@ -24,12 +24,23 @@ function generateReadme(project: ModProject): string {
   if (project.items.length > 0) {
     lines.push('- **Itens**: `images/inventoryimages/<id>.xml`/`.tex` (ícone de inventário, sempre necessário).')
     for (const item of project.items) {
+      const handheld = isHandheld(item)
       if (item.animation?.source === 'vanilla') {
         lines.push(
           `  - \`${item.id}\`: reaproveita o build "${item.animation.build}" do jogo base — nenhum \`anim/*.zip\` próprio é necessário.`,
         )
+        if (handheld) {
+          lines.push(
+            `    - ATENÇÃO: é um item empunhável (ferramenta/arma) usando build vanilla — confirme se \`swap_${item.animation.build}\` existe no jogo base antes de publicar.`,
+          )
+        }
       } else {
         lines.push(`  - \`${item.id}\`: precisa de \`anim/${item.id}.zip\` (build/bank "${item.id}", animação "idle").`)
+        if (handheld) {
+          lines.push(
+            `    - Por ser empunhável, também precisa de \`anim/swap_${item.id}.zip\` (aparência na mão do personagem).`,
+          )
+        }
       }
     }
   }

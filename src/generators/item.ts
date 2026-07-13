@@ -12,12 +12,25 @@ function isVanillaAnimation(item: ItemDef): boolean {
   return (item.animation ?? { source: 'custom' as const }).source === 'vanilla'
 }
 
+// Confirmed against axe.lua/pickaxe.lua/spear.lua/hambat.lua (docs/dst-knowledge/patterns.md#2):
+// any item meant to be held in combat/work needs a SEPARATE "swap_*" build for the
+// in-hand look, swapped onto the character's "swap_object" hand symbol on equip.
+export function isHandheld(item: ItemDef): boolean {
+  return item.category === 'tool' || item.weapon !== undefined
+}
+
 function componentBlock(item: ItemDef): string {
   const upper = toUpperSnake(item.id)
   const lines: string[] = []
 
   lines.push('    inst:AddComponent("inspectable")')
   lines.push('    inst:AddComponent("inventoryitem")')
+
+  if (item.category === 'tool' && item.toolAction) {
+    lines.push('')
+    lines.push('    inst:AddComponent("tool")')
+    lines.push(`    inst.components.tool:SetAction(ACTIONS.${item.toolAction})`)
+  }
 
   if (item.stackable) {
     lines.push('')
@@ -37,12 +50,22 @@ function componentBlock(item: ItemDef): string {
     lines.push(`    inst.components.finiteuses:SetMaxUses(TUNING.${upper}_USES)`)
     lines.push(`    inst.components.finiteuses:SetUses(TUNING.${upper}_USES)`)
     lines.push('    inst.components.finiteuses:SetOnFinished(inst.Remove)')
+    if (item.category === 'tool' && item.toolAction) {
+      lines.push(`    inst.components.finiteuses:SetConsumption(ACTIONS.${item.toolAction}, 1)`)
+    }
   }
 
   if (item.armor) {
     lines.push('')
     lines.push('    inst:AddComponent("armor")')
     lines.push(`    inst.components.armor:InitCondition(TUNING.${upper}_USES or 1, TUNING.${upper}_ABSORPTION)`)
+  }
+
+  if (isHandheld(item)) {
+    lines.push('')
+    lines.push('    inst:AddComponent("equippable")')
+    lines.push('    inst.components.equippable:SetOnEquip(onequip)')
+    lines.push('    inst.components.equippable:SetOnUnequip(onunequip)')
   }
 
   if (item.perishable) {
@@ -64,24 +87,59 @@ function componentBlock(item: ItemDef): string {
   return lines.join('\n')
 }
 
+// onequip/onunequip: confirmed identical across axe/pickaxe/shovel/spear/hambat
+// (docs/dst-knowledge/patterns.md#2). Swaps the character's "swap_object" hand
+// symbol to this item's own "swap_<build>" build, and shows the carry-pose arm.
+function equipFunctionsBlock(item: ItemDef): string[] {
+  const swapBuild = `swap_${resolveAnimationBuild(item)}`
+  return [
+    'local function onequip(inst, owner)',
+    `    owner.AnimState:OverrideSymbol("swap_object", ${luaString(swapBuild)}, ${luaString(swapBuild)})`,
+    '    owner.AnimState:Show("ARM_carry")',
+    '    owner.AnimState:Hide("ARM_normal")',
+    'end',
+    '',
+    'local function onunequip(inst, owner)',
+    '    owner.AnimState:Hide("ARM_carry")',
+    '    owner.AnimState:Show("ARM_normal")',
+    'end',
+    '',
+  ]
+}
+
 // Assets: when the item reuses a vanilla build (item.animation.source === 'vanilla'),
 // no Asset("ANIM", ...) is declared — that animation data is already loaded by the
 // base game. Otherwise this is a PLACEHOLDER: the user must supply anim/<id>.zip
-// produced with Klei's Spriter tooling — this generator cannot create art.
+// produced with Klei's Spriter tooling — this generator cannot create art. Handheld
+// items (tool/weapon) also need a SEPARATE swap_<build>.zip for the in-hand look
+// (see docs/dst-knowledge/patterns.md#2) — not needed for a vanilla-build item that
+// isn't handheld (e.g. a reused trinket build).
 export function generateItemPrefab(item: ItemDef): string {
   const lines: string[] = []
   const build = resolveAnimationBuild(item)
+  const handheld = isHandheld(item)
 
   lines.push('local assets =')
   lines.push('{')
   if (isVanillaAnimation(item)) {
     lines.push(`    -- Build "${build}" reaproveitado do jogo base, sem asset próprio necessário.`)
+    if (handheld) {
+      lines.push(
+        `    -- ATENÇÃO: build vanilla escolhido para um item empunhável — confirme se "swap_${build}" existe no jogo base antes de publicar.`,
+      )
+    }
   } else {
     lines.push(`    Asset("ANIM", "anim/${item.id}.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)`)
+    if (handheld) {
+      lines.push(`    Asset("ANIM", "anim/swap_${item.id}.zip"), -- PLACEHOLDER: aparência na mão, ver README`)
+    }
   }
   lines.push(`    Asset("INV_IMAGE", "${item.id}"),`)
   lines.push('}')
   lines.push('')
+  if (handheld) {
+    lines.push(...equipFunctionsBlock(item))
+  }
   lines.push('local prefabs = {}')
   lines.push('')
   lines.push('local function fn()')

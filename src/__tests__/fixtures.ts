@@ -62,6 +62,21 @@ export const sampleProject: ModProject = {
         placer: false,
       },
     },
+    {
+      id: 'testaxe',
+      displayName: 'Test Axe',
+      description: 'A tool for testing',
+      category: 'tool',
+      toolAction: 'CHOP',
+      weapon: { damage: 27 },
+      finiteuses: { maxUses: 100 },
+      recipe: {
+        ingredients: [{ prefab: 'twigs', amount: 1 }, { prefab: 'flint', amount: 1 }],
+        techLevel: 'NONE',
+        filters: ['TOOLS'],
+        placer: false,
+      },
+    },
   ],
   characters: [
     {

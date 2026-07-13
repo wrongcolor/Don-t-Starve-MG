@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { generateItemFiles, generateItemPrefab } from '../../generators/item'
+import { itemDefSchema } from '../../types/modProject'
 import { sampleProject } from '../fixtures'
 
 describe('generateItemFiles', () => {
-  const [sword, structure, trinket] = sampleProject.items
+  const [sword, structure, trinket, axe] = sampleProject.items
 
   it('checks TheWorld.ismastersim right after SetPristine, before server components', () => {
     const code = generateItemPrefab(sword)
@@ -46,5 +47,46 @@ describe('generateItemFiles', () => {
     expect(code).toContain('inst.AnimState:SetBank("trinket_1")')
     expect(code).toContain('inst.AnimState:SetBuild("trinket_1")')
     expect(code).toContain('Asset("INV_IMAGE", "testtrinket")')
+  })
+
+  it('wires the tool component + SetAction for tool-category items, and ties finiteuses consumption to that action', () => {
+    const code = generateItemPrefab(axe)
+    expect(code).toContain('inst:AddComponent("tool")')
+    expect(code).toContain('inst.components.tool:SetAction(ACTIONS.CHOP)')
+    expect(code).toContain('inst.components.finiteuses:SetConsumption(ACTIONS.CHOP, 1)')
+  })
+
+  it('generates equippable + swap_object handling and a separate swap build asset for handheld items (tool or weapon)', () => {
+    const axeCode = generateItemPrefab(axe)
+    expect(axeCode).toContain('inst:AddComponent("equippable")')
+    expect(axeCode).toContain('inst.components.equippable:SetOnEquip(onequip)')
+    expect(axeCode).toContain('inst.components.equippable:SetOnUnequip(onunequip)')
+    expect(axeCode).toContain('owner.AnimState:OverrideSymbol("swap_object", "swap_testaxe", "swap_testaxe")')
+    expect(axeCode).toContain('Asset("ANIM", "anim/swap_testaxe.zip")')
+
+    const swordCode = generateItemPrefab(sword)
+    expect(swordCode).toContain('inst:AddComponent("equippable")')
+    expect(swordCode).toContain('Asset("ANIM", "anim/swap_testsword.zip")')
+
+    expect(generateItemPrefab(trinket)).not.toContain('equippable')
+  })
+
+  it('warns when a handheld item reuses a vanilla build, instead of assuming a swap build exists', () => {
+    const vanillaAxe = {
+      ...axe,
+      animation: { source: 'vanilla' as const, build: 'trinket_1' },
+    }
+    const code = generateItemPrefab(vanillaAxe)
+    expect(code).toContain('ATENÇÃO')
+    expect(code).toContain('swap_trinket_1')
+  })
+
+  it('requires toolAction when category is tool', () => {
+    const withoutAction = { ...axe, toolAction: undefined }
+    const result = itemDefSchema.safeParse(withoutAction)
+    expect(result.success).toBe(false)
+
+    const withAction = itemDefSchema.safeParse(axe)
+    expect(withAction.success).toBe(true)
   })
 })

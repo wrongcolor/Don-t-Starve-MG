@@ -1,0 +1,27 @@
+{
+  "_meta": {
+    "source": "Frequência real de `AddTag(\"x\")` em scripts/prefabs/*.lua do jogo (1488 arquivos, snapshot 2026-07).",
+    "notes_policy": "notes só preenchido quando confirmado lendo o prefab real. null = frequência real, ainda não estudado.",
+    "distinct_tags_total": 1110,
+    "caveat": "As tags mais frequentes (FX, NOCLICK, CLASSIFIED) são majoritariamente de prefabs de EFEITO VISUAL/rede interna (partículas, projéteis, entidades classified), não de conteúdo (item/criatura/personagem) — não confundir com algo que nosso gerador precisaria adicionar."
+  },
+  "tags": [
+    { "name": "FX", "count": 653, "relevant_to_app": false, "notes": "Majoritariamente prefabs de efeito visual (partículas), não conteúdo jogável." },
+    { "name": "NOCLICK", "count": 585, "relevant_to_app": false, "notes": "Impede clique direto — comum em efeitos/entidades auxiliares." },
+    { "name": "CLASSIFIED", "count": 217, "relevant_to_app": false, "notes": "Entidades de sincronização de rede interna do jogo." },
+    { "name": "structure", "count": 150, "relevant_to_app": true, "notes": "Provável relação com nosso 'placer' de estruturas — não confirmado em profundidade ainda." },
+    { "name": "NOBLOCK", "count": 124, "relevant_to_app": false, "notes": null },
+    { "name": "hostile", "count": 101, "relevant_to_app": true, "notes": "Confirmado em creature.ts — já geramos essa tag pra criaturas com behavior='hostile'." },
+    { "name": "scarytoprey", "count": 90, "relevant_to_app": false, "notes": null },
+    { "name": "DECOR", "count": 84, "relevant_to_app": false, "notes": null },
+    { "name": "monster", "count": 80, "relevant_to_app": true, "notes": "Confirmado em creature.ts — já geramos essa tag." },
+    { "name": "weapon", "count": 73, "relevant_to_app": true, "notes": "Confirmado: é adicionada automaticamente via comentário '--weapon (from weapon component) added to pristine state for optimization' — ou seja, o próprio componente weapon já injeta essa tag; não precisamos adicionar manualmente se já geramos o componente." },
+    { "name": "sharp", "count": 28, "relevant_to_app": true, "notes": "Confirmado em axe/spear/pickaxe — marca itens afiados. Função exata (o que consome essa tag) não confirmada; provavelmente cortar teias/plantas específicas." },
+    { "name": "tool", "count": 18, "relevant_to_app": true, "notes": "Confirmado: mesma lógica da tag 'weapon' — injetada automaticamente pelo componente tool, não precisa AddTag manual." },
+    { "name": "animal", "count": 44, "relevant_to_app": true, "notes": "Confirmado em creature.ts — já geramos essa tag pra criaturas não-hostis." },
+    { "name": "largecreature", "count": 39, "relevant_to_app": true, "notes": "Já usada como exemplo de tag extra no nosso formulário de criatura." },
+    { "name": "character", "count": 39, "relevant_to_app": false, "notes": null },
+    { "name": "cookable", "count": 27, "relevant_to_app": false, "notes": null },
+    { "name": "pointy", "count": 8, "relevant_to_app": false, "notes": "Investigado a pedido do usuário (hipótese de estar ligada a animação de estocada) — DESCARTADO. Aparece em spear/trident/glasscutter/hutch, mas é consumida por hutch.lua (uma criatura de estimação), sem relação com escolha de animação de ataque." }
+  ]
+}

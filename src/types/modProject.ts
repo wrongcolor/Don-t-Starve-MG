@@ -44,6 +44,11 @@ export const RECIPE_FILTERS = [
 
 export const CHARACTER_GENDERS = ['MALE', 'FEMALE', 'ROBOT', 'NEUTRAL', 'PLURAL'] as const
 
+// Confirmed against real game prefabs (axe.lua/pickaxe.lua/shovel.lua) — see
+// docs/dst-knowledge/patterns.md#1. The `tool` component + SetAction(ACTIONS.X)
+// is what actually lets an item chop/mine/dig; category alone does nothing.
+export const TOOL_ACTIONS = ['CHOP', 'MINE', 'DIG'] as const
+
 export const CREATURE_BEHAVIORS = ['passive', 'neutral', 'hostile'] as const
 
 // Simple pickup-item builds bundled with the base game — safe to reuse via SetBank/SetBuild
@@ -123,24 +128,30 @@ export const itemAnimationSchema = z.discriminatedUnion('source', [
   z.object({ source: z.literal('vanilla'), build: z.string().min(1, 'Escolha uma animação') }),
 ])
 
-export const itemDefSchema = z.object({
-  id: luaIdentifier,
-  displayName: z.string().min(1, 'Obrigatório'),
-  description: z.string().min(1, 'Obrigatório'),
-  category: z.enum(['tool', 'weapon', 'armor', 'food', 'generic']),
-  animation: itemAnimationSchema.optional(),
-  stackable: z.object({ maxSize: z.number().int().min(2).max(99) }).optional(),
-  perishable: z.object({ perishTimeDays: z.number().min(0.1) }).optional(),
-  weapon: z.object({ damage: z.number().min(1) }).optional(),
-  finiteuses: z.object({ maxUses: z.number().int().min(1) }).optional(),
-  armor: z.object({ absorption: z.number().min(0.01).max(1) }).optional(),
-  recipe: z.object({
-    ingredients: z.array(ingredientSchema).min(1, 'Adicione pelo menos 1 ingrediente'),
-    techLevel: z.enum(TECH_LEVELS),
-    filters: z.array(z.enum(RECIPE_FILTERS)).min(1, 'Selecione pelo menos uma aba'),
-    placer: z.boolean(),
-  }),
-})
+export const itemDefSchema = z
+  .object({
+    id: luaIdentifier,
+    displayName: z.string().min(1, 'Obrigatório'),
+    description: z.string().min(1, 'Obrigatório'),
+    category: z.enum(['tool', 'weapon', 'armor', 'food', 'generic']),
+    toolAction: z.enum(TOOL_ACTIONS).optional(),
+    animation: itemAnimationSchema.optional(),
+    stackable: z.object({ maxSize: z.number().int().min(2).max(99) }).optional(),
+    perishable: z.object({ perishTimeDays: z.number().min(0.1) }).optional(),
+    weapon: z.object({ damage: z.number().min(1) }).optional(),
+    finiteuses: z.object({ maxUses: z.number().int().min(1) }).optional(),
+    armor: z.object({ absorption: z.number().min(0.01).max(1) }).optional(),
+    recipe: z.object({
+      ingredients: z.array(ingredientSchema).min(1, 'Adicione pelo menos 1 ingrediente'),
+      techLevel: z.enum(TECH_LEVELS),
+      filters: z.array(z.enum(RECIPE_FILTERS)).min(1, 'Selecione pelo menos uma aba'),
+      placer: z.boolean(),
+    }),
+  })
+  .refine((item) => item.category !== 'tool' || item.toolAction !== undefined, {
+    message: 'Selecione qual ação essa ferramenta realiza (cortar/minerar/cavar)',
+    path: ['toolAction'],
+  })
 
 export const characterDefSchema = z.object({
   id: luaIdentifier,

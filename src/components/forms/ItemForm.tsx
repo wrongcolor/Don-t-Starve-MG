@@ -6,6 +6,7 @@ import {
   TECH_LEVELS,
   RECIPE_FILTERS,
   VANILLA_ITEM_BUILDS,
+  TOOL_ACTIONS,
   type ItemDef,
 } from '../../types/modProject'
 import { FormField, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
@@ -43,6 +44,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const [animationSource, setAnimationSource] = useState<'custom' | 'vanilla'>(
     (initialItem ?? emptyItem).animation?.source ?? 'custom',
   )
+  const category = watch('category')
   const enableStackable = watch('stackable') !== undefined
   const enablePerishable = watch('perishable') !== undefined
   const enableWeapon = watch('weapon') !== undefined
@@ -69,6 +71,21 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
           </select>
         </FormField>
       </div>
+
+      {category === 'tool' && (
+        <FormField label="Ação da ferramenta" error={errors.toolAction?.message}>
+          <select className={inputClass} {...register('toolAction')} defaultValue="">
+            <option value="" disabled>
+              Selecione...
+            </option>
+            {TOOL_ACTIONS.map((a) => (
+              <option key={a} value={a}>
+                {a === 'CHOP' ? 'Cortar (árvores)' : a === 'MINE' ? 'Minerar (pedras)' : 'Cavar (buracos/troncos)'}
+              </option>
+            ))}
+          </select>
+        </FormField>
+      )}
 
       <FormField label="Nome exibido" error={errors.displayName?.message}>
         <input className={inputClass} {...register('displayName')} />
