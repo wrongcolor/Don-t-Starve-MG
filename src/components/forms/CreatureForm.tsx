@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -32,7 +33,6 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
     register,
     control,
     handleSubmit,
-    watch,
     setValue,
     formState: { errors },
   } = useForm<CreatureDef>({
@@ -43,7 +43,9 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   const loot = useFieldArray({ control, name: 'loot' })
   const tags = useFieldArray({ control, name: 'tags' as never })
 
-  const animationSource = watch('animation.source') ?? 'custom'
+  const [animationSource, setAnimationSource] = useState<'custom' | 'vanilla'>(
+    (initialCreature ?? emptyCreature).animation?.source ?? 'custom',
+  )
 
   const onSubmit = (data: CreatureDef) => onSave(data)
 
@@ -96,22 +98,28 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
         <label className="flex items-center gap-2 text-sm">
           <input
             type="radio"
+            name="creature-animation-source"
             checked={animationSource === 'custom'}
-            onChange={() => setValue('animation', { source: 'custom' })}
+            onChange={() => {
+              setAnimationSource('custom')
+              setValue('animation', { source: 'custom' })
+            }}
           />
           Vou criar minha própria animação (build próprio, anim/&lt;id&gt;.zip)
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="radio"
+            name="creature-animation-source"
             checked={animationSource === 'vanilla'}
-            onChange={() =>
+            onChange={() => {
+              setAnimationSource('vanilla')
               setValue('animation', {
                 source: 'vanilla',
                 build: VANILLA_CREATURE_BUILDS[0].build,
                 clips: DEFAULT_CLIPS,
               })
-            }
+            }}
           />
           Usar uma animação já existente no jogo
         </label>

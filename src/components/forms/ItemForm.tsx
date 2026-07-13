@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -39,7 +40,9 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
 
   const { fields, append, remove } = useFieldArray({ control, name: 'recipe.ingredients' })
 
-  const animationSource = watch('animation.source') ?? 'custom'
+  const [animationSource, setAnimationSource] = useState<'custom' | 'vanilla'>(
+    (initialItem ?? emptyItem).animation?.source ?? 'custom',
+  )
   const enableStackable = watch('stackable') !== undefined
   const enablePerishable = watch('perishable') !== undefined
   const enableWeapon = watch('weapon') !== undefined
@@ -81,16 +84,24 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
         <label className="flex items-center gap-2 text-sm">
           <input
             type="radio"
+            name="item-animation-source"
             checked={animationSource === 'custom'}
-            onChange={() => setValue('animation', { source: 'custom' })}
+            onChange={() => {
+              setAnimationSource('custom')
+              setValue('animation', { source: 'custom' })
+            }}
           />
           Vou criar minha própria animação (build próprio, anim/&lt;id&gt;.zip)
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="radio"
+            name="item-animation-source"
             checked={animationSource === 'vanilla'}
-            onChange={() => setValue('animation', { source: 'vanilla', build: VANILLA_ITEM_BUILDS[0].build })}
+            onChange={() => {
+              setAnimationSource('vanilla')
+              setValue('animation', { source: 'vanilla', build: VANILLA_ITEM_BUILDS[0].build })
+            }}
           />
           Usar uma animação já existente no jogo
         </label>
