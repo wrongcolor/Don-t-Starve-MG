@@ -3,6 +3,7 @@ import { ModMetaForm } from './components/forms/ModMetaForm'
 import { ItemsPanel } from './components/panels/ItemsPanel'
 import { CharactersPanel } from './components/panels/CharactersPanel'
 import { CreaturesPanel } from './components/panels/CreaturesPanel'
+import { WorldPanel } from './components/panels/WorldPanel'
 import { ReaderPanel } from './components/panels/ReaderPanel'
 import { GenerateButton } from './components/GenerateButton'
 
@@ -11,6 +12,7 @@ const TABS = [
   { key: 'items', label: 'Itens' },
   { key: 'characters', label: 'Personagens' },
   { key: 'creatures', label: 'Criaturas' },
+  { key: 'world', label: 'Mundo' },
   { key: 'reader', label: 'Leitura' },
 ] as const
 
@@ -56,6 +58,7 @@ function App() {
         {tab === 'items' && <ItemsPanel />}
         {tab === 'characters' && <CharactersPanel />}
         {tab === 'creatures' && <CreaturesPanel />}
+        {tab === 'world' && <WorldPanel />}
         {tab === 'reader' && <ReaderPanel />}
       </main>
     </div>

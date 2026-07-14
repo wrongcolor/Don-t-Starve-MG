@@ -1,0 +1,85 @@
+import type { ModProject } from '../types/modProject'
+import type { RoomDef, TaskDef } from '../types/worldContent'
+import { luaString } from './luaUtils'
+
+// Room/Task ids and prefab names are arbitrary user strings (the real game uses ids
+// like "Make a pick"), so every Lua table key derived from them uses bracket+string
+// syntax ([luaString(x)] = ...) instead of a bare identifier — safe regardless of
+// spaces/quotes, matching the pattern the vanilla game itself uses for non-trivial names.
+
+// Confirmed in rooms/forest/pigs.lua: a fixed range like "3 + math.random(2)" means
+// min=4,max=5 (Lua's math.random(n) returns 1..n inclusive) — so a uniform [min,max]
+// range is (min-1) + math.random(max-min+1). A single fixed value skips the function.
+function countExpr(min: number, max: number): string {
+  if (min === max) return String(min)
+  return `function() return ${min - 1} + math.random(${max - min + 1}) end`
+}
+
+function generateRoomLua(room: RoomDef): string {
+  const lines: string[] = []
+  lines.push(`AddRoom(${luaString(room.id)}, {`)
+  lines.push(`    value = WORLD_TILES.${room.terrain},`)
+  if (room.tags.length > 0) {
+    lines.push(`    tags = { ${room.tags.map(luaString).join(', ')} },`)
+  }
+  if (room.requiredPrefabs.length > 0) {
+    lines.push(`    required_prefabs = { ${room.requiredPrefabs.map(luaString).join(', ')} },`)
+  }
+  lines.push('    contents = {')
+  if (room.fixedPrefabs.length > 0) {
+    lines.push('        countprefabs = {')
+    for (const fp of room.fixedPrefabs) {
+      lines.push(`            [${luaString(fp.prefab)}] = ${countExpr(fp.count.min, fp.count.max)},`)
+    }
+    lines.push('        },')
+  }
+  if (room.scatter) {
+    lines.push(`        distributepercent = ${room.scatter.percent},`)
+    lines.push('        distributeprefabs = {')
+    for (const sp of room.scatter.prefabs) {
+      lines.push(`            [${luaString(sp.prefab)}] = ${sp.weight},`)
+    }
+    lines.push('        },')
+  }
+  lines.push('    },')
+  lines.push('})')
+  return lines.join('\n') + '\n'
+}
+
+function generateTaskLua(task: TaskDef): string {
+  const lines: string[] = []
+  lines.push(`AddTask(${luaString(task.id)}, {`)
+  lines.push(`    locks = { ${task.locks.map((l) => `LOCKS.${l}`).join(', ')} },`)
+  lines.push(`    keys_given = { ${task.keysGiven.map((k) => `KEYS.${k}`).join(', ')} },`)
+  lines.push('    room_choices = {')
+  for (const rc of task.roomChoices) {
+    lines.push(`        [${luaString(rc.roomId)}] = ${countExpr(rc.count.min, rc.count.max)},`)
+  }
+  lines.push('    },')
+  lines.push(`    room_bg = WORLD_TILES.${task.backgroundTerrain},`)
+  if (task.backgroundRoom) {
+    lines.push(`    background_room = ${luaString(task.backgroundRoom)},`)
+  }
+  if (task.regionId) {
+    lines.push(`    region_id = ${luaString(task.regionId)}, -- agrupa com outras Tasks do mesmo region_id numa ilha só (ver README)`)
+  }
+  lines.push('})')
+  return lines.join('\n') + '\n'
+}
+
+// Wiring uncertainty: AddRoom/AddTask are confirmed real global functions (map/rooms.lua,
+// map/tasks.lua), but the exact modmain.lua hook that loads mod world-gen files into scope
+// wasn't confirmed in this session (no reference mod available) — see README/patterns.md#17.
+// This generator only produces the content files; loading them is left documented, not assumed.
+export function generateWorldContentFiles(project: ModProject): Record<string, string> {
+  const files: Record<string, string> = {}
+
+  if (project.rooms.length > 0) {
+    files['scripts/map/rooms.lua'] = project.rooms.map(generateRoomLua).join('\n')
+  }
+  if (project.tasks.length > 0) {
+    files['scripts/map/tasks.lua'] = project.tasks.map(generateTaskLua).join('\n')
+  }
+
+  return files
+}

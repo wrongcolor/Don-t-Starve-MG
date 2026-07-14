@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { roomDefSchema, taskDefSchema } from './worldContent'
 
 // Validated against the live DST game-scripts (recipe.lua, modutil.lua, techtree.lua,
 // constants.lua, recipes_filter.lua) — see plan notes for sources.
@@ -269,6 +270,8 @@ export const modProjectSchema = z.object({
   items: z.array(itemDefSchema),
   characters: z.array(characterDefSchema),
   creatures: z.array(creatureDefSchema),
+  rooms: z.array(roomDefSchema),
+  tasks: z.array(taskDefSchema),
 })
 
 export type TechLevel = (typeof TECH_LEVELS)[number]
@@ -300,5 +303,7 @@ export function createEmptyModProject(): ModProject {
     items: [],
     characters: [],
     creatures: [],
+    rooms: [],
+    tasks: [],
   }
 }

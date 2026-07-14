@@ -6,6 +6,7 @@ import { generateItemFiles, isHandheld } from './item'
 import { generateCharacterFiles } from './character'
 import { generateSpeechFile } from './speech'
 import { generateCreatureFiles } from './creature'
+import { generateWorldContentFiles } from './worldContent'
 
 function generateReadme(project: ModProject): string {
   const lines: string[] = []
@@ -66,6 +67,13 @@ function generateReadme(project: ModProject): string {
     }
   }
 
+  if (project.rooms.length > 0 || project.tasks.length > 0) {
+    lines.push('- **Mundo (Rooms/Tasks)**: `scripts/map/rooms.lua`/`scripts/map/tasks.lua` foram gerados,')
+    lines.push('  mas o ponto exato de registro a partir do `modmain.lua` (qual `modimport`/hook carrega')
+    lines.push('  esses arquivos no momento certo da geração de mundo) **não foi confirmado** por esta')
+    lines.push('  ferramenta — verifique com um mod de referência real antes de publicar.')
+  }
+
   lines.push('')
   lines.push('Fala de personagem (`speech_<id>.lua`) usa fallback para `speech_wilson` — só as')
   lines.push('falas customizadas no formulário foram sobrescritas; o resto herda do Wilson.')
@@ -111,6 +119,7 @@ export function buildModFiles(project: ModProject): Record<string, string> {
   for (const creature of project.creatures) {
     Object.assign(files, generateCreatureFiles(creature))
   }
+  Object.assign(files, generateWorldContentFiles(project))
 
   return files
 }

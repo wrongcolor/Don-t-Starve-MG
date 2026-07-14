@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ModMeta, ModProject, ItemDef, CharacterDef, CreatureDef } from '../types/modProject'
 import { createEmptyModProject } from '../types/modProject'
+import type { RoomDef, TaskDef } from '../types/worldContent'
 
 interface ModProjectState {
   project: ModProject
@@ -12,6 +13,10 @@ interface ModProjectState {
   removeCharacter: (id: string) => void
   upsertCreature: (creature: CreatureDef) => void
   removeCreature: (id: string) => void
+  upsertRoom: (room: RoomDef) => void
+  removeRoom: (id: string) => void
+  upsertTask: (task: TaskDef) => void
+  removeTask: (id: string) => void
   resetProject: () => void
 }
 
@@ -49,6 +54,18 @@ export const useModProjectStore = create<ModProjectState>()(
       removeCreature: (id) =>
         set((state) => ({
           project: { ...state.project, creatures: state.project.creatures.filter((c) => c.id !== id) },
+        })),
+      upsertRoom: (room) =>
+        set((state) => ({ project: { ...state.project, rooms: upsertById(state.project.rooms, room) } })),
+      removeRoom: (id) =>
+        set((state) => ({
+          project: { ...state.project, rooms: state.project.rooms.filter((r) => r.id !== id) },
+        })),
+      upsertTask: (task) =>
+        set((state) => ({ project: { ...state.project, tasks: upsertById(state.project.tasks, task) } })),
+      removeTask: (id) =>
+        set((state) => ({
+          project: { ...state.project, tasks: state.project.tasks.filter((t) => t.id !== id) },
         })),
       resetProject: () => set({ project: createEmptyModProject() }),
     }),

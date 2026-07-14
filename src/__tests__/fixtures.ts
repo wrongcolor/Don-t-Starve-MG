@@ -171,4 +171,25 @@ export const sampleProject: ModProject = {
       cookable: { product: 'cookedsmallmeat' },
     },
   ],
+  rooms: [
+    {
+      id: 'TestGrove',
+      terrain: 'FOREST',
+      tags: ['Town'],
+      requiredPrefabs: [],
+      fixedPrefabs: [{ prefab: 'pighouse', count: { min: 2, max: 4 } }],
+      scatter: { percent: 0.1, prefabs: [{ prefab: 'grass', weight: 0.05 }] },
+    },
+  ],
+  tasks: [
+    {
+      id: 'Test Island Shard',
+      locks: ['NONE'],
+      keysGiven: ['TIER1'],
+      roomChoices: [{ roomId: 'TestGrove', count: { min: 1, max: 3 } }],
+      backgroundTerrain: 'FOREST',
+      backgroundRoom: undefined,
+      regionId: 'testisland1',
+    },
+  ],
 }

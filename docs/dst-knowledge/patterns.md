@@ -312,6 +312,89 @@ frente, ou (a) escolher criaturas mais "básicas" (porco, abelha) em vez de
 bosses/criaturas com sistemas próprios elaborados, ou (b) migrar a exploração
 pra personagens, que ainda não estudamos a fundo.
 
+## 15. Personagens (wilson.lua, wolfgang.lua)
+
+Confirma que `character.ts` já está no caminho certo:
+`SetMaxHealth`/`hunger:SetMax`/`sanity:SetMax` batem exatamente com o padrão
+real (Wilson e Wolfgang fazem a mesma coisa).
+
+**Wolfgang é complexo demais pra generalizar** — um sistema inteiro de
+"força" (mightiness) com 3 estados (fraco/normal/forte) que mudam build,
+dano, velocidade, tudo ligado a fome e a um minigame de academia
+(barra "bell"). Nada disso vale a pena tentar expor como campo de formulário.
+
+**Uma mecânica limpa confirmada em ambos:** afinidade alimentar —
+```lua
+inst.components.foodaffinity:AddPrefabAffinity("baconeggs", TUNING.AFFINITY_15_CALORIES_HUGE)
+```
+O personagem ganha um bônus extra (fome/vida/sanidade) ao comer um alimento
+específico — Wilson gosta de bacon and eggs, Wolfgang gosta de batata
+cozida. Simples, real, e não modelado hoje.
+
+**Também confirmado, mas não implementado (baixa prioridade):**
+`sanity.night_drain_mult` / `sanity.neg_aura_mult` — multiplicadores de
+quão rápido a sanidade cai à noite / perto de monstros. Se sobrepõe
+parcialmente com nosso perk `no_sanity_drain` existente (que zera
+`dapperness`, um mecanismo diferente) — deixei de fora por enquanto pra não
+duplicar conceito.
+
+## 16. Geração de mundo: Room → Task → TaskSet — **implementado (Room/Task), fora de escopo (TaskSet)**
+
+Fonte: pasta `map/` de uma cópia separada dos scripts do jogo (não é o mesmo
+lote de `scripts/prefabs/` usado nas seções 1-15). É um sistema de 3 camadas:
+
+1. **Room** (`AddRoom("Nome", {...})`) — a unidade de conteúdo real: um tipo
+   de terreno (`WORLD_TILES.GRASS/FOREST/ROCKY/...`), prefabs fixos
+   (`countprefabs`), e decoração espalhada (`distributepercent`/`distributeprefabs`).
+   Confirmado em `rooms.lua`, `rooms/forest/pigs.lua`. **Implementado** em
+   `src/generators/worldContent.ts` (`generateRoomLua`).
+2. **Task** (`AddTask("Nome", {...})`) — uma área temática que referencia
+   quais Rooms podem aparecer (`room_choices`), travada por um sistema de
+   fechadura/chave (`locks`/`keys_given`) que controla a progressão da
+   história. Confirmado em `task.lua`, `tasks/forest.lua`,
+   `lockandkey.lua` (enums `LOCKS`/`KEYS` completos, usados como estão no
+   nosso `src/types/worldContent.ts`). **Implementado**
+   (`generateTaskLua`).
+3. **TaskSet** (`AddTaskSet("Nome", {...})`) — o layout do mundo inteiro,
+   redefinindo TODAS as tasks obrigatórias/opcionais. **Fora de escopo** —
+   a maioria dos mods de conteúdo mundial usa `AddTask` de forma aditiva
+   (uma área nova), não redefine o mundo inteiro.
+
+**Incerteza real, não resolvida:** `AddRoom`/`AddTask` são funções globais
+confirmadas, mas o ponto exato de registro a partir do `modmain.lua` de um MOD
+(qual `modimport`/hook carrega esses arquivos no momento certo da geração de
+mundo) não veio nessa cópia — precisa de um mod de referência real pra
+confirmar. O README gerado avisa isso explicitamente.
+
+**Fora de escopo, mesmo com reestruturação liberada:** `static_layouts`
+(236 arquivos) — blueprints de estruturas desenhadas à mão (posição exata de
+prefab numa grade), trabalho de level design artesanal, não generalizável.
+
+## 17. Como o jogo separa ilhas do continente (Ilha da Lua)
+
+Confirmado em `storygen.lua`/`forest_map.lua`: a separação física real
+(`WorldSim:SeparateIslands()`) é **motor nativo (C++), não Lua** — fora do
+alcance de qualquer mod. O que É controlável via Lua:
+
+- **`island_percent`** (setting "Ilhas": nunca/padrão/às vezes/frequente/sempre
+  → 0/0.2/0.1/0.8/1): chance de uma conexão entre tasks virar uma separação
+  em vez de uma trilha normal.
+- **`region_id`** (campo da Task, confirmado em `tasks/dst_tasks_forestworld.lua`):
+  Tasks com o mesmo `region_id` são geradas como um grupo à parte e conectadas
+  ao continente por **uma única travessia** — é assim que a Ilha da Lua é
+  montada (`region_id = "island1"` em 5 tasks: `MoonIsland_IslandShards`,
+  `_Beach`, `_Forest`, `_Mine`, `_Baths`). **Implementado** no nosso
+  `TaskDef.regionId`.
+
+**Tamanho da ilha:** não existe um parâmetro numérico direto — é uma
+propriedade emergente de quantas Tasks você atribui ao mesmo `region_id` e
+quantas Rooms cada uma pede (`room_choices`, que aceita uma função com
+aleatoriedade, ex: `function() return 3 + math.random(2) end`). Mais
+tasks/rooms no grupo = ilha fisicamente maior.
+
+**Forma da ilha:** não controlável — decidida pelo motor nativo (Voronoi +
+`SeparateIslands`), sem acesso via Lua/mod.
+
 ## O que ainda não temos como confirmar
 
 Esta cópia local do jogo só tem `scripts/prefabs/`. Não temos
