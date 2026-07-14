@@ -174,7 +174,15 @@ export const itemDefSchema = z
         ignoreCombatDurabilityLoss: z.boolean().optional(),
       })
       .optional(),
-    armor: z.object({ absorption: z.number().min(0.01).max(1) }).optional(),
+    armor: z
+      .object({
+        absorption: z.number().min(0.01).max(1),
+        flammable: z.boolean().optional(),
+        dapperness: z.number().optional(),
+        weakness: z.object({ tag: z.string().min(1), extraDamage: z.number().min(0) }).optional(),
+        sanityLossOnHitPercent: z.number().min(0).max(1).optional(),
+      })
+      .optional(),
     equipWalkSpeedMult: z.number().min(0.1).max(3).optional(),
     spellEffect: z.enum(SPELL_EFFECTS).optional(),
     recipe: z.object({

@@ -194,6 +194,59 @@ padrão padrão (machado perde uso só ao cortar, não ao atacar — ver seção
 
 **Prioridade:** baixa — nicho, mas simples de expor como checkbox.
 
+## 11. Armadura: `swap_body`, sem build separado — **GAP CONFIRMADO, diferente do padrão de arma**
+
+Confirmado em `armor_grass.lua`, `armor_wood.lua`, `armor_marble.lua`,
+`armor_sanity.lua`, `armor_bramble.lua` (5 arquivos, padrão idêntico). Isso
+**contradiz** a suposição que fizemos pra armas/ferramentas — hoje
+`isHandheld()` não cobre `category === 'armor'`, então armadura nunca gera
+`equippable` nenhum. Mas o padrão real de armadura também é **diferente** do
+de arma: não precisa de build `swap_*` separado, e o unequip usa
+`ClearOverrideSymbol` em vez de trocar visibilidade de braço:
+
+```lua
+inst:AddComponent("equippable")
+inst.components.equippable.equipslot = EQUIPSLOTS.BODY  -- precisa setar explicitamente
+
+local function onequip(inst, owner)
+    owner.AnimState:OverrideSymbol("swap_body", "armor_wood", "swap_body") -- MESMO build do item, sem swap_ separado
+    inst:ListenForEvent("blocked", OnBlocked, owner)  -- som ao bloquear dano
+end
+
+local function onunequip(inst, owner)
+    owner.AnimState:ClearOverrideSymbol("swap_body")  -- não usa Show/Hide ARM_carry como arma
+    inst:RemoveEventCallback("blocked", OnBlocked, owner)
+end
+```
+
+**Prioridade:** alta — mesma classe de bug que já corrigimos pra
+ferramentas/armas (item existe mas não aparece no personagem).
+
+## 12. Passivos de armadura confirmados
+
+- **`equippable.dapperness`** (armor_sanity): sanidade ganha/perdida
+  passivamente enquanto equipado (`TUNING.CRAZINESS_SMALL`,
+  `is_magic_dapperness = true`). Generaliza: qualquer armadura pode ter isso.
+- **`armor:AddWeakness(tag, extraDamage)`** (armor_grass/wood/bramble): leva
+  dano extra de atacantes com uma tag específica (no jogo real é
+  "beaver" — uma piada de armadura de madeira ser fraca contra
+  castores). Generalizável como "fraqueza contra tag X".
+- **`armor.ontakedamage` callback** (armor_sanity): função customizada
+  disparada a cada dano recebido — usada pra converter uma % do dano em
+  perda de sanidade.
+- **Material inflamável** (armor_grass/wood/bramble, NÃO presente em
+  armor_marble/armor_sanity): `AddComponent("fuel")` +
+  `MakeSmallBurnable(inst, TUNING.SMALL_BURNTIME)` + `MakeSmallPropagator(inst)`
+  — só madeira/grama/espinho pegam fogo, pedra/mágico não.
+- **`equippable.walkspeedmult`** (armor_marble): confirma que esse campo
+  (que já implementamos pros staffs) também se aplica a armadura pesada.
+
+**Não implementado / fora de escopo:** o sistema de espinhos do
+`armor_bramble` (`OnAttackOther`/`DoThorns`) é travado a uma skill tree
+específica do Wormwood (`skilltreeupdater:IsActivated("wormwood_armor_bramble")`)
+— não generaliza pra um mod comum. `shadowlevel` (armor_sanity) é o mesmo
+sistema lunar/sombra que já decidimos não modelar.
+
 ## O que ainda não temos como confirmar
 
 Esta cópia local do jogo só tem `scripts/prefabs/`. Não temos

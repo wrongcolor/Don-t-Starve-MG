@@ -19,6 +19,33 @@ export function isHandheld(item: ItemDef): boolean {
   return item.category === 'tool' || item.weapon !== undefined
 }
 
+// Confirmed in armor_grass.lua/armor_wood.lua/armor_marble.lua/armor_sanity.lua/
+// armor_bramble.lua (docs/dst-knowledge/patterns.md#11): body armor uses a
+// DIFFERENT equip mechanism than hand-held items — swap_body instead of
+// swap_object, no separate swap build, ClearOverrideSymbol instead of arm
+// show/hide. If an item is somehow both (weapon + armor), handheld wins so we
+// don't generate two conflicting onequip/onunequip pairs.
+export function isBodyArmor(item: ItemDef): boolean {
+  return item.armor !== undefined && !isHandheld(item)
+}
+
+function needsArmorTakeDamage(item: ItemDef): boolean {
+  return item.armor?.sanityLossOnHitPercent !== undefined
+}
+
+function armorTakeDamageFunctionBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  return [
+    'local function onarmortakedamage(inst, damage_amount)',
+    '    local owner = inst.components.inventoryitem.owner',
+    '    if owner ~= nil and owner.components.sanity ~= nil then',
+    `        owner.components.sanity:DoDelta(-damage_amount * TUNING.${upper}_SANITY_LOSS_PERCENT, false)`,
+    '    end',
+    'end',
+    '',
+  ]
+}
+
 // Confirmed in staff.lua (firestaff/icestaff onattack_red/onattack_blue): sanity
 // cost and on-hit elemental effects both live in the weapon's SetOnAttack callback.
 // Only one callback can be registered, so both features share this single function.
@@ -127,15 +154,36 @@ function componentBlock(item: ItemDef): string {
     lines.push('')
     lines.push('    inst:AddComponent("armor")')
     lines.push(`    inst.components.armor:InitCondition(TUNING.${upper}_USES or 1, TUNING.${upper}_ABSORPTION)`)
+    if (item.armor.weakness) {
+      lines.push(
+        `    inst.components.armor:AddWeakness(${luaString(item.armor.weakness.tag)}, ${item.armor.weakness.extraDamage})`,
+      )
+    }
+    if (needsArmorTakeDamage(item)) {
+      lines.push('    inst.components.armor.ontakedamage = onarmortakedamage')
+    }
+    if (item.armor.flammable) {
+      lines.push('')
+      lines.push('    inst:AddComponent("fuel")')
+      lines.push('    inst.components.fuel.fuelvalue = TUNING.LARGE_FUEL')
+      lines.push('    MakeSmallBurnable(inst, TUNING.SMALL_BURNTIME)')
+      lines.push('    MakeSmallPropagator(inst)')
+    }
   }
 
-  if (isHandheld(item)) {
+  if (isHandheld(item) || isBodyArmor(item)) {
     lines.push('')
     lines.push('    inst:AddComponent("equippable")')
+    if (isBodyArmor(item)) {
+      lines.push('    inst.components.equippable.equipslot = EQUIPSLOTS.BODY')
+    }
     lines.push('    inst.components.equippable:SetOnEquip(onequip)')
     lines.push('    inst.components.equippable:SetOnUnequip(onunequip)')
     if (item.equipWalkSpeedMult !== undefined) {
       lines.push(`    inst.components.equippable.walkspeedmult = ${item.equipWalkSpeedMult}`)
+    }
+    if (item.armor?.dapperness !== undefined) {
+      lines.push(`    inst.components.equippable.dapperness = ${item.armor.dapperness}`)
     }
   }
 
@@ -188,6 +236,30 @@ function equipFunctionsBlock(item: ItemDef): string[] {
   ]
 }
 
+// Confirmed identical across armor_grass/armor_wood/armor_marble/armor_sanity/
+// armor_bramble (docs/dst-knowledge/patterns.md#11): armor reuses its OWN build
+// for the body symbol (no separate swap_* build needed), and plays a sound via
+// the "blocked" event instead of showing/hiding an arm symbol.
+function armorEquipFunctionsBlock(item: ItemDef): string[] {
+  const build = resolveAnimationBuild(item)
+  return [
+    'local function onblocked_armor(owner)',
+    '    owner.SoundEmitter:PlaySound("dontstarve/wilson/hit_armour")',
+    'end',
+    '',
+    'local function onequip(inst, owner)',
+    `    owner.AnimState:OverrideSymbol("swap_body", ${luaString(build)}, "swap_body")`,
+    '    inst:ListenForEvent("blocked", onblocked_armor, owner)',
+    'end',
+    '',
+    'local function onunequip(inst, owner)',
+    '    owner.AnimState:ClearOverrideSymbol("swap_body")',
+    '    inst:RemoveEventCallback("blocked", onblocked_armor, owner)',
+    'end',
+    '',
+  ]
+}
+
 // Assets: when the item reuses a vanilla build (item.animation.source === 'vanilla'),
 // no Asset("ANIM", ...) is declared — that animation data is already loaded by the
 // base game. Otherwise this is a PLACEHOLDER: the user must supply anim/<id>.zip
@@ -220,12 +292,17 @@ export function generateItemPrefab(item: ItemDef): string {
   lines.push('')
   if (handheld) {
     lines.push(...equipFunctionsBlock(item))
+  } else if (isBodyArmor(item)) {
+    lines.push(...armorEquipFunctionsBlock(item))
   }
   if (needsOnAttack(item)) {
     lines.push(...onAttackFunctionBlock(item))
   }
   if (needsSpellcaster(item)) {
     lines.push(...spellFunctionBlock())
+  }
+  if (needsArmorTakeDamage(item)) {
+    lines.push(...armorTakeDamageFunctionBlock(item))
   }
   lines.push('local prefabs = {}')
   lines.push('')

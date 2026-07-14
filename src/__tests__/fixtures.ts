@@ -97,6 +97,27 @@ export const sampleProject: ModProject = {
         placer: false,
       },
     },
+    {
+      id: 'testarmor',
+      displayName: 'Test Armor',
+      description: 'A body armor for testing',
+      category: 'armor',
+      armor: {
+        absorption: 0.8,
+        flammable: true,
+        dapperness: -0.5,
+        weakness: { tag: 'beaver', extraDamage: 5 },
+        sanityLossOnHitPercent: 0.5,
+      },
+      finiteuses: { maxUses: 100 },
+      equipWalkSpeedMult: 0.9,
+      recipe: {
+        ingredients: [{ prefab: 'log', amount: 4 }],
+        techLevel: 'NONE',
+        filters: ['ARMOUR'],
+        placer: false,
+      },
+    },
   ],
   characters: [
     {

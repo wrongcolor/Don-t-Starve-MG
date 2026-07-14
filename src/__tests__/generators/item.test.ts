@@ -4,7 +4,7 @@ import { itemDefSchema } from '../../types/modProject'
 import { sampleProject } from '../fixtures'
 
 describe('generateItemFiles', () => {
-  const [sword, structure, trinket, axe, firestaff] = sampleProject.items
+  const [sword, structure, trinket, axe, firestaff, armor] = sampleProject.items
 
   it('checks TheWorld.ismastersim right after SetPristine, before server components', () => {
     const code = generateItemPrefab(sword)
@@ -134,5 +134,36 @@ describe('generateItemFiles', () => {
       weapon: { ...firestaff.weapon, ranged: { ...firestaff.weapon!.ranged!, minRange: 10, maxRange: 5 } },
     }
     expect(itemDefSchema.safeParse(invalid).success).toBe(false)
+  })
+
+  it('equips body armor via swap_body (reusing its own build) instead of swap_object', () => {
+    const code = generateItemPrefab(armor)
+    expect(code).toContain('inst:AddComponent("equippable")')
+    expect(code).toContain('inst.components.equippable.equipslot = EQUIPSLOTS.BODY')
+    expect(code).toContain('owner.AnimState:OverrideSymbol("swap_body", "testarmor", "swap_body")')
+    expect(code).toContain('owner.AnimState:ClearOverrideSymbol("swap_body")')
+    expect(code).not.toContain('swap_object')
+    expect(code).not.toContain('Asset("ANIM", "anim/swap_testarmor.zip")')
+  })
+
+  it('plays the blocked sound and does not use the handheld arm show/hide for armor', () => {
+    const code = generateItemPrefab(armor)
+    expect(code).toContain('inst:ListenForEvent("blocked", onblocked_armor, owner)')
+    expect(code).not.toContain('ARM_carry')
+  })
+
+  it('wires armor weakness, flammability, and sanity-loss-on-hit', () => {
+    const code = generateItemPrefab(armor)
+    expect(code).toContain('inst.components.armor:AddWeakness("beaver", 5)')
+    expect(code).toContain('inst:AddComponent("fuel")')
+    expect(code).toContain('MakeSmallBurnable(inst, TUNING.SMALL_BURNTIME)')
+    expect(code).toContain('local function onarmortakedamage(inst, damage_amount)')
+    expect(code).toContain('owner.components.sanity:DoDelta(-damage_amount * TUNING.TESTARMOR_SANITY_LOSS_PERCENT, false)')
+    expect(code).toContain('inst.components.armor.ontakedamage = onarmortakedamage')
+  })
+
+  it('sets equippable.dapperness for armor with a sanity effect while worn', () => {
+    const code = generateItemPrefab(armor)
+    expect(code).toContain('inst.components.equippable.dapperness = -0.5')
   })
 })

@@ -56,6 +56,9 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const enableSanityCost = watch('weapon.sanityCostOnUse') !== undefined
   const enableWalkSpeedMult = watch('equipWalkSpeedMult') !== undefined
   const enableSpellEffect = watch('spellEffect') !== undefined
+  const enableDapperness = watch('armor.dapperness') !== undefined
+  const enableWeakness = watch('armor.weakness') !== undefined
+  const enableSanityLossOnHit = watch('armor.sanityLossOnHitPercent') !== undefined
   const handheld = category === 'tool' || enableWeapon
 
   const onSubmit = (data: ItemDef) => {
@@ -292,12 +295,82 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
           Armadura (absorção de dano)
         </label>
         {enableArmor && (
-          <FormField label="Absorção (0 a 1)">
-            <input type="number" step="0.01" min="0.01" max="1" className={inputClass} {...register('armor.absorption', { valueAsNumber: true })} />
-          </FormField>
+          <div className="space-y-2 pl-1">
+            <FormField label="Absorção (0 a 1)">
+              <input type="number" step="0.01" min="0.01" max="1" className={inputClass} {...register('armor.absorption', { valueAsNumber: true })} />
+            </FormField>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" {...register('armor.flammable')} />
+              Material inflamável (pega fogo)
+            </label>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={enableDapperness}
+                onChange={(e) => setValue('armor.dapperness', e.target.checked ? 0.5 : undefined)}
+              />
+              Afeta sanidade enquanto equipada
+            </label>
+            {enableDapperness && (
+              <FormField label="Sanidade por minuto (negativo = perde)">
+                <input
+                  type="number"
+                  step="0.1"
+                  className={inputClass}
+                  {...register('armor.dapperness', { valueAsNumber: true })}
+                />
+              </FormField>
+            )}
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={enableWeakness}
+                onChange={(e) => setValue('armor.weakness', e.target.checked ? { tag: '', extraDamage: 1 } : undefined)}
+              />
+              Fraqueza contra um tipo de atacante
+            </label>
+            {enableWeakness && (
+              <div className="grid grid-cols-2 gap-2">
+                <FormField label="Tag do atacante (ex: beaver)">
+                  <input className={inputClass} {...register('armor.weakness.tag')} />
+                </FormField>
+                <FormField label="Dano extra">
+                  <input
+                    type="number"
+                    className={inputClass}
+                    {...register('armor.weakness.extraDamage', { valueAsNumber: true })}
+                  />
+                </FormField>
+              </div>
+            )}
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={enableSanityLossOnHit}
+                onChange={(e) => setValue('armor.sanityLossOnHitPercent', e.target.checked ? 0.5 : undefined)}
+              />
+              Perde sanidade ao tomar dano
+            </label>
+            {enableSanityLossOnHit && (
+              <FormField label="Proporção do dano convertida em sanidade perdida (0 a 1)">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="1"
+                  className={inputClass}
+                  {...register('armor.sanityLossOnHitPercent', { valueAsNumber: true })}
+                />
+              </FormField>
+            )}
+          </div>
         )}
 
-        {handheld && (
+        {(handheld || enableArmor) && (
           <>
             <label className="flex items-center gap-2 text-sm">
               <input
