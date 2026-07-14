@@ -261,6 +261,7 @@ export const creatureDefSchema = z.object({
   sanityAura: z.number().optional(),
   flammable: z.boolean().optional(),
   freezable: z.boolean().optional(),
+  cookable: z.object({ product: z.string().min(1, 'Informe o prefab resultante (ex: cookedsmallmeat)') }).optional(),
 })
 
 export const modProjectSchema = z.object({

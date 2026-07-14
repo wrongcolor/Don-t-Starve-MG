@@ -112,4 +112,12 @@ describe('generateCreatureFiles', () => {
     expect(code).toContain('MakeMediumBurnableCharacter(inst, "body")')
     expect(code).toContain('MakeMediumFreezableCharacter(inst, "body")')
   })
+
+  it('wires the cookable component when set', () => {
+    expect(generateCreaturePrefab(creature)).not.toContain('cookable')
+
+    const code = generateCreaturePrefab(hound)
+    expect(code).toContain('inst:AddComponent("cookable")')
+    expect(code).toContain('inst.components.cookable.product = "cookedsmallmeat"')
+  })
 })

@@ -90,6 +90,12 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
     lines.push('    MakeMediumFreezableCharacter(inst, "body")')
   }
 
+  if (creature.cookable) {
+    lines.push('')
+    lines.push('    inst:AddComponent("cookable")')
+    lines.push(`    inst.components.cookable.product = ${luaString(creature.cookable.product)}`)
+  }
+
   lines.push('')
   lines.push('    inst:AddComponent("inspectable")')
   lines.push('')

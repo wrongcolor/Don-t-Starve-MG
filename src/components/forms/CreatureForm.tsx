@@ -49,6 +49,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   )
   const enableAttackRange = watch('stats.attackRange') !== undefined
   const enableSanityAura = watch('sanityAura') !== undefined
+  const enableCookable = watch('cookable') !== undefined
 
   const onSubmit = (data: CreatureDef) => onSave(data)
 
@@ -136,6 +137,20 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
           <input type="checkbox" {...register('freezable')} />
           Pode congelar
         </label>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={enableCookable}
+            onChange={(e) => setValue('cookable', e.target.checked ? { product: 'cookedsmallmeat' } : undefined)}
+          />
+          Pode ser cozida numa fogueira (se pega viva)
+        </label>
+        {enableCookable && (
+          <FormField label="Vira este prefab ao cozinhar (ex: cookedsmallmeat)">
+            <input className={inputClass} {...register('cookable.product')} />
+          </FormField>
+        )}
       </fieldset>
 
       <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">

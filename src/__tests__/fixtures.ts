@@ -168,6 +168,7 @@ export const sampleProject: ModProject = {
       sanityAura: -10,
       flammable: true,
       freezable: true,
+      cookable: { product: 'cookedsmallmeat' },
     },
   ],
 }

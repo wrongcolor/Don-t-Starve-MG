@@ -286,6 +286,32 @@ aranha do Webber ou pet hound), variantes anfíbias, mutação por lua cheia
 (`halloweenmoonmutable`) — todos exigem estado/eventos cruzados demais pra
 generalizar num campo de formulário simples.
 
+## 14. Coelho e Tallbird — rendimento menor, mas confirma um padrão limpo
+
+Lidos `rabbit.lua` e `tallbird.lua` completos. A maior parte do que esses
+arquivos fazem é **bespoke demais pra generalizar**: o coelho vira "beardling"
+baseado na sanidade de quem o observa (todo um sistema de transformação por
+insanidade), pode ser pego vivo e alimentado (`MakeFeedableSmallLivestock`), e
+o tallbird defende um ninho específico com lógica de retargeting própria. Não
+vale a pena expor nada disso como campo de formulário — é lógica de UMA
+criatura específica do jogo, não um padrão reutilizável.
+
+**Uma coisa nova e limpa confirmada:** o componente `cookable` — a criatura
+pode ser jogada viva numa fogueira e virar um item de comida:
+```lua
+inst:AddComponent("cookable")
+inst.components.cookable.product = "cookedsmallmeat"  -- prefab que ela vira
+inst.components.cookable:SetOnCookedFn(...)             -- opcional, efeito custom
+```
+Isso é diferente de "loot ao morrer" — é uma transformação alternativa
+(virar comida em vez de dropar item ao ser morta de outro jeito).
+
+**Observação sobre diminishing returns:** essa leva rendeu bem menos
+mecânica generalizável que aranha/cão-selvagem. Pode valer a pena, daqui pra
+frente, ou (a) escolher criaturas mais "básicas" (porco, abelha) em vez de
+bosses/criaturas com sistemas próprios elaborados, ou (b) migrar a exploração
+pra personagens, que ainda não estudamos a fundo.
+
 ## O que ainda não temos como confirmar
 
 Esta cópia local do jogo só tem `scripts/prefabs/`. Não temos
