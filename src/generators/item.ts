@@ -19,6 +19,64 @@ export function isHandheld(item: ItemDef): boolean {
   return item.category === 'tool' || item.weapon !== undefined
 }
 
+// Confirmed in staff.lua (firestaff/icestaff onattack_red/onattack_blue): sanity
+// cost and on-hit elemental effects both live in the weapon's SetOnAttack callback.
+// Only one callback can be registered, so both features share this single function.
+function needsOnAttack(item: ItemDef): boolean {
+  if (!item.weapon) return false
+  const hasSanityCost = item.weapon.sanityCostOnUse !== undefined
+  const hasHitEffect = item.weapon.ranged?.onHitEffect !== undefined && item.weapon.ranged.onHitEffect !== 'none'
+  return hasSanityCost || hasHitEffect
+}
+
+function onAttackFunctionBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  const lines = ['local function onattack(inst, attacker, target)']
+  if (item.weapon?.sanityCostOnUse !== undefined) {
+    lines.push('    if attacker ~= nil and attacker.components.sanity ~= nil then')
+    lines.push(`        attacker.components.sanity:DoDelta(-TUNING.${upper}_SANITY_COST)`)
+    lines.push('    end')
+  }
+  const effect = item.weapon?.ranged?.onHitEffect
+  if (effect === 'ignite') {
+    lines.push('    if target ~= nil and target:IsValid() and target.components.burnable ~= nil then')
+    lines.push('        target.components.burnable:Ignite(true, attacker)')
+    lines.push('    end')
+  } else if (effect === 'freeze') {
+    lines.push('    if target ~= nil and target:IsValid() and target.components.freezable ~= nil then')
+    lines.push('        target.components.freezable:AddColdness(1)')
+    lines.push('    end')
+  }
+  lines.push('end')
+  lines.push('')
+  return lines
+}
+
+// Confirmed in staff.lua (yellowstaff/opalstaff createlight + light_reticuletargetfn):
+// spellcaster + reticule to target a point, spawning an existing vanilla light prefab
+// there. spellcaster itself supports arbitrary effects, but we only offer this one
+// concrete instance — see docs/dst-knowledge/patterns.md#7 for why it's not generalized.
+function needsSpellcaster(item: ItemDef): boolean {
+  return item.spellEffect !== undefined
+}
+
+function spellFunctionBlock(): string[] {
+  return [
+    'local function spell_reticuletargetfn()',
+    '    return Vector3(ThePlayer.entity:LocalToWorldSpace(5, 0.001, 0))',
+    'end',
+    '',
+    'local function createlight(staff, target, pos)',
+    '    local light = SpawnPrefab("stafflight") -- reaproveita o prefab de luz do jogo base',
+    '    light.Transform:SetPosition(pos:Get())',
+    '    if staff.components.finiteuses ~= nil then',
+    '        staff.components.finiteuses:Use(1)',
+    '    end',
+    'end',
+    '',
+  ]
+}
+
 function componentBlock(item: ItemDef): string {
   const upper = toUpperSnake(item.id)
   const lines: string[] = []
@@ -42,6 +100,13 @@ function componentBlock(item: ItemDef): string {
     lines.push('')
     lines.push('    inst:AddComponent("weapon")')
     lines.push(`    inst.components.weapon:SetDamage(TUNING.${upper}_DAMAGE)`)
+    if (item.weapon.ranged) {
+      lines.push(`    inst.components.weapon:SetRange(TUNING.${upper}_MIN_RANGE, TUNING.${upper}_MAX_RANGE)`)
+      lines.push(`    inst.components.weapon:SetProjectile(${luaString(item.weapon.ranged.projectilePrefab)})`)
+    }
+    if (needsOnAttack(item)) {
+      lines.push('    inst.components.weapon:SetOnAttack(onattack)')
+    }
   }
 
   if (item.finiteuses) {
@@ -52,6 +117,9 @@ function componentBlock(item: ItemDef): string {
     lines.push('    inst.components.finiteuses:SetOnFinished(inst.Remove)')
     if (item.category === 'tool' && item.toolAction) {
       lines.push(`    inst.components.finiteuses:SetConsumption(ACTIONS.${item.toolAction}, 1)`)
+    }
+    if (item.finiteuses.ignoreCombatDurabilityLoss) {
+      lines.push('    inst.components.finiteuses:SetIgnoreCombatDurabilityLoss(true)')
     }
   }
 
@@ -66,6 +134,19 @@ function componentBlock(item: ItemDef): string {
     lines.push('    inst:AddComponent("equippable")')
     lines.push('    inst.components.equippable:SetOnEquip(onequip)')
     lines.push('    inst.components.equippable:SetOnUnequip(onunequip)')
+    if (item.equipWalkSpeedMult !== undefined) {
+      lines.push(`    inst.components.equippable.walkspeedmult = ${item.equipWalkSpeedMult}`)
+    }
+  }
+
+  if (needsSpellcaster(item)) {
+    lines.push('')
+    lines.push('    inst:AddComponent("reticule")')
+    lines.push('    inst.components.reticule.targetfn = spell_reticuletargetfn')
+    lines.push('')
+    lines.push('    inst:AddComponent("spellcaster")')
+    lines.push('    inst.components.spellcaster:SetSpellFn(createlight)')
+    lines.push('    inst.components.spellcaster.canuseonpoint = true')
   }
 
   if (item.perishable) {
@@ -139,6 +220,12 @@ export function generateItemPrefab(item: ItemDef): string {
   lines.push('')
   if (handheld) {
     lines.push(...equipFunctionsBlock(item))
+  }
+  if (needsOnAttack(item)) {
+    lines.push(...onAttackFunctionBlock(item))
+  }
+  if (needsSpellcaster(item)) {
+    lines.push(...spellFunctionBlock())
   }
   lines.push('local prefabs = {}')
   lines.push('')

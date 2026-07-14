@@ -128,6 +128,18 @@ export const itemAnimationSchema = z.discriminatedUnion('source', [
   z.object({ source: z.literal('vanilla'), build: z.string().min(1, 'Escolha uma animação') }),
 ])
 
+// Confirmed in staff.lua (firestaff/icestaff): a "magic" weapon deals 0 contact
+// damage, has range, and fires a projectile — the actual on-hit effect (ignite,
+// freeze) is a callback on the target, not the projectile itself. We only offer
+// a curated, simplified subset of that callback, not the exact game logic (which
+// also handles fuel conversion, waking sleepers, etc. — see patterns.md#6).
+export const ON_HIT_EFFECTS = ['none', 'ignite', 'freeze'] as const
+
+// Confirmed in staff.lua (yellowstaff/opalstaff): spellcaster + SpawnPrefab of an
+// existing vanilla light prefab at a target point. Only one concrete effect for
+// now — spellcaster in general is too open-ended to generalize (patterns.md#7).
+export const SPELL_EFFECTS = ['createLight'] as const
+
 export const itemDefSchema = z
   .object({
     id: luaIdentifier,
@@ -138,9 +150,33 @@ export const itemDefSchema = z
     animation: itemAnimationSchema.optional(),
     stackable: z.object({ maxSize: z.number().int().min(2).max(99) }).optional(),
     perishable: z.object({ perishTimeDays: z.number().min(0.1) }).optional(),
-    weapon: z.object({ damage: z.number().min(1) }).optional(),
-    finiteuses: z.object({ maxUses: z.number().int().min(1) }).optional(),
+    weapon: z
+      .object({
+        damage: z.number().min(0),
+        sanityCostOnUse: z.number().min(0).optional(),
+        ranged: z
+          .object({
+            minRange: z.number().min(1),
+            maxRange: z.number().min(1),
+            projectilePrefab: z.string().min(1, 'Informe o id do projétil (ex: fire_projectile)'),
+            onHitEffect: z.enum(ON_HIT_EFFECTS).optional(),
+          })
+          .refine((r) => r.maxRange >= r.minRange, {
+            message: 'Alcance máximo precisa ser maior ou igual ao mínimo',
+            path: ['maxRange'],
+          })
+          .optional(),
+      })
+      .optional(),
+    finiteuses: z
+      .object({
+        maxUses: z.number().int().min(1),
+        ignoreCombatDurabilityLoss: z.boolean().optional(),
+      })
+      .optional(),
     armor: z.object({ absorption: z.number().min(0.01).max(1) }).optional(),
+    equipWalkSpeedMult: z.number().min(0.1).max(3).optional(),
+    spellEffect: z.enum(SPELL_EFFECTS).optional(),
     recipe: z.object({
       ingredients: z.array(ingredientSchema).min(1, 'Adicione pelo menos 1 ingrediente'),
       techLevel: z.enum(TECH_LEVELS),

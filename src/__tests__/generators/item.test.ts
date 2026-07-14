@@ -4,7 +4,7 @@ import { itemDefSchema } from '../../types/modProject'
 import { sampleProject } from '../fixtures'
 
 describe('generateItemFiles', () => {
-  const [sword, structure, trinket, axe] = sampleProject.items
+  const [sword, structure, trinket, axe, firestaff] = sampleProject.items
 
   it('checks TheWorld.ismastersim right after SetPristine, before server components', () => {
     const code = generateItemPrefab(sword)
@@ -88,5 +88,51 @@ describe('generateItemFiles', () => {
 
     const withAction = itemDefSchema.safeParse(axe)
     expect(withAction.success).toBe(true)
+  })
+
+  it('flags finiteuses.ignoreCombatDurabilityLoss when set', () => {
+    const code = generateItemPrefab(axe)
+    expect(code).toContain('inst.components.finiteuses:SetIgnoreCombatDurabilityLoss(true)')
+  })
+
+  it('wires a ranged weapon: SetRange, SetProjectile, and TUNING range constants', () => {
+    const code = generateItemPrefab(firestaff)
+    expect(code).toContain('inst.components.weapon:SetRange(TUNING.TESTFIRESTAFF_MIN_RANGE, TUNING.TESTFIRESTAFF_MAX_RANGE)')
+    expect(code).toContain('inst.components.weapon:SetProjectile("fire_projectile")')
+  })
+
+  it('combines sanity cost and on-hit effect into a single onattack callback', () => {
+    const code = generateItemPrefab(firestaff)
+    expect(code).toContain('local function onattack(inst, attacker, target)')
+    expect(code).toContain('attacker.components.sanity:DoDelta(-TUNING.TESTFIRESTAFF_SANITY_COST)')
+    expect(code).toContain('target.components.burnable:Ignite(true, attacker)')
+    expect(code).toContain('inst.components.weapon:SetOnAttack(onattack)')
+  })
+
+  it('does not generate an onattack callback when neither sanity cost nor a hit effect is set', () => {
+    const code = generateItemPrefab(axe)
+    expect(code).not.toContain('local function onattack')
+    expect(code).not.toContain('SetOnAttack')
+  })
+
+  it('sets equippable.walkspeedmult when equipWalkSpeedMult is configured', () => {
+    const code = generateItemPrefab(firestaff)
+    expect(code).toContain('inst.components.equippable.walkspeedmult = 1.25')
+  })
+
+  it('wires the createLight spell effect via spellcaster + reticule', () => {
+    const code = generateItemPrefab(firestaff)
+    expect(code).toContain('inst:AddComponent("reticule")')
+    expect(code).toContain('inst:AddComponent("spellcaster")')
+    expect(code).toContain('inst.components.spellcaster:SetSpellFn(createlight)')
+    expect(code).toContain('SpawnPrefab("stafflight")')
+  })
+
+  it('rejects a ranged weapon whose maxRange is smaller than minRange', () => {
+    const invalid = {
+      ...firestaff,
+      weapon: { ...firestaff.weapon, ranged: { ...firestaff.weapon!.ranged!, minRange: 10, maxRange: 5 } },
+    }
+    expect(itemDefSchema.safeParse(invalid).success).toBe(false)
   })
 })

@@ -7,6 +7,8 @@ import {
   RECIPE_FILTERS,
   VANILLA_ITEM_BUILDS,
   TOOL_ACTIONS,
+  ON_HIT_EFFECTS,
+  SPELL_EFFECTS,
   type ItemDef,
 } from '../../types/modProject'
 import { FormField, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
@@ -50,6 +52,11 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const enableWeapon = watch('weapon') !== undefined
   const enableFiniteuses = watch('finiteuses') !== undefined
   const enableArmor = watch('armor') !== undefined
+  const enableRanged = watch('weapon.ranged') !== undefined
+  const enableSanityCost = watch('weapon.sanityCostOnUse') !== undefined
+  const enableWalkSpeedMult = watch('equipWalkSpeedMult') !== undefined
+  const enableSpellEffect = watch('spellEffect') !== undefined
+  const handheld = category === 'tool' || enableWeapon
 
   const onSubmit = (data: ItemDef) => {
     onSave(data)
@@ -184,9 +191,76 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
           Arma (dano ao atacar)
         </label>
         {enableWeapon && (
-          <FormField label="Dano">
-            <input type="number" className={inputClass} {...register('weapon.damage', { valueAsNumber: true })} />
-          </FormField>
+          <div className="space-y-2 pl-1">
+            <FormField label="Dano (0 para armas à distância — o dano vem do projétil)">
+              <input type="number" className={inputClass} {...register('weapon.damage', { valueAsNumber: true })} />
+            </FormField>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={enableSanityCost}
+                onChange={(e) => setValue('weapon.sanityCostOnUse', e.target.checked ? 3 : undefined)}
+              />
+              Custa sanidade ao atacar
+            </label>
+            {enableSanityCost && (
+              <FormField label="Sanidade perdida por ataque">
+                <input
+                  type="number"
+                  step="0.1"
+                  className={inputClass}
+                  {...register('weapon.sanityCostOnUse', { valueAsNumber: true })}
+                />
+              </FormField>
+            )}
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={enableRanged}
+                onChange={(e) =>
+                  setValue(
+                    'weapon.ranged',
+                    e.target.checked
+                      ? { minRange: 6, maxRange: 10, projectilePrefab: 'fire_projectile', onHitEffect: 'none' }
+                      : undefined,
+                  )
+                }
+              />
+              Arma à distância (dispara um projétil)
+            </label>
+            {enableRanged && (
+              <div className="grid grid-cols-2 gap-2">
+                <FormField label="Alcance mínimo">
+                  <input
+                    type="number"
+                    className={inputClass}
+                    {...register('weapon.ranged.minRange', { valueAsNumber: true })}
+                  />
+                </FormField>
+                <FormField label="Alcance máximo" error={(errors.weapon?.ranged as { maxRange?: { message?: string } } | undefined)?.maxRange?.message}>
+                  <input
+                    type="number"
+                    className={inputClass}
+                    {...register('weapon.ranged.maxRange', { valueAsNumber: true })}
+                  />
+                </FormField>
+                <FormField label="Id do prefab do projétil (ex: fire_projectile)">
+                  <input className={inputClass} {...register('weapon.ranged.projectilePrefab')} />
+                </FormField>
+                <FormField label="Efeito ao acertar">
+                  <select className={inputClass} {...register('weapon.ranged.onHitEffect')}>
+                    {ON_HIT_EFFECTS.map((e) => (
+                      <option key={e} value={e}>
+                        {e === 'none' ? 'Nenhum' : e === 'ignite' ? 'Incendiar alvo' : 'Congelar alvo'}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+              </div>
+            )}
+          </div>
         )}
 
         <label className="flex items-center gap-2 text-sm">
@@ -198,9 +272,15 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
           Durabilidade limitada (finiteuses)
         </label>
         {enableFiniteuses && (
-          <FormField label="Usos máximos">
-            <input type="number" className={inputClass} {...register('finiteuses.maxUses', { valueAsNumber: true })} />
-          </FormField>
+          <div className="space-y-2 pl-1">
+            <FormField label="Usos máximos">
+              <input type="number" className={inputClass} {...register('finiteuses.maxUses', { valueAsNumber: true })} />
+            </FormField>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" {...register('finiteuses.ignoreCombatDurabilityLoss')} />
+              Não perde uso ao atacar (só na função especial do item)
+            </label>
+          </div>
         )}
 
         <label className="flex items-center gap-2 text-sm">
@@ -214,6 +294,45 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
         {enableArmor && (
           <FormField label="Absorção (0 a 1)">
             <input type="number" step="0.01" min="0.01" max="1" className={inputClass} {...register('armor.absorption', { valueAsNumber: true })} />
+          </FormField>
+        )}
+
+        {handheld && (
+          <>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={enableWalkSpeedMult}
+                onChange={(e) => setValue('equipWalkSpeedMult', e.target.checked ? 1.25 : undefined)}
+              />
+              Muda a velocidade de andar enquanto equipado
+            </label>
+            {enableWalkSpeedMult && (
+              <FormField label="Multiplicador de velocidade (1 = normal)">
+                <input
+                  type="number"
+                  step="0.05"
+                  className={inputClass}
+                  {...register('equipWalkSpeedMult', { valueAsNumber: true })}
+                />
+              </FormField>
+            )}
+          </>
+        )}
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={enableSpellEffect}
+            onChange={(e) => setValue('spellEffect', e.target.checked ? SPELL_EFFECTS[0] : undefined)}
+          />
+          Efeito mágico (usar sobre um ponto do mapa)
+        </label>
+        {enableSpellEffect && (
+          <FormField label="Efeito">
+            <select className={inputClass} {...register('spellEffect')}>
+              <option value="createLight">Criar uma luz no ponto (reaproveita "stafflight" do jogo)</option>
+            </select>
           </FormField>
         )}
       </fieldset>

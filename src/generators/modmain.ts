@@ -26,7 +26,16 @@ function itemRecipeBlock(item: ItemDef): string {
 function itemTuningBlock(item: ItemDef): string[] {
   const upper = toUpperSnake(item.id)
   const lines: string[] = []
-  if (item.weapon) lines.push(`GLOBAL.TUNING.${upper}_DAMAGE = ${item.weapon.damage}`)
+  if (item.weapon) {
+    lines.push(`GLOBAL.TUNING.${upper}_DAMAGE = ${item.weapon.damage}`)
+    if (item.weapon.sanityCostOnUse !== undefined) {
+      lines.push(`GLOBAL.TUNING.${upper}_SANITY_COST = ${item.weapon.sanityCostOnUse}`)
+    }
+    if (item.weapon.ranged) {
+      lines.push(`GLOBAL.TUNING.${upper}_MIN_RANGE = ${item.weapon.ranged.minRange}`)
+      lines.push(`GLOBAL.TUNING.${upper}_MAX_RANGE = ${item.weapon.ranged.maxRange}`)
+    }
+  }
   if (item.finiteuses) lines.push(`GLOBAL.TUNING.${upper}_USES = ${item.finiteuses.maxUses}`)
   if (item.armor) lines.push(`GLOBAL.TUNING.${upper}_ABSORPTION = ${item.armor.absorption}`)
   if (item.perishable) {

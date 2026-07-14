@@ -116,6 +116,84 @@ pra checar a tag sem precisar indexar o componente) — se a gente já gera
 tag manualmente (o componente real do jogo faz isso; nosso gerador de Lua só
 precisa declarar o componente, e quem for jogar já tem o comportamento real).
 
+## 6. Arma à distância com projétil (staffs elementais) — **não modelado**
+
+Confirmado em `staff.lua` (firestaff=vermelho, icestaff=azul). Os dois usam o
+mesmo padrão: dano de contato zero, alcance à distância, e um projétil que
+carrega o efeito de verdade:
+
+```lua
+inst:AddComponent("weapon")
+inst.components.weapon:SetDamage(0)                      -- não bate corpo a corpo
+inst.components.weapon:SetRange(8, 10)                    -- alcance (min, max)
+inst.components.weapon:SetProjectile("fire_projectile")   -- o que é lançado
+inst.components.weapon:SetOnAttack(onattack_red)          -- efeito custom no alvo
+```
+
+O `onattack_*` é onde a mágica de verdade acontece — no firestaff, incendeia o
+alvo (`target.components.burnable:Ignite`); no icestaff, congela
+(`target.components.freezable:AddColdness`) e apaga fogo. Ou seja: "arma
+elemental" = mesmo componente `weapon`, só que aponta pra um projétil e um
+callback de efeito, em vez de dano direto.
+
+**Prioridade:** média/alta — é um arquétipo bem reconhecível ("cajado
+elemental"), mas exige gerar também o prefab do projétil, que é escopo novo.
+
+## 7. `spellcaster` — item usado sobre um alvo/ponto pra disparar efeito custom — **não modelado**
+
+Confirmado em telestaff (roxo, teleporta o alvo), greenstaff (verde, desmonta
+uma estrutura devolvendo os ingredientes), yellowstaff/opalstaff (cria uma luz
+num ponto do chão):
+
+```lua
+inst:AddComponent("spellcaster")
+inst.components.spellcaster:SetSpellFn(minha_funcao_de_efeito)
+inst.components.spellcaster.canuseontargets = true   -- usa sobre uma entidade
+inst.components.spellcaster.canuseonpoint = true      -- ou sobre um ponto do chão
+inst.components.spellcaster.canonlyuseonrecipes = true -- (green) só em algo craftável
+```
+
+Diferente do `weapon`, isso não é combate — é "usar o item sobre algo pra
+rodar uma função Lua qualquer". É o mecanismo mais aberto/flexível que
+encontramos: qualquer efeito customizado (teleportar, destruir, curar,
+invocar) passa por aqui.
+
+**Prioridade:** alta como *conceito*, mas cada efeito específico (teleporte,
+destruição) é uma implementação própria — não dá pra generalizar num único
+checkbox. Melhor abordagem: modelar 1 efeito de cada vez, conforme o usuário
+pedir (ex.: "quero um cajado que teleporta" → aí sim vale a pena).
+
+## 8. Modificador de status enquanto equipado — **não modelado**
+
+Confirmado no `orangestaff` (bengala): `inst.components.equippable.walkspeedmult
+= TUNING.CANE_SPEED_MULT` — um multiplicador de velocidade de andar que só
+vale enquanto o item está equipado. Generaliza além de staffs: qualquer
+equipável (bota, cajado, etc.) pode ter esse campo.
+
+**Prioridade:** média — fácil de implementar (1 campo numérico opcional em
+`equippable`), útil pra "bengala"/"botas" tipo itens.
+
+## 9. Custo de sanidade ao usar/atacar — **não modelado**
+
+Confirmado em todo `staff.lua` — cada uso de magia (`onattack_red`,
+`teleport_start`, `createlight`, `destroystructure`) desconta sanidade do
+personagem via `attacker.components.sanity:DoDelta(-TUNING.SANITY_X)`
+(ou `staffsanity`, um componente alternativo mais novo, se presente). Ou seja:
+"item mágico custa sanidade pra usar" é uma convenção consistente em todos os
+7 staffs, não uma escolha isolada de um item.
+
+**Prioridade:** média — daria pra adicionar como campo opcional em itens
+categoria arma/ferramenta ("desconta sanidade ao usar").
+
+## 10. Durabilidade que ignora perda em combate — **não modelado**
+
+Confirmado no `orangestaff`: `finiteuses:SetIgnoreCombatDurabilityLoss(true)` —
+flag que faz o item NÃO perder uso ao ser usado como arma (só perde uso na
+função específica dele, ex. o teleporte curto da bengala). Contraste com o
+padrão padrão (machado perde uso só ao cortar, não ao atacar — ver seção 1).
+
+**Prioridade:** baixa — nicho, mas simples de expor como checkbox.
+
 ## O que ainda não temos como confirmar
 
 Esta cópia local do jogo só tem `scripts/prefabs/`. Não temos
