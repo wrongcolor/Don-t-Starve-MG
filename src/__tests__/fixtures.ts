@@ -157,5 +157,17 @@ export const sampleProject: ModProject = {
       behavior: 'hostile',
       tags: [],
     },
+    {
+      id: 'testhound',
+      displayName: 'Test Hound',
+      description: 'A mob with combat/status effects for testing',
+      stats: { health: 100, damage: 20, attackPeriod: 2, walkSpeed: 6, attackRange: 4 },
+      loot: [{ prefab: 'monstermeat', chance: 1 }],
+      behavior: 'hostile',
+      tags: [],
+      sanityAura: -10,
+      flammable: true,
+      freezable: true,
+    },
   ],
 }

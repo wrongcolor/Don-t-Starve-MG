@@ -65,8 +65,31 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   lines.push('    inst:AddComponent("combat")')
   lines.push(`    inst.components.combat:SetDefaultDamage(TUNING.${upper}_DAMAGE)`)
   lines.push(`    inst.components.combat:SetAttackPeriod(TUNING.${upper}_ATTACK_PERIOD)`)
-  lines.push('    inst.components.combat:SetRange(2)')
+  if (creature.stats.attackRange !== undefined) {
+    lines.push(`    inst.components.combat:SetRange(TUNING.${upper}_ATTACK_RANGE)`)
+  } else {
+    lines.push('    inst.components.combat:SetRange(2)')
+  }
   lines.push(...lootBlock(creature))
+
+  if (creature.sanityAura !== undefined) {
+    lines.push('')
+    lines.push('    inst:AddComponent("sanityaura")')
+    lines.push(`    inst.components.sanityaura.aura = TUNING.${upper}_SANITYAURA`)
+  }
+
+  if (creature.flammable) {
+    lines.push('')
+    lines.push('    -- "body" é o símbolo mais comum pro efeito de fogo — ajuste se o build usar outro nome.')
+    lines.push('    MakeMediumBurnableCharacter(inst, "body")')
+  }
+
+  if (creature.freezable) {
+    lines.push('')
+    lines.push('    -- "body" é o símbolo mais comum pro efeito de gelo — ajuste se o build usar outro nome.')
+    lines.push('    MakeMediumFreezableCharacter(inst, "body")')
+  }
+
   lines.push('')
   lines.push('    inst:AddComponent("inspectable")')
   lines.push('')

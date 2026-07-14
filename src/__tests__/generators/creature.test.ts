@@ -4,7 +4,7 @@ import { generateStategraph } from '../../generators/stategraph'
 import { sampleProject } from '../fixtures'
 
 describe('generateCreatureFiles', () => {
-  const [creature, spiderMob] = sampleProject.creatures
+  const [creature, spiderMob, hound] = sampleProject.creatures
 
   it('produces prefab, stategraph and brain files with matching require paths', () => {
     const files = generateCreatureFiles(creature)
@@ -87,5 +87,29 @@ describe('generateCreatureFiles', () => {
     }
     const code = generateCreaturePrefab(malicious)
     expect(code).toContain('inst.AnimState:PlayAnimation("idle\\" ) end -- ")')
+  })
+
+  it('defaults attack range to 2 unless attackRange is set', () => {
+    expect(generateCreaturePrefab(creature)).toContain('inst.components.combat:SetRange(2)')
+
+    const code = generateCreaturePrefab(hound)
+    expect(code).toContain('inst.components.combat:SetRange(TUNING.TESTHOUND_ATTACK_RANGE)')
+    expect(code).not.toContain('SetRange(2)')
+  })
+
+  it('wires a sanity aura when sanityAura is set', () => {
+    expect(generateCreaturePrefab(creature)).not.toContain('sanityaura')
+
+    const code = generateCreaturePrefab(hound)
+    expect(code).toContain('inst:AddComponent("sanityaura")')
+    expect(code).toContain('inst.components.sanityaura.aura = TUNING.TESTHOUND_SANITYAURA')
+  })
+
+  it('wires flammable/freezable susceptibility when set', () => {
+    expect(generateCreaturePrefab(creature)).not.toContain('MakeMediumBurnableCharacter')
+
+    const code = generateCreaturePrefab(hound)
+    expect(code).toContain('MakeMediumBurnableCharacter(inst, "body")')
+    expect(code).toContain('MakeMediumFreezableCharacter(inst, "body")')
   })
 })

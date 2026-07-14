@@ -33,6 +33,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
     register,
     control,
     handleSubmit,
+    watch,
     setValue,
     formState: { errors },
   } = useForm<CreatureDef>({
@@ -46,6 +47,8 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   const [animationSource, setAnimationSource] = useState<'custom' | 'vanilla'>(
     (initialCreature ?? emptyCreature).animation?.source ?? 'custom',
   )
+  const enableAttackRange = watch('stats.attackRange') !== undefined
+  const enableSanityAura = watch('sanityAura') !== undefined
 
   const onSubmit = (data: CreatureDef) => onSave(data)
 
@@ -90,6 +93,49 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
             <input type="number" step="0.1" className={inputClass} {...register('stats.walkSpeed', { valueAsNumber: true })} />
           </FormField>
         </div>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={enableAttackRange}
+            onChange={(e) => setValue('stats.attackRange', e.target.checked ? 3 : undefined)}
+          />
+          Alcance de ataque customizado (padrão do jogo: 2)
+        </label>
+        {enableAttackRange && (
+          <FormField label="Alcance">
+            <input
+              type="number"
+              step="0.1"
+              className={inputClass}
+              {...register('stats.attackRange', { valueAsNumber: true })}
+            />
+          </FormField>
+        )}
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={enableSanityAura}
+            onChange={(e) => setValue('sanityAura', e.target.checked ? -10 : undefined)}
+          />
+          Afeta a sanidade de quem está por perto
+        </label>
+        {enableSanityAura && (
+          <FormField label="Aura de sanidade (negativo = assusta, positivo = acalma)">
+            <input type="number" className={inputClass} {...register('sanityAura', { valueAsNumber: true })} />
+          </FormField>
+        )}
+
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" {...register('flammable')} />
+          Pode pegar fogo
+        </label>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" {...register('freezable')} />
+          Pode congelar
+        </label>
       </fieldset>
 
       <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">

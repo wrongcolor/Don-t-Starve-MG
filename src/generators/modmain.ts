@@ -64,12 +64,19 @@ function itemStringsBlock(item: ItemDef): string[] {
 
 function creatureTuningBlock(creature: CreatureDef): string[] {
   const upper = toUpperSnake(creature.id)
-  return [
+  const lines = [
     `GLOBAL.TUNING.${upper}_HEALTH = ${creature.stats.health}`,
     `GLOBAL.TUNING.${upper}_DAMAGE = ${creature.stats.damage}`,
     `GLOBAL.TUNING.${upper}_ATTACK_PERIOD = ${creature.stats.attackPeriod}`,
     `GLOBAL.TUNING.${upper}_WALKSPEED = ${creature.stats.walkSpeed}`,
   ]
+  if (creature.stats.attackRange !== undefined) {
+    lines.push(`GLOBAL.TUNING.${upper}_ATTACK_RANGE = ${creature.stats.attackRange}`)
+  }
+  if (creature.sanityAura !== undefined) {
+    lines.push(`GLOBAL.TUNING.${upper}_SANITYAURA = ${creature.sanityAura}`)
+  }
+  return lines
 }
 
 function creatureStringsBlock(creature: CreatureDef): string[] {

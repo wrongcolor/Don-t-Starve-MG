@@ -247,6 +247,45 @@ específica do Wormwood (`skilltreeupdater:IsActivated("wormwood_armor_bramble")
 — não generaliza pra um mod comum. `shadowlevel` (armor_sanity) é o mesmo
 sistema lunar/sombra que já decidimos não modelar.
 
+## 13. Criaturas reais (spider.lua, hound.lua) — confirma o que falta, e o limite do que dá pra confirmar
+
+Lidos os dois arquivos completos. Confirmação importante primeiro: **os nomes
+reais dos clipes de animação (idle/walk/atk/hit/death) não estão nesses
+arquivos** — ambos usam `inst:SetStateGraph("SGspider")` / `"SGhound")`, e o
+conteúdo desses stategraphs mora em `scripts/stategraphs/`, que não temos
+nesta cópia. Ou seja, continua sem confirmação a pergunta original sobre
+nomes de clipe — o que já era esperado, mas bom ter certeza.
+
+**Mecânicas novas confirmadas, não modeladas hoje:**
+
+- **Alcance de ataque configurável** — `combat:SetRange(min, max)`. Hoje
+  `creature.ts` tem isso **fixo em `SetRange(2)`**, sem opção nenhuma no
+  formulário. Spider guerreira usa alcance maior — é um valor real que varia
+  por criatura.
+- **Aura de sanidade** — `AddComponent("sanityaura")` +
+  `.aura = -TUNING.SANITYAURA_X`: só de estar perto da criatura, o jogador
+  perde (ou ganharia, se positivo) sanidade. Mecânica clássica de "monstro
+  assustador" — não modelamos nada disso hoje.
+- **Suscetibilidade a fogo/gelo** — `MakeMediumBurnableCharacter(inst, "body")`
+  / `MakeMediumFreezableCharacter(inst, "body")`: a criatura pode pegar fogo
+  ou congelar. Não modelado — hoje toda criatura gerada é imune a ambos por
+  omissão.
+- **Loot alternativo por quantidade garantida** — `lootdropper:AddRandomLoot(prefab, peso)`
+  + `numrandomloot = N`: sorteia N itens de uma lista ponderada (garantido X
+  itens), diferente do `AddChancedLoot` que já geramos (cada item rola sua
+  própria chance independente). São dois modelos de loot genuinamente
+  diferentes.
+- **Alcance/prioridade de retargeting** — `combat:SetRetargetFunction(priority, fn)`
+  controla a que distância e com que prioridade a criatura procura novo alvo.
+  Nosso `brain.ts` usa uma distância fixa (`SEE_TARGET_DIST = 10`) sem opção
+  no formulário.
+
+**Fora de escopo (complexo demais / muito específico):** `sleeper` (ciclo de
+sono dia/noite), `follower`/`trader` (mecânica de "criatura de estimação" tipo
+aranha do Webber ou pet hound), variantes anfíbias, mutação por lua cheia
+(`halloweenmoonmutable`) — todos exigem estado/eventos cruzados demais pra
+generalizar num campo de formulário simples.
+
 ## O que ainda não temos como confirmar
 
 Esta cópia local do jogo só tem `scripts/prefabs/`. Não temos

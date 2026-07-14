@@ -253,10 +253,14 @@ export const creatureDefSchema = z.object({
     damage: z.number().min(0),
     attackPeriod: z.number().min(0.1),
     walkSpeed: z.number().min(0.1),
+    attackRange: z.number().min(0.5).max(20).optional(),
   }),
   loot: z.array(z.object({ prefab: z.string().min(1), chance: z.number().min(0.01).max(1) })),
   behavior: z.enum(CREATURE_BEHAVIORS),
   tags: z.array(z.string().min(1)),
+  sanityAura: z.number().optional(),
+  flammable: z.boolean().optional(),
+  freezable: z.boolean().optional(),
 })
 
 export const modProjectSchema = z.object({
