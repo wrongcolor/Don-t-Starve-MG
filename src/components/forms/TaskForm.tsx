@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { taskDefSchema, WORLD_TILES, LOCKS, KEYS, type TaskDef } from '../../types/worldContent'
-import { FormField, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
+import { FormField, Fieldset, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
 
 interface TaskFormProps {
   initialTask?: TaskDef
@@ -38,7 +38,7 @@ function EnumListEditor({
   const [selected, setSelected] = useState(options[0])
   return (
     <div className="space-y-2">
-      <span className="block text-sm font-medium text-slate-700 dark:text-slate-300">{label}</span>
+      <span className="block text-sm font-medium text-parchment-300">{label}</span>
       <div className="flex gap-2">
         <select className={inputClass} value={selected} onChange={(e) => setSelected(e.target.value)}>
           {options.map((o) => (
@@ -56,10 +56,10 @@ function EnumListEditor({
           {values.map((v, index) => (
             <li
               key={`${v}-${index}`}
-              className="flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-xs"
+              className="flex items-center gap-1 rounded-full bg-ink-800 border border-ink-700 px-2 py-0.5 text-xs text-parchment-200"
             >
               {v}
-              <button type="button" className="text-red-600 dark:text-red-400" onClick={() => onRemove(index)}>
+              <button type="button" className="text-blood-400" onClick={() => onRemove(index)}>
                 ×
               </button>
             </li>
@@ -98,10 +98,7 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
         <input className={inputClass} {...register('id')} disabled={!!initialTask} placeholder="Minha Nova Area" />
       </FormField>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-3">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
-          Progressão (lock &amp; key)
-        </legend>
+      <Fieldset legend="Progressão (lock & key)" className="space-y-3">
         <EnumListEditor
           label="Travas (precisa ter essas chaves pra entrar aqui)"
           options={LOCKS}
@@ -132,10 +129,9 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
             setValue('keysGiven', next)
           }}
         />
-      </fieldset>
+      </Fieldset>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Salas (Rooms)</legend>
+      <Fieldset legend="Salas (Rooms)">
         <div className="space-y-2">
           {roomChoices.fields.map((field, index) => (
             <div key={field.id} className="flex gap-2 items-center">
@@ -150,7 +146,7 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
                 placeholder="mín"
                 {...register(`roomChoices.${index}.count.min` as const, { valueAsNumber: true })}
               />
-              <span className="text-xs text-slate-500">a</span>
+              <span className="text-xs text-parchment-400">a</span>
               <input
                 type="number"
                 className={`${inputClass} w-20`}
@@ -170,11 +166,10 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
         >
           + Sala
         </button>
-        {errors.roomChoices?.message && <p className="mt-1 text-xs text-red-600">{errors.roomChoices.message}</p>}
-      </fieldset>
+        {errors.roomChoices?.message && <p className="mt-1 text-xs text-blood-400">{errors.roomChoices.message}</p>}
+      </Fieldset>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Terreno e mapa</legend>
+      <Fieldset legend="Terreno e mapa">
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Terreno de fundo">
             <select className={inputClass} {...register('backgroundTerrain')}>
@@ -190,7 +185,7 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
           </FormField>
         </div>
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input
             type="checkbox"
             checked={enableRegion}
@@ -206,7 +201,7 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
             <input className={inputClass} {...register('regionId')} />
           </FormField>
         )}
-      </fieldset>
+      </Fieldset>
 
       <div className="flex gap-2">
         <button type="submit" className={btnPrimary}>

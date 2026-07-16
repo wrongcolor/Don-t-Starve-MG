@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { roomDefSchema, WORLD_TILES, type RoomDef } from '../../types/worldContent'
-import { FormField, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
+import { FormField, Fieldset, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
 
 interface RoomFormProps {
   initialRoom?: RoomDef
@@ -56,8 +56,7 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
         </FormField>
       </div>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Tags (opcional)</legend>
+      <Fieldset legend="Tags (opcional)">
         <div className="space-y-2">
           {tags.fields.map((field, index) => (
             <div key={field.id} className="flex gap-2">
@@ -71,12 +70,9 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
         <button type="button" className={`${btnSecondary} mt-2`} onClick={() => tags.append('')}>
           + Tag
         </button>
-      </fieldset>
+      </Fieldset>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
-          Prefabs obrigatórios (opcional)
-        </legend>
+      <Fieldset legend="Prefabs obrigatórios (opcional)">
         <div className="space-y-2">
           {requiredPrefabs.fields.map((field, index) => (
             <div key={field.id} className="flex gap-2">
@@ -94,12 +90,9 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
         <button type="button" className={`${btnSecondary} mt-2`} onClick={() => requiredPrefabs.append('')}>
           + Prefab obrigatório
         </button>
-      </fieldset>
+      </Fieldset>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
-          Prefabs fixos (quantidade garantida)
-        </legend>
+      <Fieldset legend="Prefabs fixos (quantidade garantida)">
         <div className="space-y-2">
           {fixedPrefabs.fields.map((field, index) => (
             <div key={field.id} className="flex gap-2 items-center">
@@ -114,7 +107,7 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
                 placeholder="mín"
                 {...register(`fixedPrefabs.${index}.count.min` as const, { valueAsNumber: true })}
               />
-              <span className="text-xs text-slate-500">a</span>
+              <span className="text-xs text-parchment-400">a</span>
               <input
                 type="number"
                 className={`${inputClass} w-20`}
@@ -134,11 +127,10 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
         >
           + Prefab fixo
         </button>
-      </fieldset>
+      </Fieldset>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Decoração espalhada</legend>
-        <label className="flex items-center gap-2 text-sm">
+      <Fieldset legend="Decoração espalhada">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input
             type="checkbox"
             checked={enableScatter}
@@ -191,7 +183,7 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
             </button>
           </div>
         )}
-      </fieldset>
+      </Fieldset>
 
       <div className="flex gap-2">
         <button type="submit" className={btnPrimary}>

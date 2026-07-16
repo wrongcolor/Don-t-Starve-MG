@@ -10,22 +10,46 @@ interface FormFieldProps {
 export function FormField({ label, error, children, hint }: FormFieldProps) {
   return (
     <label className="block">
-      <span className="block text-sm font-medium text-slate-700 dark:text-slate-300">{label}</span>
+      <span className="block text-sm font-medium text-parchment-300">{label}</span>
       <div className="mt-1">{children}</div>
-      {hint && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p>}
-      {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {hint && <p className="mt-1 text-xs text-parchment-400">{hint}</p>}
+      {error && <p className="mt-1 text-xs text-blood-400">{error}</p>}
     </label>
   )
 }
 
+interface FieldsetProps {
+  legend: string
+  children: ReactNode
+  className?: string
+}
+
+export function Fieldset({ legend, children, className = '' }: FieldsetProps) {
+  return (
+    <fieldset className={`rounded-lg border border-ink-700 bg-ink-900/60 p-3 space-y-2 ${className}`}>
+      <legend className="px-1 font-display text-sm text-ember-400">{legend}</legend>
+      {children}
+    </fieldset>
+  )
+}
+
+interface CardProps {
+  children: ReactNode
+  className?: string
+}
+
+export function Card({ children, className = '' }: CardProps) {
+  return <div className={`rounded-lg border border-ink-700 bg-ink-900/60 ${className}`}>{children}</div>
+}
+
 export const inputClass =
-  'w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500'
+  'w-full rounded border border-ink-600 bg-ink-900 px-3 py-1.5 text-sm text-parchment-100 placeholder-parchment-400/60 focus:outline-none focus:ring-2 focus:ring-ember-400 focus:border-ember-400'
 
 export const btnPrimary =
-  'inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed'
+  'inline-flex items-center gap-1.5 rounded border border-ember-500 bg-ember-500 px-3 py-1.5 text-sm font-semibold text-ink-950 hover:bg-ember-400 hover:border-ember-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors'
 
 export const btnSecondary =
-  'inline-flex items-center gap-1.5 rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
+  'inline-flex items-center gap-1.5 rounded border border-ink-600 bg-ink-800 px-3 py-1.5 text-sm font-medium text-parchment-200 hover:bg-ink-700 hover:border-ink-500 transition-colors'
 
 export const btnDanger =
-  'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950'
+  'inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-blood-400 hover:bg-blood-500/10 transition-colors'

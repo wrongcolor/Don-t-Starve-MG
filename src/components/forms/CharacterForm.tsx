@@ -1,7 +1,7 @@
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { characterDefSchema, CHARACTER_GENDERS, CHARACTER_PERKS, type CharacterDef } from '../../types/modProject'
-import { FormField, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
+import { FormField, Fieldset, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
 
 interface CharacterFormProps {
   initialCharacter?: CharacterDef
@@ -79,8 +79,7 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
         <input className={inputClass} {...register('quote')} />
       </FormField>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Atributos</legend>
+      <Fieldset legend="Atributos">
         <div className="grid grid-cols-3 gap-2">
           <FormField label="Vida">
             <input type="number" className={inputClass} {...register('stats.health', { valueAsNumber: true })} />
@@ -92,24 +91,20 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
             <input type="number" className={inputClass} {...register('stats.sanity', { valueAsNumber: true })} />
           </FormField>
         </div>
-      </fieldset>
+      </Fieldset>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Perks</legend>
+      <Fieldset legend="Perks">
         <div className="grid grid-cols-2 gap-1">
           {CHARACTER_PERKS.map((perk) => (
-            <label key={perk} className="flex items-center gap-1.5 text-xs">
+            <label key={perk} className="flex items-center gap-1.5 text-xs text-parchment-300">
               <input type="checkbox" value={perk} {...register('perks')} />
               {PERK_LABELS[perk]}
             </label>
           ))}
         </div>
-      </fieldset>
+      </Fieldset>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
-          Inventário inicial
-        </legend>
+      <Fieldset legend="Inventário inicial">
         <div className="space-y-2">
           {inventory.fields.map((field, index) => (
             <div key={field.id} className="flex gap-2">
@@ -127,9 +122,9 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
         <button type="button" className={`${btnSecondary} mt-2`} onClick={() => inventory.append('')}>
           + Item
         </button>
-      </fieldset>
+      </Fieldset>
 
-      <p className="text-xs text-slate-500 dark:text-slate-400">
+      <p className="text-xs text-parchment-400">
         Fala customizada: por padrão o personagem herda toda a fala do Wilson (speech_wilson). Você
         pode ajustar chaves específicas depois de gerar o mod, editando <code>speech_{'{id}'}.lua</code>.
       </p>

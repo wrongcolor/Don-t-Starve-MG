@@ -11,7 +11,7 @@ import {
   SPELL_EFFECTS,
   type ItemDef,
 } from '../../types/modProject'
-import { FormField, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
+import { FormField, Fieldset, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
 
 interface ItemFormProps {
   initialItem?: ItemDef
@@ -105,10 +105,8 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
         <textarea className={inputClass} rows={2} {...register('description')} />
       </FormField>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Animação</legend>
-
-        <label className="flex items-center gap-2 text-sm">
+      <Fieldset legend="Animação">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input
             type="radio"
             name="item-animation-source"
@@ -120,7 +118,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
           />
           Vou criar minha própria animação (build próprio, anim/&lt;id&gt;.zip)
         </label>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input
             type="radio"
             name="item-animation-source"
@@ -148,16 +146,14 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
           </FormField>
         )}
 
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-parchment-400">
           Reaproveitar uma animação do jogo dispensa o build próprio — mas o ícone de inventário
           (images/inventoryimages) ainda precisa ser fornecido em ambos os casos.
         </p>
-      </fieldset>
+      </Fieldset>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Componentes</legend>
-
-        <label className="flex items-center gap-2 text-sm">
+      <Fieldset legend="Componentes">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input
             type="checkbox"
             checked={enableStackable}
@@ -171,21 +167,22 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
           </FormField>
         )}
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input
             type="checkbox"
             checked={enablePerishable}
+            disabled={enableFiniteuses}
             onChange={(e) => setValue('perishable', e.target.checked ? { perishTimeDays: 3 } : undefined)}
           />
-          Perecível
+          Perecível {enableFiniteuses && '(desative "Durabilidade limitada" primeiro)'}
         </label>
         {enablePerishable && (
-          <FormField label="Tempo até estragar (dias)">
+          <FormField label="Tempo até estragar (dias)" hint="A durabilidade do item é esse tempo — ao esgotar, o item se desfaz.">
             <input type="number" step="0.1" className={inputClass} {...register('perishable.perishTimeDays', { valueAsNumber: true })} />
           </FormField>
         )}
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input
             type="checkbox"
             checked={enableWeapon}
@@ -199,7 +196,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
               <input type="number" className={inputClass} {...register('weapon.damage', { valueAsNumber: true })} />
             </FormField>
 
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm text-parchment-300">
               <input
                 type="checkbox"
                 checked={enableSanityCost}
@@ -218,7 +215,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
               </FormField>
             )}
 
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm text-parchment-300">
               <input
                 type="checkbox"
                 checked={enableRanged}
@@ -266,27 +263,28 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
           </div>
         )}
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input
             type="checkbox"
             checked={enableFiniteuses}
+            disabled={enablePerishable}
             onChange={(e) => setValue('finiteuses', e.target.checked ? { maxUses: 100 } : undefined)}
           />
-          Durabilidade limitada (finiteuses)
+          Durabilidade limitada (finiteuses) {enablePerishable && '(desative "Perecível" primeiro)'}
         </label>
         {enableFiniteuses && (
           <div className="space-y-2 pl-1">
             <FormField label="Usos máximos">
               <input type="number" className={inputClass} {...register('finiteuses.maxUses', { valueAsNumber: true })} />
             </FormField>
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm text-parchment-300">
               <input type="checkbox" {...register('finiteuses.ignoreCombatDurabilityLoss')} />
               Não perde uso ao atacar (só na função especial do item)
             </label>
           </div>
         )}
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input
             type="checkbox"
             checked={enableArmor}
@@ -300,12 +298,12 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
               <input type="number" step="0.01" min="0.01" max="1" className={inputClass} {...register('armor.absorption', { valueAsNumber: true })} />
             </FormField>
 
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm text-parchment-300">
               <input type="checkbox" {...register('armor.flammable')} />
               Material inflamável (pega fogo)
             </label>
 
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm text-parchment-300">
               <input
                 type="checkbox"
                 checked={enableDapperness}
@@ -324,7 +322,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
               </FormField>
             )}
 
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm text-parchment-300">
               <input
                 type="checkbox"
                 checked={enableWeakness}
@@ -347,7 +345,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
               </div>
             )}
 
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm text-parchment-300">
               <input
                 type="checkbox"
                 checked={enableSanityLossOnHit}
@@ -372,7 +370,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
 
         {(handheld || enableArmor) && (
           <>
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm text-parchment-300">
               <input
                 type="checkbox"
                 checked={enableWalkSpeedMult}
@@ -393,7 +391,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
           </>
         )}
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input
             type="checkbox"
             checked={enableSpellEffect}
@@ -408,13 +406,11 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
             </select>
           </FormField>
         )}
-      </fieldset>
+      </Fieldset>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-3">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Receita</legend>
-
+      <Fieldset legend="Receita" className="space-y-3">
         <div>
-          <span className="block text-sm font-medium text-slate-700 dark:text-slate-300">Ingredientes</span>
+          <span className="block text-sm font-medium text-parchment-300">Ingredientes</span>
           <div className="mt-1 space-y-2">
             {fields.map((field, index) => (
               <div key={field.id} className="flex gap-2">
@@ -442,7 +438,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
             + Ingrediente
           </button>
           {errors.recipe?.ingredients?.message && (
-            <p className="mt-1 text-xs text-red-600">{errors.recipe.ingredients.message}</p>
+            <p className="mt-1 text-xs text-blood-400">{errors.recipe.ingredients.message}</p>
           )}
         </div>
 
@@ -457,27 +453,27 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
         </FormField>
 
         <div>
-          <span className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <span className="block text-sm font-medium text-parchment-300">
             Abas de crafting (CRAFTING_FILTERS)
           </span>
           <div className="mt-1 grid grid-cols-3 gap-1">
             {RECIPE_FILTERS.map((f) => (
-              <label key={f} className="flex items-center gap-1.5 text-xs">
+              <label key={f} className="flex items-center gap-1.5 text-xs text-parchment-300">
                 <input type="checkbox" value={f} {...register('recipe.filters')} />
                 {f}
               </label>
             ))}
           </div>
           {errors.recipe?.filters?.message && (
-            <p className="mt-1 text-xs text-red-600">{errors.recipe.filters.message}</p>
+            <p className="mt-1 text-xs text-blood-400">{errors.recipe.filters.message}</p>
           )}
         </div>
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input type="checkbox" {...register('recipe.placer')} />
           É uma estrutura (gera prefab de placer)
         </label>
-      </fieldset>
+      </Fieldset>
 
       <div className="flex gap-2">
         <button type="submit" className={btnPrimary}>

@@ -1,10 +1,55 @@
 @import "tailwindcss";
 
+/* Paleta temática "Don't Starve": charcoal/tinta queimada + parchment + brasa
+   (ember) para acentos, no espírito da arte do jogo (fogueira à noite). Um
+   único tema (sempre escuro) — não mantemos variante light. */
+@theme {
+  --font-display: "Metamorphous", Georgia, serif;
+  --font-body: system-ui, "Segoe UI", Roboto, sans-serif;
+
+  --color-ink-950: #100d09;
+  --color-ink-900: #1a160f;
+  --color-ink-800: #241f16;
+  --color-ink-700: #332c1f;
+  --color-ink-600: #453b29;
+  --color-ink-500: #5c4f38;
+
+  --color-parchment-100: #f2e8cd;
+  --color-parchment-200: #e6d8b3;
+  --color-parchment-300: #d3c093;
+  --color-parchment-400: #b6a480;
+
+  --color-ember-300: #f3c169;
+  --color-ember-400: #e8a33d;
+  --color-ember-500: #cf8620;
+  --color-ember-600: #a8691a;
+
+  --color-blood-400: #c8553d;
+  --color-blood-500: #a8402b;
+
+  --color-moss-400: #7a9463;
+  --color-moss-500: #5f7a4a;
+}
+
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-body);
+  background:
+    radial-gradient(ellipse 900px 500px at 20% -10%, color-mix(in oklab, var(--color-ember-500) 12%, transparent), transparent 60%),
+    var(--color-ink-950);
+  background-attachment: fixed;
+  color: var(--color-parchment-100);
+}
+
+::selection {
+  background-color: var(--color-ember-500);
+  color: var(--color-ink-950);
+}
+
+* {
+  scrollbar-color: var(--color-ink-600) var(--color-ink-900);
 }

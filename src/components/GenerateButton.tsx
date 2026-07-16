@@ -32,11 +32,11 @@ export function GenerateButton() {
         {busy ? 'Gerando...' : 'Gerar mod (.zip)'}
       </button>
       {!canGenerate && (
-        <span className="text-xs text-slate-400">
+        <span className="text-xs text-parchment-400">
           Preencha o nome do mod e adicione pelo menos 1 item, personagem ou criatura.
         </span>
       )}
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && <span className="text-xs text-blood-400">{error}</span>}
     </div>
   )
 }

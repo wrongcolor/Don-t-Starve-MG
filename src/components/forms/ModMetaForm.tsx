@@ -2,7 +2,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { modMetaSchema, type ModMeta } from '../../types/modProject'
 import { useModProjectStore } from '../../store/modProjectStore'
-import { FormField, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
+import { FormField, Fieldset, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
 
 export function ModMetaForm() {
   const meta = useModProjectStore((s) => s.project.meta)
@@ -24,7 +24,7 @@ export function ModMetaForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-2xl">
-      <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Metadados do mod</h2>
+      <h2 className="font-display text-base text-parchment-100">Metadados do mod</h2>
 
       <FormField label="Nome do mod" error={errors.name?.message}>
         <input className={inputClass} {...register('name')} placeholder="Meu Mod Incrível" />
@@ -42,16 +42,13 @@ export function ModMetaForm() {
         <input className={inputClass} {...register('version')} placeholder="1.0.0" />
       </FormField>
 
-      <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+      <label className="flex items-center gap-2 text-sm text-parchment-300">
         <input type="checkbox" {...register('allClientsRequireMod')} />
         Todos os clientes precisam ter o mod instalado (recomendado se afeta gameplay)
       </label>
 
-      <div>
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-            Opções de configuração (opcional)
-          </h3>
+      <Fieldset legend="Opções de configuração (opcional)">
+        <div className="flex justify-end">
           <button
             type="button"
             className={btnSecondary}
@@ -70,9 +67,9 @@ export function ModMetaForm() {
             + Opção
           </button>
         </div>
-        <div className="mt-2 space-y-2">
+        <div className="space-y-2">
           {fields.map((field, index) => (
-            <div key={field.id} className="rounded-md border border-slate-200 dark:border-slate-700 p-2 flex gap-2">
+            <div key={field.id} className="rounded border border-ink-700 p-2 flex gap-2">
               <input
                 className={inputClass}
                 placeholder="nome_interno"
@@ -89,12 +86,12 @@ export function ModMetaForm() {
             </div>
           ))}
         </div>
-      </div>
+      </Fieldset>
 
       <button type="submit" className={btnPrimary}>
         Salvar metadados
       </button>
-      {!isDirty && <span className="ml-2 text-xs text-slate-400">Sem alterações pendentes</span>}
+      {!isDirty && <span className="ml-2 text-xs text-parchment-400">Sem alterações pendentes</span>}
     </form>
   )
 }

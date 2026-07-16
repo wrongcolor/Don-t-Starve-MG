@@ -7,7 +7,7 @@ import {
   VANILLA_CREATURE_BUILDS,
   type CreatureDef,
 } from '../../types/modProject'
-import { FormField, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
+import { FormField, Fieldset, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
 
 interface CreatureFormProps {
   initialCreature?: CreatureDef
@@ -78,8 +78,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
         <textarea className={inputClass} rows={2} {...register('description')} />
       </FormField>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Atributos</legend>
+      <Fieldset legend="Atributos">
         <div className="grid grid-cols-4 gap-2">
           <FormField label="Vida">
             <input type="number" className={inputClass} {...register('stats.health', { valueAsNumber: true })} />
@@ -95,7 +94,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
           </FormField>
         </div>
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input
             type="checkbox"
             checked={enableAttackRange}
@@ -114,7 +113,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
           </FormField>
         )}
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input
             type="checkbox"
             checked={enableSanityAura}
@@ -128,17 +127,17 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
           </FormField>
         )}
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input type="checkbox" {...register('flammable')} />
           Pode pegar fogo
         </label>
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input type="checkbox" {...register('freezable')} />
           Pode congelar
         </label>
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input
             type="checkbox"
             checked={enableCookable}
@@ -151,12 +150,10 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
             <input className={inputClass} {...register('cookable.product')} />
           </FormField>
         )}
-      </fieldset>
+      </Fieldset>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Animação</legend>
-
-        <label className="flex items-center gap-2 text-sm">
+      <Fieldset legend="Animação">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input
             type="radio"
             name="creature-animation-source"
@@ -168,7 +165,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
           />
           Vou criar minha própria animação (build próprio, anim/&lt;id&gt;.zip)
         </label>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-parchment-300">
           <input
             type="radio"
             name="creature-animation-source"
@@ -196,7 +193,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                 ))}
               </select>
             </FormField>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-parchment-400">
               Nomes das animações usadas nesse build (ajuste se o build escolhido usar nomes
               diferentes — esta ferramenta não confirma isso contra os arquivos do jogo):
             </p>
@@ -220,14 +217,13 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
           </div>
         )}
 
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-parchment-400">
           Reaproveitar uma animação do jogo dispensa o build próprio, mas confirme em-jogo (
           <code>c_spawn</code>) que a criatura anda/ataca/morre corretamente antes de publicar.
         </p>
-      </fieldset>
+      </Fieldset>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Loot</legend>
+      <Fieldset legend="Loot">
         <div className="space-y-2">
           {loot.fields.map((field, index) => (
             <div key={field.id} className="flex gap-2">
@@ -253,12 +249,9 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
         <button type="button" className={`${btnSecondary} mt-2`} onClick={() => loot.append({ prefab: '', chance: 1 })}>
           + Loot
         </button>
-      </fieldset>
+      </Fieldset>
 
-      <fieldset className="rounded-md border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-        <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
-          Tags extras (opcional)
-        </legend>
+      <Fieldset legend="Tags extras (opcional)">
         <div className="space-y-2">
           {tags.fields.map((field, index) => (
             <div key={field.id} className="flex gap-2">
@@ -272,7 +265,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
         <button type="button" className={`${btnSecondary} mt-2`} onClick={() => tags.append('')}>
           + Tag
         </button>
-      </fieldset>
+      </Fieldset>
 
       <div className="flex gap-2">
         <button type="submit" className={btnPrimary}>
