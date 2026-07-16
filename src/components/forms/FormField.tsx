@@ -46,10 +46,10 @@ export const inputClass =
   'w-full rounded border border-ink-600 bg-ink-900 px-3 py-1.5 text-sm text-parchment-100 placeholder-parchment-400/60 focus:outline-none focus:ring-2 focus:ring-ember-400 focus:border-ember-400'
 
 export const btnPrimary =
-  'inline-flex items-center gap-1.5 rounded border border-ember-500 bg-ember-500 px-3 py-1.5 text-sm font-semibold text-ink-950 hover:bg-ember-400 hover:border-ember-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors'
+  'inline-flex items-center gap-1.5 rounded border border-ember-500 bg-ember-500 px-3 py-1.5 text-sm font-semibold text-ink-950 hover:bg-ember-400 hover:border-ember-400 hover:-translate-y-0.5 hover:shadow-[0_6px_16px_-6px_var(--color-ember-500)] active:translate-y-0 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none transition-all duration-150'
 
 export const btnSecondary =
-  'inline-flex items-center gap-1.5 rounded border border-ink-600 bg-ink-800 px-3 py-1.5 text-sm font-medium text-parchment-200 hover:bg-ink-700 hover:border-ink-500 transition-colors'
+  'inline-flex items-center gap-1.5 rounded border border-ink-600 bg-ink-800 px-3 py-1.5 text-sm font-medium text-parchment-200 hover:bg-ink-700 hover:border-ink-500 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all duration-150'
 
 export const btnDanger =
-  'inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-blood-400 hover:bg-blood-500/10 transition-colors'
+  'inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-blood-400 hover:bg-blood-500/10 active:scale-95 transition-all duration-150'

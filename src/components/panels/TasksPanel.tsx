@@ -1,6 +1,7 @@
 import { useModProjectStore } from '../../store/modProjectStore'
 import { TaskForm } from '../forms/TaskForm'
 import { EntityListPanel } from './EntityListPanel'
+import { taskVisual } from './entityVisuals'
 
 export function TasksPanel() {
   const tasks = useModProjectStore((s) => s.project.tasks)
@@ -12,9 +13,11 @@ export function TasksPanel() {
       title="Tasks (áreas do mapa)"
       addLabel="+ Nova task"
       emptyMessage="Nenhuma task adicionada ainda."
+      emptyHint="Nenhuma área foi explorada ainda — marque a primeira no mapa."
       items={tasks}
       getLabel={(task) => task.id}
       getMeta={(task) => (task.regionId ? `ilha: ${task.regionId}` : '')}
+      getVisual={(task) => taskVisual(!!task.regionId)}
       onUpsert={upsertTask}
       onRemove={removeTask}
       renderForm={({ initial, onSave, onCancel }) => (

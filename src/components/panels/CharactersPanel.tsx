@@ -1,6 +1,7 @@
 import { useModProjectStore } from '../../store/modProjectStore'
 import { CharacterForm } from '../forms/CharacterForm'
 import { EntityListPanel } from './EntityListPanel'
+import { characterVisual } from './entityVisuals'
 
 export function CharactersPanel() {
   const characters = useModProjectStore((s) => s.project.characters)
@@ -12,8 +13,10 @@ export function CharactersPanel() {
       title="Personagens jogáveis"
       addLabel="+ Novo personagem"
       emptyMessage="Nenhum personagem adicionado ainda."
+      emptyHint="O acampamento está sem sobreviventes — crie o primeiro."
       items={characters}
       getLabel={(character) => character.name}
+      getVisual={characterVisual}
       onUpsert={upsertCharacter}
       onRemove={removeCharacter}
       renderForm={({ initial, onSave, onCancel }) => (
