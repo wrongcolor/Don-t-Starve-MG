@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { roomDefSchema, WORLD_TILES, type RoomDef } from '../../types/worldContent'
@@ -19,6 +19,20 @@ const emptyRoom: RoomDef = {
 }
 
 export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
+  const [enableScatter, setEnableScatter] = useState((initialRoom ?? emptyRoom).scatter !== undefined)
+
+  // useFieldArray for scatter.prefabs must run unconditionally (rules of hooks), which
+  // makes react-hook-form materialize `scatter: { prefabs: [] }` in the form's raw
+  // values even when the "decoração espalhada" checkbox is off. zodResolver validates
+  // those RAW values before onSubmit ever runs, so a submit-time fix is too late — the
+  // optional `scatter` schema (needs percent + prefabs.min(1)) rejects the partial
+  // object with no field-level error visible, and the form looks like it does nothing.
+  // Stripping `scatter` here, inside the resolver, fixes it at the point that matters.
+  const enableScatterRef = useRef(enableScatter)
+  useEffect(() => {
+    enableScatterRef.current = enableScatter
+  }, [enableScatter])
+
   const {
     register,
     control,
@@ -26,7 +40,8 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
     setValue,
     formState: { errors },
   } = useForm<RoomDef>({
-    resolver: zodResolver(roomDefSchema),
+    resolver: (values, context, options) =>
+      zodResolver(roomDefSchema)(enableScatterRef.current ? values : { ...values, scatter: undefined }, context, options),
     defaultValues: initialRoom ?? emptyRoom,
   })
 
@@ -34,8 +49,6 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
   const requiredPrefabs = useFieldArray({ control, name: 'requiredPrefabs' as never })
   const fixedPrefabs = useFieldArray({ control, name: 'fixedPrefabs' })
   const scatterPrefabs = useFieldArray({ control, name: 'scatter.prefabs' as never })
-
-  const [enableScatter, setEnableScatter] = useState((initialRoom ?? emptyRoom).scatter !== undefined)
 
   const onSubmit = (data: RoomDef) => onSave(data)
 
@@ -181,6 +194,9 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
             >
               + Item de decoração
             </button>
+            {errors.scatter?.prefabs?.message && (
+              <p className="mt-1 text-xs text-blood-400">{errors.scatter.prefabs.message}</p>
+            )}
           </div>
         )}
       </Fieldset>
