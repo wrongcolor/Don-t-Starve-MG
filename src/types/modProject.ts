@@ -197,6 +197,13 @@ export const itemDefSchema = z
     message: 'Selecione qual ação essa ferramenta realiza (cortar/minerar/cavar)',
     path: ['toolAction'],
   })
+  // Confirmed in hambat.lua (docs/dst-knowledge/patterns.md#3): the game uses EITHER
+  // finiteuses (fixed use-count) OR perishable (time-based) as an item's durability
+  // model, never both at once — so the two are mutually exclusive here too.
+  .refine((item) => item.perishable === undefined || item.finiteuses === undefined, {
+    message: 'Não é possível ter "usos máximos" e "perecível" ao mesmo tempo — escolha um dos dois como durabilidade',
+    path: ['finiteuses'],
+  })
 
 export const characterDefSchema = z.object({
   id: luaIdentifier,

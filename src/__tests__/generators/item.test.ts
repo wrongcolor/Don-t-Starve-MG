@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { parse } from 'luaparse'
 import { generateItemFiles, generateItemPrefab } from '../../generators/item'
-import { itemDefSchema } from '../../types/modProject'
+import { itemDefSchema, type ItemDef } from '../../types/modProject'
 import { sampleProject } from '../fixtures'
 
 describe('generateItemFiles', () => {
@@ -128,6 +129,14 @@ describe('generateItemFiles', () => {
     expect(code).toContain('SpawnPrefab("stafflight")')
   })
 
+  it('rejects an item with both finiteuses and perishable set as durability', () => {
+    const both = { ...sword, perishable: { perishTimeDays: 3 } }
+    expect(itemDefSchema.safeParse(both).success).toBe(false)
+
+    const perishableOnly = { ...sword, finiteuses: undefined, perishable: { perishTimeDays: 3 } }
+    expect(itemDefSchema.safeParse(perishableOnly).success).toBe(true)
+  })
+
   it('rejects a ranged weapon whose maxRange is smaller than minRange', () => {
     const invalid = {
       ...firestaff,
@@ -165,5 +174,37 @@ describe('generateItemFiles', () => {
   it('sets equippable.dapperness for armor with a sanity effect while worn', () => {
     const code = generateItemPrefab(armor)
     expect(code).toContain('inst.components.equippable.dapperness = -0.5')
+  })
+
+  it('supports a weapon that fires a projectile on attack AND casts createLight on a point — two independent components, no collision', () => {
+    const projectileAndLightStaff: ItemDef = {
+      id: 'teststormstaff',
+      displayName: 'Test Storm Staff',
+      description: 'Fires a projectile and can light up an area',
+      category: 'weapon',
+      weapon: {
+        damage: 0,
+        ranged: { minRange: 6, maxRange: 10, projectilePrefab: 'fire_projectile' },
+      },
+      spellEffect: 'createLight',
+      recipe: { ingredients: [{ prefab: 'twigs', amount: 1 }], techLevel: 'NONE', filters: ['MAGIC'], placer: false },
+    }
+
+    expect(itemDefSchema.safeParse(projectileAndLightStaff).success).toBe(true)
+
+    const code = generateItemPrefab(projectileAndLightStaff)
+    // Normal attack: weapon component fires the projectile, no onattack needed
+    // since there's no sanity cost or on-hit effect configured.
+    expect(code).toContain('inst.components.weapon:SetRange(TUNING.TESTSTORMSTAFF_MIN_RANGE, TUNING.TESTSTORMSTAFF_MAX_RANGE)')
+    expect(code).toContain('inst.components.weapon:SetProjectile("fire_projectile")')
+    expect(code).not.toContain('local function onattack')
+    // Point-cast: separate spellcaster + reticule pair, triggered when the item
+    // is used on the ground instead of on a combat target (patterns.md#7).
+    expect(code).toContain('inst:AddComponent("reticule")')
+    expect(code).toContain('inst:AddComponent("spellcaster")')
+    expect(code).toContain('inst.components.spellcaster:SetSpellFn(createlight)')
+    expect(code).toContain('inst.components.spellcaster.canuseonpoint = true')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 })
