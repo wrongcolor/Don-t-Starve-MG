@@ -10,16 +10,16 @@ export function RoomPreview({ room }: { room: Partial<RoomDef> }) {
     <div className="preview">
       <div className="preview-inner">
         <div className="preview-label">PREVIEW</div>
-        <h2 className="preview-name">{room.id || 'Sem nome'}</h2>
+        <h2 className="preview-name">{room.id || 'No name'}</h2>
         <div className="preview-art">{roomVisual(terrain)}</div>
         <div className="preview-cat">{terrainLabel}</div>
         <div className="preview-stats">
           <div className="preview-stat">
-            <span className="lbl">🧱 Prefabs fixos</span>
+            <span className="lbl">🧱 Fixed prefabs</span>
             <span className="val">{room.fixedPrefabs?.length ?? 0}</span>
           </div>
           <div className="preview-stat">
-            <span className="lbl">🌿 Decoração espalhada</span>
+            <span className="lbl">🌿 Scattered decoration</span>
             <span className="val">{room.scatter ? `${Math.round(room.scatter.percent * 100)}%` : '—'}</span>
           </div>
         </div>
@@ -32,7 +32,7 @@ export function RoomPreview({ room }: { room: Partial<RoomDef> }) {
             </div>
           ))}
         </div>
-        <div className="preview-sub">Prefabs obrigatórios</div>
+        <div className="preview-sub">Required prefabs</div>
         <div className="preview-desc">{room.requiredPrefabs?.join(', ') || '—'}</div>
       </div>
     </div>

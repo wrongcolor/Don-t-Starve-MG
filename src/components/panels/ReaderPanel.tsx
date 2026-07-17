@@ -44,17 +44,17 @@ export function ReaderPanel() {
 
   return (
     <div>
-      <FormHeader icon="🔍" title="Leitura de mod pronto" />
+      <FormHeader icon="🔍" title="Read an existing mod" />
 
       <div className="card panel" style={{ marginTop: 12 }}>
         <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 12 }}>
-          Envie o <code>.zip</code> do mod ou os arquivos <code>.lua</code> (modinfo.lua, modmain.lua) para ver o
-          que foi detectado. É apenas uma leitura de referência — nada aqui altera os itens, personagens ou
-          criaturas do seu projeto atual.
+          Upload the mod's <code>.zip</code> or its <code>.lua</code> files (modinfo.lua, modmain.lua) to see what
+          was detected. This is just a reference read — nothing here changes the items, characters, or creatures
+          in your current project.
         </p>
 
         <label className="block">
-          <span className="sr-only">Selecionar arquivos do mod</span>
+          <span className="sr-only">Select mod files</span>
           <input
             type="file"
             multiple
@@ -65,19 +65,19 @@ export function ReaderPanel() {
           />
         </label>
 
-        {busy && <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 8 }}>Lendo arquivos...</p>}
+        {busy && <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 8 }}>Reading files...</p>}
         {error && <p className="field error">{error}</p>}
       </div>
 
       {summary && (
         <div className="space-y-6" style={{ marginTop: 12 }}>
           <p style={{ fontSize: 12, color: 'var(--ink-soft)' }}>
-            {fileCount} arquivo(s) enviado(s), {summary.filesParsed} arquivo(s) .lua analisado(s).
+            {fileCount} file(s) uploaded, {summary.filesParsed} .lua file(s) parsed.
           </p>
 
           {summary.fileErrors.length > 0 && (
             <section className="card panel" style={{ borderColor: 'var(--accent-red)' }}>
-              <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-red)' }}>Arquivos que não puderam ser lidos</h3>
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-red)' }}>Files that could not be read</h3>
               <ul style={{ marginTop: 4, fontSize: 12, color: 'var(--accent-red)' }}>
                 {summary.fileErrors.map((err) => (
                   <li key={err.path}>
@@ -89,7 +89,7 @@ export function ReaderPanel() {
           )}
 
           {Object.keys(summary.meta).length > 0 && (
-            <Section title="Metadados (modinfo.lua)">
+            <Section title="Metadata (modinfo.lua)">
               <table style={{ width: '100%', fontSize: 13 }}>
                 <tbody>
                   {Object.entries(summary.meta).map(([key, value]) => (
@@ -116,16 +116,16 @@ export function ReaderPanel() {
           )}
 
           {summary.recipes.length > 0 && (
-            <Section title={`Receitas (${summary.recipes.length})`}>
+            <Section title={`Recipes (${summary.recipes.length})`}>
               <div className="space-y-2">
                 {summary.recipes.map((recipe) => (
                   <Card key={recipe.name} className="p-2" style={{ fontSize: 13 }}>
                     <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{recipe.name}</div>
                     <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>
-                      Ingredientes: {recipe.ingredients.map((i) => `${i.prefab} x${i.amount}`).join(', ') || '—'}
+                      Ingredients: {recipe.ingredients.map((i) => `${i.prefab} x${i.amount}`).join(', ') || '—'}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>
-                      Tech: {recipe.tech ?? '—'} · Abas: {recipe.filters.join(', ') || '—'}
+                      Tech: {recipe.tech ?? '—'} · Tabs: {recipe.filters.join(', ') || '—'}
                       {recipe.placer && ` · Placer: ${recipe.placer}`}
                     </div>
                   </Card>
@@ -135,7 +135,7 @@ export function ReaderPanel() {
           )}
 
           {summary.characters.length > 0 && (
-            <Section title={`Personagens (${summary.characters.length})`}>
+            <Section title={`Characters (${summary.characters.length})`}>
               <ul style={{ fontSize: 13 }}>
                 {summary.characters.map((c) => (
                   <li key={c.id}>
@@ -148,7 +148,7 @@ export function ReaderPanel() {
           )}
 
           {Object.keys(summary.names).length > 0 && (
-            <Section title="Nomes (STRINGS.NAMES)">
+            <Section title="Names (STRINGS.NAMES)">
               <table style={{ width: '100%', fontSize: 13 }}>
                 <tbody>
                   {Object.entries(summary.names).map(([key, value]) => (
@@ -178,7 +178,7 @@ export function ReaderPanel() {
           )}
 
           {summary.filesParsed === 0 && summary.fileErrors.length === 0 && (
-            <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>Nenhum arquivo .lua encontrado no que foi enviado.</p>
+            <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>No .lua file found in what was uploaded.</p>
           )}
         </div>
       )}

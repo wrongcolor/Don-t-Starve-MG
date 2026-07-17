@@ -12,10 +12,10 @@ export function TasksPanel() {
     <EntityListPanel
       headerIcon="📍"
       title="Tasks"
-      addLabel="Nova task"
-      emptyMessage="Nenhuma task adicionada ainda."
-      emptyHint="Nenhuma área foi explorada ainda — marque a primeira no mapa."
-      tip="Tasks agrupam Rooms numa área navegável, com progressão por trava (lock) e chave (key)."
+      addLabel="New task"
+      emptyMessage="No tasks added yet."
+      emptyHint="No area has been explored yet — mark the first one on the map."
+      tip="Tasks group Rooms into a navigable area, with progression via locks and keys."
       items={tasks}
       getLabel={(task) => task.id}
       getIcon={(task) => taskVisual(!!task.regionId)}

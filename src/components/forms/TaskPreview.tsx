@@ -8,21 +8,21 @@ export function TaskPreview({ task }: { task: Partial<TaskDef> }) {
     <div className="preview">
       <div className="preview-inner">
         <div className="preview-label">PREVIEW</div>
-        <h2 className="preview-name">{task.id || 'Sem nome'}</h2>
+        <h2 className="preview-name">{task.id || 'No name'}</h2>
         <div className="preview-art">{taskVisual(hasRegion)}</div>
-        <div className="preview-cat">{hasRegion ? `Ilha: ${task.regionId}` : 'Área do continente'}</div>
+        <div className="preview-cat">{hasRegion ? `Island: ${task.regionId}` : 'Mainland area'}</div>
         <div className="preview-stats">
           <div className="preview-stat">
-            <span className="lbl">🚪 Salas</span>
+            <span className="lbl">🚪 Rooms</span>
             <span className="val">{task.roomChoices?.length ?? 0}</span>
           </div>
           <div className="preview-stat">
-            <span className="lbl">🗝️ Chaves dadas</span>
+            <span className="lbl">🗝️ Keys given</span>
             <span className="val">{task.keysGiven?.filter((k) => k !== 'NONE').length ?? 0}</span>
           </div>
         </div>
         <hr className="preview-hr" />
-        <div className="preview-sub">Travas (locks)</div>
+        <div className="preview-sub">Locks</div>
         <div className="preview-tags">
           {(task.locks ?? []).filter((l) => l !== 'NONE').map((lock) => (
             <div key={lock} className="preview-tag">
@@ -30,7 +30,7 @@ export function TaskPreview({ task }: { task: Partial<TaskDef> }) {
             </div>
           ))}
         </div>
-        <div className="preview-sub">Terreno de fundo</div>
+        <div className="preview-sub">Background terrain</div>
         <div className="preview-desc">{task.backgroundTerrain || '—'}</div>
       </div>
     </div>

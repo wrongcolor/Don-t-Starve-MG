@@ -49,7 +49,7 @@ function EnumListEditor({
           ))}
         </select>
         <button type="button" className="btn-outline" onClick={() => onAdd(selected)}>
-          + Adicionar
+          + Add
         </button>
       </div>
       {values.length > 0 && (
@@ -94,19 +94,19 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
   return (
     <>
       <form className="main" onSubmit={handleSubmit(onSubmit)}>
-        <FormHeader icon="📍" title={initialTask ? initialTask.id : 'Nova Task'} />
+        <FormHeader icon="📍" title={initialTask ? initialTask.id : 'New Task'} />
 
         <div className="main-scroll">
-          <Fieldset legend="Identidade" step={1}>
-            <FormField label="Id (nome da task)" error={errors.id?.message}>
-              <input className={inputClass} {...register('id')} disabled={!!initialTask} placeholder="Minha Nova Area" />
+          <Fieldset legend="Identity" step={1}>
+            <FormField label="Id (task name)" error={errors.id?.message}>
+              <input className={inputClass} {...register('id')} disabled={!!initialTask} placeholder="My New Area" />
             </FormField>
           </Fieldset>
 
           <div className="grid-2">
-            <Fieldset legend="Progressão (lock &amp; key)" step={2}>
+            <Fieldset legend="Progression (lock &amp; key)" step={2}>
               <EnumListEditor
-                label="Travas (precisa ter essas chaves pra entrar aqui)"
+                label="Locks (needs these keys to enter here)"
                 options={LOCKS}
                 values={locks}
                 onAdd={(v) => {
@@ -121,7 +121,7 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
                 }}
               />
               <EnumListEditor
-                label="Chaves dadas (o que essa área libera pra outras)"
+                label="Keys given (what this area unlocks for others)"
                 options={KEYS}
                 values={keysGiven}
                 onAdd={(v) => {
@@ -137,14 +137,14 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
               />
             </Fieldset>
 
-            <Fieldset legend="Salas (Rooms)" step={3}>
+            <Fieldset legend="Rooms" step={3}>
               {roomChoices.fields.map((field, index) => (
                 <div key={field.id} className="ingredient-row">
-                  <input className={inputClass} placeholder="id da sala (sua ou do jogo base)" {...register(`roomChoices.${index}.roomId` as const)} />
-                  <input type="number" className="qty-input" placeholder="mín" {...register(`roomChoices.${index}.count.min` as const, { valueAsNumber: true })} />
-                  <input type="number" className="qty-input" placeholder="máx" {...register(`roomChoices.${index}.count.max` as const, { valueAsNumber: true })} />
+                  <input className={inputClass} placeholder="room id (yours or base game)" {...register(`roomChoices.${index}.roomId` as const)} />
+                  <input type="number" className="qty-input" placeholder="min" {...register(`roomChoices.${index}.count.min` as const, { valueAsNumber: true })} />
+                  <input type="number" className="qty-input" placeholder="max" {...register(`roomChoices.${index}.count.max` as const, { valueAsNumber: true })} />
                   <button type="button" className={btnDanger} onClick={() => roomChoices.remove(index)}>
-                    Remover
+                    Remove
                   </button>
                 </div>
               ))}
@@ -153,15 +153,15 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
                 className="add-ingredient"
                 onClick={() => roomChoices.append({ roomId: '', count: { min: 1, max: 1 } })}
               >
-                + Adicionar sala
+                + Add room
               </button>
               {errors.roomChoices?.message && <p className="field error">{errors.roomChoices.message}</p>}
             </Fieldset>
           </div>
 
-          <Fieldset legend="Terreno e mapa" step={4}>
+          <Fieldset legend="Terrain and map" step={4}>
             <div className="row-2">
-              <FormField label="Terreno de fundo">
+              <FormField label="Background terrain">
                 <select className={inputClass} {...register('backgroundTerrain')}>
                   {WORLD_TILES.map((t) => (
                     <option key={t.value} value={t.value}>
@@ -170,8 +170,8 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
                   ))}
                 </select>
               </FormField>
-              <FormField label="Sala de fundo (opcional)">
-                <input className={inputClass} {...register('backgroundRoom')} placeholder="ex: BGGrass" />
+              <FormField label="Background room (optional)">
+                <input className={inputClass} {...register('backgroundRoom')} placeholder="e.g. BGGrass" />
               </FormField>
             </div>
 
@@ -180,15 +180,15 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
                 <input
                   type="checkbox"
                   checked={enableRegion}
-                  onChange={(e) => setValue('regionId', e.target.checked ? 'minhailha1' : undefined)}
+                  onChange={(e) => setValue('regionId', e.target.checked ? 'myisland1' : undefined)}
                 />
-                Faz parte de uma ilha separada do continente
+                Part of an island separate from the mainland
               </label>
             </div>
             {enableRegion && (
               <FormField
-                label="Id da região (use o mesmo id em todas as Tasks dessa ilha)"
-                hint='Tasks com o mesmo "id da região" viram um único pedaço de terra isolado, ligado ao continente por uma única travessia — é assim que a Ilha da Lua é montada no jogo (patterns.md#17).'
+                label="Region id (use the same id across all Tasks on this island)"
+                hint='Tasks sharing the same "region id" become a single detached landmass, connected to the mainland by a single crossing — this is how the Lunar Island is built in-game (patterns.md#17).'
               >
                 <input className={inputClass} {...register('regionId')} />
               </FormField>
@@ -196,7 +196,7 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
           </Fieldset>
         </div>
 
-        <FormFooter itemName={watched.id || 'Nova task'} saveLabel={initialTask ? 'Salvar alterações' : 'Adicionar task'} onCancel={onCancel} />
+        <FormFooter itemName={watched.id || 'New task'} saveLabel={initialTask ? 'Save changes' : 'Add task'} onCancel={onCancel} />
       </form>
 
       <TaskPreview task={watched} />

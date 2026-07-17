@@ -26,12 +26,12 @@ export function GenerateButton() {
   }
 
   const title = !canGenerate
-    ? 'Preencha o nome do mod e adicione pelo menos 1 item, personagem ou criatura.'
+    ? 'Fill in the mod name and add at least 1 item, character, or creature.'
     : (error ?? undefined)
 
   return (
     <button className="nav-item" style={{ opacity: !canGenerate || busy ? 0.5 : 1 }} disabled={!canGenerate || busy} onClick={handleGenerate} title={title}>
-      {busy ? '⏳ Gerando...' : '📤 Gerar mod (.zip)'}
+      {busy ? '⏳ Generating...' : '📤 Generate mod (.zip)'}
     </button>
   )
 }

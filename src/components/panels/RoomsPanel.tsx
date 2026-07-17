@@ -12,10 +12,10 @@ export function RoomsPanel() {
     <EntityListPanel
       headerIcon="🌳"
       title="Rooms"
-      addLabel="Nova sala"
-      emptyMessage="Nenhuma sala adicionada ainda."
-      emptyHint="O mapa ainda é só névoa — desenhe a primeira sala."
-      tip="Rooms definem o conteúdo real de uma área: terreno + prefabs fixos/espalhados."
+      addLabel="New room"
+      emptyMessage="No rooms added yet."
+      emptyHint="The map is still just fog — draw the first room."
+      tip="Rooms define the actual content of an area: terrain + fixed/scattered prefabs."
       items={rooms}
       getLabel={(room) => room.id}
       getIcon={(room) => roomVisual(room.terrain)}

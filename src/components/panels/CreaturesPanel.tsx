@@ -11,11 +11,11 @@ export function CreaturesPanel() {
   return (
     <EntityListPanel
       headerIcon="👹"
-      title="Criaturas"
-      addLabel="Nova criatura"
-      emptyMessage="Nenhuma criatura adicionada ainda."
-      emptyHint="A floresta está vazia — invoque a primeira criatura."
-      tip="Comportamento define reação a ataques: passiva foge, neutra revida, hostil ataca por conta própria."
+      title="Creatures"
+      addLabel="New creature"
+      emptyMessage="No creatures added yet."
+      emptyHint="The forest is empty — summon the first creature."
+      tip="Behavior defines the reaction to attacks: passive flees, neutral fights back, hostile attacks on its own."
       items={creatures}
       getLabel={(creature) => creature.displayName}
       getIcon={(creature) => behaviorVisual(creature.behavior)}

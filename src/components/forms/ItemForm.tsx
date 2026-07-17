@@ -34,18 +34,18 @@ const emptyItem: ItemDef = {
 // archetype — a shortcut, not a distinct schema concept (patterns.md has no
 // "weapon subtype"; a sword and a spear are both just `category: 'weapon'`).
 const ITEM_TEMPLATES: { key: string; label: string; icon: string; patch: Partial<ItemDef> }[] = [
-  { key: 'axe', label: 'Machado', icon: '🪓', patch: { category: 'tool', toolAction: 'CHOP' } },
-  { key: 'pickaxe', label: 'Picareta', icon: '⛏️', patch: { category: 'tool', toolAction: 'MINE' } },
-  { key: 'shovel', label: 'Pá', icon: '🕳️', patch: { category: 'tool', toolAction: 'DIG' } },
-  { key: 'sword', label: 'Espada', icon: '🗡️', patch: { category: 'weapon', weapon: { damage: 34 } } },
+  { key: 'axe', label: 'Axe', icon: '🪓', patch: { category: 'tool', toolAction: 'CHOP' } },
+  { key: 'pickaxe', label: 'Pickaxe', icon: '⛏️', patch: { category: 'tool', toolAction: 'MINE' } },
+  { key: 'shovel', label: 'Shovel', icon: '🕳️', patch: { category: 'tool', toolAction: 'DIG' } },
+  { key: 'sword', label: 'Sword', icon: '🗡️', patch: { category: 'weapon', weapon: { damage: 34 } } },
   {
     key: 'bow',
-    label: 'Arco',
+    label: 'Bow',
     icon: '🏹',
     patch: { category: 'weapon', weapon: { damage: 0, ranged: { minRange: 6, maxRange: 12, projectilePrefab: 'arrow', onHitEffect: 'none' } } },
   },
-  { key: 'armor', label: 'Armadura', icon: '🛡️', patch: { category: 'armor', armor: { absorption: 0.8 } } },
-  { key: 'other', label: 'Outro', icon: '✨', patch: { category: 'generic' } },
+  { key: 'armor', label: 'Armor', icon: '🛡️', patch: { category: 'armor', armor: { absorption: 0.8 } } },
+  { key: 'other', label: 'Other', icon: '✨', patch: { category: 'generic' } },
 ]
 
 export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
@@ -97,12 +97,12 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   return (
     <>
       <form className="main" onSubmit={handleSubmit(onSubmit)}>
-        <FormHeader icon="📖" title={initialItem ? initialItem.displayName : 'Novo Item'} />
+        <FormHeader icon="📖" title={initialItem ? initialItem.displayName : 'New Item'} />
 
         <div className="main-scroll">
           <div className="panel">
             <div className="templates">
-              <div className="tpl-search">Ou escolha um modelo:</div>
+              <div className="tpl-search">Or pick a template:</div>
               {ITEM_TEMPLATES.map((t) => (
                 <div
                   key={t.key}
@@ -117,51 +117,51 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
           </div>
 
           <div className="grid-2">
-            <Fieldset legend="Identidade" step={1}>
+            <Fieldset legend="Identity" step={1}>
               <div className="row-2">
-                <FormField label="Id (identificador interno)" error={errors.id?.message}>
-                  <input className={inputClass} {...register('id')} disabled={!!initialItem} placeholder="meu_item" />
+                <FormField label="Id (internal identifier)" error={errors.id?.message}>
+                  <input className={inputClass} {...register('id')} disabled={!!initialItem} placeholder="my_item" />
                 </FormField>
-                <FormField label="Categoria">
+                <FormField label="Category">
                   <select className={inputClass} {...register('category')}>
-                    <option value="generic">Genérico</option>
-                    <option value="tool">Ferramenta</option>
-                    <option value="weapon">Arma</option>
-                    <option value="armor">Armadura</option>
-                    <option value="food">Comida</option>
+                    <option value="generic">Generic</option>
+                    <option value="tool">Tool</option>
+                    <option value="weapon">Weapon</option>
+                    <option value="armor">Armor</option>
+                    <option value="food">Food</option>
                   </select>
                 </FormField>
               </div>
 
               {category === 'tool' && (
-                <FormField label="Ação da ferramenta" error={errors.toolAction?.message}>
+                <FormField label="Tool action" error={errors.toolAction?.message}>
                   <select className={inputClass} {...register('toolAction')} defaultValue="">
                     <option value="" disabled>
-                      Selecione...
+                      Select...
                     </option>
                     {TOOL_ACTIONS.map((a) => (
                       <option key={a} value={a}>
-                        {a === 'CHOP' ? 'Cortar (árvores)' : a === 'MINE' ? 'Minerar (pedras)' : 'Cavar (buracos/troncos)'}
+                        {a === 'CHOP' ? 'Chop (trees)' : a === 'MINE' ? 'Mine (rocks)' : 'Dig (holes/stumps)'}
                       </option>
                     ))}
                   </select>
                 </FormField>
               )}
 
-              <FormField label="Nome exibido" error={errors.displayName?.message}>
+              <FormField label="Display name" error={errors.displayName?.message}>
                 <input className={inputClass} {...register('displayName')} />
               </FormField>
 
-              <FormField label="Descrição (crafting + inspect)" error={errors.description?.message}>
+              <FormField label="Description (crafting + inspect)" error={errors.description?.message}>
                 <textarea className={inputClass} rows={2} {...register('description')} />
               </FormField>
             </Fieldset>
 
-            <Fieldset legend="Aparência" step={2}>
+            <Fieldset legend="Appearance" step={2}>
               <div className="sprite-row">
                 <div className="sprite-box">{categoryVisual(category)}</div>
                 <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>
-                  Ícone gerado a partir da categoria — a arte final (inventoryimages) é fornecida à parte.
+                  Icon generated from the category — the final art (inventoryimages) is supplied separately.
                 </div>
               </div>
 
@@ -176,7 +176,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       setValue('animation', { source: 'custom' })
                     }}
                   />
-                  Vou criar minha própria animação (build próprio, anim/&lt;id&gt;.zip)
+                  I'll create my own animation (own build, anim/&lt;id&gt;.zip)
                 </label>
                 <label>
                   <input
@@ -188,13 +188,13 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       setValue('animation', { source: 'vanilla', build: VANILLA_ITEM_BUILDS[0].build })
                     }}
                   />
-                  Usar uma animação já existente no jogo
+                  Reuse an existing in-game animation
                 </label>
               </div>
 
               {animationSource === 'vanilla' && (
                 <FormField
-                  label="Animação"
+                  label="Animation"
                   error={(errors.animation as { build?: { message?: string } } | undefined)?.build?.message}
                 >
                   <select className={inputClass} {...register('animation.build' as const)}>
@@ -210,7 +210,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
           </div>
 
           <div className="grid-3">
-            <Fieldset legend="Durabilidade" step={3}>
+            <Fieldset legend="Durability" step={3}>
               <div className="checks">
                 <label>
                   <input
@@ -218,11 +218,11 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     checked={enableStackable}
                     onChange={(e) => setValue('stackable', e.target.checked ? { maxSize: 20 } : undefined)}
                   />
-                  Empilhável
+                  Stackable
                 </label>
               </div>
               {enableStackable && (
-                <FormField label="Tamanho máx. da pilha">
+                <FormField label="Max stack size">
                   <input type="number" className={inputClass} {...register('stackable.maxSize', { valueAsNumber: true })} />
                 </FormField>
               )}
@@ -235,11 +235,11 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     disabled={enableFiniteuses}
                     onChange={(e) => setValue('perishable', e.target.checked ? { perishTimeDays: 3 } : undefined)}
                   />
-                  Perecível {enableFiniteuses && '(desative "usos máximos" primeiro)'}
+                  Perishable {enableFiniteuses && '(turn off "max uses" first)'}
                 </label>
               </div>
               {enablePerishable && (
-                <FormField label="Tempo até estragar (dias)" hint="A durabilidade do item é esse tempo.">
+                <FormField label="Time to spoil (days)" hint="The item's durability is this amount of time.">
                   <input type="number" step="0.1" className={inputClass} {...register('perishable.perishTimeDays', { valueAsNumber: true })} />
                 </FormField>
               )}
@@ -252,25 +252,25 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     disabled={enablePerishable}
                     onChange={(e) => setValue('finiteuses', e.target.checked ? { maxUses: 100 } : undefined)}
                   />
-                  Usos máximos {enablePerishable && '(desative "perecível" primeiro)'}
+                  Max uses {enablePerishable && '(turn off "perishable" first)'}
                 </label>
               </div>
               {enableFiniteuses && (
                 <>
-                  <FormField label="Usos máximos">
+                  <FormField label="Max uses">
                     <input type="number" className={inputClass} {...register('finiteuses.maxUses', { valueAsNumber: true })} />
                   </FormField>
                   <div className="checks">
                     <label>
                       <input type="checkbox" {...register('finiteuses.ignoreCombatDurabilityLoss')} />
-                      Não perde uso ao atacar
+                      Doesn't lose a use when attacking
                     </label>
                   </div>
                 </>
               )}
             </Fieldset>
 
-            <Fieldset legend="Combate" step={4}>
+            <Fieldset legend="Combat" step={4}>
               <div className="checks">
                 <label>
                   <input
@@ -278,12 +278,12 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     checked={enableWeapon}
                     onChange={(e) => setValue('weapon', e.target.checked ? { damage: 20 } : undefined)}
                   />
-                  Arma (dano ao atacar)
+                  Weapon (damage on attack)
                 </label>
               </div>
               {enableWeapon && (
                 <>
-                  <FormField label="Dano (0 se à distância)">
+                  <FormField label="Damage (0 if ranged)">
                     <input type="number" className={inputClass} {...register('weapon.damage', { valueAsNumber: true })} />
                   </FormField>
 
@@ -292,7 +292,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       className={`icon-toggle ${!enableRanged ? 'active' : ''}`}
                       onClick={() => setValue('weapon.ranged', undefined)}
                     >
-                      🪓 Corpo a corpo
+                      🪓 Melee
                     </div>
                     <div
                       className={`icon-toggle ${enableRanged ? 'active' : ''}`}
@@ -305,26 +305,26 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                         })
                       }
                     >
-                      🏹 À distância
+                      🏹 Ranged
                     </div>
                   </div>
 
                   {enableRanged && (
                     <div className="row-2">
-                      <FormField label="Alcance mínimo">
+                      <FormField label="Min range">
                         <input type="number" className={inputClass} {...register('weapon.ranged.minRange', { valueAsNumber: true })} />
                       </FormField>
-                      <FormField label="Alcance máximo" error={(errors.weapon?.ranged as { maxRange?: { message?: string } } | undefined)?.maxRange?.message}>
+                      <FormField label="Max range" error={(errors.weapon?.ranged as { maxRange?: { message?: string } } | undefined)?.maxRange?.message}>
                         <input type="number" className={inputClass} {...register('weapon.ranged.maxRange', { valueAsNumber: true })} />
                       </FormField>
-                      <FormField label="Prefab do projétil">
+                      <FormField label="Projectile prefab">
                         <input className={inputClass} {...register('weapon.ranged.projectilePrefab')} />
                       </FormField>
-                      <FormField label="Efeito ao acertar">
+                      <FormField label="Effect on hit">
                         <select className={inputClass} {...register('weapon.ranged.onHitEffect')}>
                           {ON_HIT_EFFECTS.map((e) => (
                             <option key={e} value={e}>
-                              {e === 'none' ? 'Nenhum' : e === 'ignite' ? 'Incendiar' : 'Congelar'}
+                              {e === 'none' ? 'None' : e === 'ignite' ? 'Ignite' : 'Freeze'}
                             </option>
                           ))}
                         </select>
@@ -339,11 +339,11 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                         checked={enableSanityCost}
                         onChange={(e) => setValue('weapon.sanityCostOnUse', e.target.checked ? 3 : undefined)}
                       />
-                      Custa sanidade ao atacar
+                      Costs sanity on attack
                     </label>
                   </div>
                   {enableSanityCost && (
-                    <FormField label="Sanidade perdida por ataque">
+                    <FormField label="Sanity lost per attack">
                       <input type="number" step="0.1" className={inputClass} {...register('weapon.sanityCostOnUse', { valueAsNumber: true })} />
                     </FormField>
                   )}
@@ -359,11 +359,11 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                         checked={enableWalkSpeedMult}
                         onChange={(e) => setValue('equipWalkSpeedMult', e.target.checked ? 1.25 : undefined)}
                       />
-                      Muda velocidade ao equipar
+                      Changes walk speed while equipped
                     </label>
                   </div>
                   {enableWalkSpeedMult && (
-                    <FormField label="Multiplicador (1 = normal)">
+                    <FormField label="Multiplier (1 = normal)">
                       <input type="number" step="0.05" className={inputClass} {...register('equipWalkSpeedMult', { valueAsNumber: true })} />
                     </FormField>
                   )}
@@ -377,37 +377,37 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     checked={enableSpellEffect}
                     onChange={(e) => setValue('spellEffect', e.target.checked ? SPELL_EFFECTS[0] : undefined)}
                   />
-                  Efeito mágico (usar sobre um ponto)
+                  Magic effect (use on a map point)
                 </label>
               </div>
               {enableSpellEffect && (
-                <FormField label="Efeito">
+                <FormField label="Effect">
                   <select className={inputClass} {...register('spellEffect')}>
-                    <option value="createLight">Criar luz no ponto</option>
+                    <option value="createLight">Create light at the point</option>
                   </select>
                 </FormField>
               )}
             </Fieldset>
 
-            <Fieldset legend="Receita (Crafting)" step={5}>
+            <Fieldset legend="Recipe (Crafting)" step={5}>
               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', marginBottom: 8 }}>
-                Ingredientes
+                Ingredients
               </span>
               {fields.map((field, index) => (
                 <div key={field.id} className="ingredient-row">
-                  <input className={inputClass} placeholder="id do prefab (ex: twigs)" {...register(`recipe.ingredients.${index}.prefab` as const)} />
+                  <input className={inputClass} placeholder="prefab id (e.g. twigs)" {...register(`recipe.ingredients.${index}.prefab` as const)} />
                   <input type="number" className="qty-input" {...register(`recipe.ingredients.${index}.amount` as const, { valueAsNumber: true })} />
                   <button type="button" className={btnDanger} onClick={() => remove(index)}>
-                    Remover
+                    Remove
                   </button>
                 </div>
               ))}
               <button type="button" className="add-ingredient" onClick={() => append({ prefab: '', amount: 1 })}>
-                + Adicionar ingrediente
+                + Add ingredient
               </button>
               {errors.recipe?.ingredients?.message && <p className="field error">{errors.recipe.ingredients.message}</p>}
 
-              <FormField label="Nível de tecnologia">
+              <FormField label="Tech level">
                 <select className={inputClass} {...register('recipe.techLevel')}>
                   {TECH_LEVELS.map((t) => (
                     <option key={t} value={t}>
@@ -418,7 +418,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
               </FormField>
 
               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', marginBottom: 8 }}>
-                Abas de crafting
+                Crafting tabs
               </span>
               <div className="tag-grid">
                 {RECIPE_FILTERS.map((f) => (
@@ -433,13 +433,13 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
               <div className="checks">
                 <label>
                   <input type="checkbox" {...register('recipe.placer')} />
-                  É uma estrutura (gera placer)
+                  It's a structure (generates a placer)
                 </label>
               </div>
             </Fieldset>
           </div>
 
-          <Fieldset legend="Armadura" step={6}>
+          <Fieldset legend="Armor" step={6}>
             <div className="checks">
               <label>
                 <input
@@ -447,20 +447,20 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   checked={enableArmor}
                   onChange={(e) => setValue('armor', e.target.checked ? { absorption: 0.8 } : undefined)}
                 />
-                É uma armadura (absorção de dano)
+                It's armor (damage absorption)
               </label>
             </div>
             {enableArmor && (
               <>
                 <div className="row-2">
-                  <FormField label="Absorção (0 a 1)">
+                  <FormField label="Absorption (0 to 1)">
                     <input type="number" step="0.01" min="0.01" max="1" className={inputClass} {...register('armor.absorption', { valueAsNumber: true })} />
                   </FormField>
                 </div>
                 <div className="checks">
                   <label>
                     <input type="checkbox" {...register('armor.flammable')} />
-                    Material inflamável
+                    Flammable material
                   </label>
                   <label>
                     <input
@@ -468,11 +468,11 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       checked={enableDapperness}
                       onChange={(e) => setValue('armor.dapperness', e.target.checked ? 0.5 : undefined)}
                     />
-                    Afeta sanidade enquanto equipada
+                    Affects sanity while equipped
                   </label>
                 </div>
                 {enableDapperness && (
-                  <FormField label="Sanidade por minuto (negativo = perde)">
+                  <FormField label="Sanity per minute (negative = drains)">
                     <input type="number" step="0.1" className={inputClass} {...register('armor.dapperness', { valueAsNumber: true })} />
                   </FormField>
                 )}
@@ -484,15 +484,15 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       checked={enableWeakness}
                       onChange={(e) => setValue('armor.weakness', e.target.checked ? { tag: '', extraDamage: 1 } : undefined)}
                     />
-                    Fraqueza contra um tipo de atacante
+                    Weak against one attacker type
                   </label>
                 </div>
                 {enableWeakness && (
                   <div className="row-2">
-                    <FormField label="Tag do atacante (ex: beaver)">
+                    <FormField label="Attacker tag (e.g. beaver)">
                       <input className={inputClass} {...register('armor.weakness.tag')} />
                     </FormField>
-                    <FormField label="Dano extra">
+                    <FormField label="Extra damage">
                       <input type="number" className={inputClass} {...register('armor.weakness.extraDamage', { valueAsNumber: true })} />
                     </FormField>
                   </div>
@@ -505,11 +505,11 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       checked={enableSanityLossOnHit}
                       onChange={(e) => setValue('armor.sanityLossOnHitPercent', e.target.checked ? 0.5 : undefined)}
                     />
-                    Perde sanidade ao tomar dano
+                    Loses sanity when hit
                   </label>
                 </div>
                 {enableSanityLossOnHit && (
-                  <FormField label="Proporção do dano convertida em sanidade (0 a 1)">
+                  <FormField label="Fraction of damage converted to sanity loss (0 to 1)">
                     <input type="number" step="0.01" min="0" max="1" className={inputClass} {...register('armor.sanityLossOnHitPercent', { valueAsNumber: true })} />
                   </FormField>
                 )}
@@ -518,7 +518,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
           </Fieldset>
         </div>
 
-        <FormFooter itemName={watched.displayName || 'Novo item'} saveLabel={initialItem ? 'Salvar alterações' : 'Adicionar item'} onCancel={onCancel} />
+        <FormFooter itemName={watched.displayName || 'New item'} saveLabel={initialItem ? 'Save changes' : 'Add item'} onCancel={onCancel} />
       </form>
 
       <ItemPreview item={watched} />

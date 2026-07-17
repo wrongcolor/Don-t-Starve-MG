@@ -72,7 +72,7 @@ export function EntityListPanel<T extends { id: string }>({
           <div className="search-box">
             <input
               type="text"
-              placeholder="Buscar..."
+              placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -98,7 +98,7 @@ export function EntityListPanel<T extends { id: string }>({
           </div>
         </div>
         <div className="tip-box panel">
-          <div className="tip-title">DICA</div>
+          <div className="tip-title">TIP</div>
           {tip}
           <div className="tip-face">{tipIcon}</div>
         </div>

@@ -4,7 +4,7 @@ import { RoomForm } from '../../components/forms/RoomForm'
 
 // Regression test for a bug where useFieldArray on `scatter.prefabs` (needed
 // unconditionally per rules of hooks) materialized a partial `scatter: { prefabs: [] }`
-// in the form's raw values even with the "decoração espalhada" checkbox off — zodResolver
+// in the form's raw values even with the "scattered decoration" checkbox off — zodResolver
 // rejected that partial shape against the optional `scatter` schema with no visible error,
 // so the form silently did nothing on submit.
 describe('RoomForm', () => {
@@ -12,8 +12,8 @@ describe('RoomForm', () => {
     const onSave = vi.fn()
     render(<RoomForm onSave={onSave} />)
 
-    fireEvent.change(screen.getByPlaceholderText('MinhaSalaFloresta'), { target: { value: 'PlainRoom' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Adicionar sala' }))
+    fireEvent.change(screen.getByPlaceholderText('MyForestRoom'), { target: { value: 'PlainRoom' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add room' }))
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
     const saved = onSave.mock.calls[0][0]
@@ -25,11 +25,11 @@ describe('RoomForm', () => {
     const onSave = vi.fn()
     render(<RoomForm onSave={onSave} />)
 
-    fireEvent.change(screen.getByPlaceholderText('MinhaSalaFloresta'), { target: { value: 'ScatterRoom' } })
-    fireEvent.click(screen.getByText('Tem decoração espalhada pela sala (ex: grama, flores)'))
-    fireEvent.click(screen.getByRole('button', { name: '+ Item de decoração' }))
-    fireEvent.change(screen.getByPlaceholderText('id do prefab (ex: grass)'), { target: { value: 'grass' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Adicionar sala' }))
+    fireEvent.change(screen.getByPlaceholderText('MyForestRoom'), { target: { value: 'ScatterRoom' } })
+    fireEvent.click(screen.getByText('Has decoration scattered around the room (e.g. grass, flowers)'))
+    fireEvent.click(screen.getByRole('button', { name: '+ Add decoration item' }))
+    fireEvent.change(screen.getByPlaceholderText('prefab id (e.g. grass)'), { target: { value: 'grass' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add room' }))
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
     const saved = onSave.mock.calls[0][0]

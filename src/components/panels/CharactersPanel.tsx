@@ -11,11 +11,11 @@ export function CharactersPanel() {
   return (
     <EntityListPanel
       headerIcon="🧑"
-      title="Personagens"
-      addLabel="Novo personagem"
-      emptyMessage="Nenhum personagem adicionado ainda."
-      emptyHint="O acampamento está sem sobreviventes — crie o primeiro."
-      tip="Personagens herdam a fala do Wilson por padrão — ajuste falas específicas depois de gerar o mod."
+      title="Characters"
+      addLabel="New character"
+      emptyMessage="No characters added yet."
+      emptyHint="The camp has no survivors — create the first one."
+      tip="Characters inherit Wilson's speech by default — adjust specific lines after generating the mod."
       items={characters}
       getLabel={(character) => character.name}
       getIcon={characterVisual}

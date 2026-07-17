@@ -8,12 +8,12 @@ import { ReaderPanel } from './components/panels/ReaderPanel'
 import { GenerateButton } from './components/GenerateButton'
 
 const TABS = [
-  { key: 'meta', label: 'Metadados', icon: '📋' },
-  { key: 'items', label: 'Itens', icon: '⚔️' },
-  { key: 'characters', label: 'Personagens', icon: '🧑' },
-  { key: 'creatures', label: 'Criaturas', icon: '👹' },
-  { key: 'world', label: 'Mundo', icon: '🌍' },
-  { key: 'reader', label: 'Leitura', icon: '🔍' },
+  { key: 'meta', label: 'Metadata', icon: '📋' },
+  { key: 'items', label: 'Items', icon: '⚔️' },
+  { key: 'characters', label: 'Characters', icon: '🧑' },
+  { key: 'creatures', label: 'Creatures', icon: '👹' },
+  { key: 'world', label: 'World', icon: '🌍' },
+  { key: 'reader', label: 'Reader', icon: '🔍' },
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']

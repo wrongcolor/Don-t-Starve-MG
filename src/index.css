@@ -91,7 +91,7 @@ body {
 .logo {
   font-family: var(--font-display);
   color: var(--gold-bright);
-  font-size: 20px;
+  font-size: 22px;
   line-height: 1.05;
   margin-right: 24px;
   text-shadow: 0 2px 3px rgba(0, 0, 0, 0.6);
@@ -100,7 +100,7 @@ body {
 .logo small {
   display: block;
   font-family: var(--font-display);
-  font-size: 12px;
+  font-size: 13px;
   color: #c9b389;
   font-style: italic;
 }
@@ -109,7 +109,7 @@ body {
   align-items: center;
   gap: 6px;
   color: #cdbb98;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   padding: 8px 14px;
   border-radius: 6px;
@@ -180,7 +180,7 @@ body {
   border-radius: 8px;
   color: #2a1a08;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
   padding: 11px;
   cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 3px 6px rgba(0, 0, 0, 0.4);
@@ -196,7 +196,7 @@ body {
   min-height: 0;
 }
 .sidebar-title {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 1px;
   color: var(--ink-soft);
   font-weight: 700;
@@ -213,7 +213,7 @@ body {
   border: 1px solid var(--parchment-line);
   background: #f4ecd6;
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 14px;
   color: var(--ink);
 }
 .search-box span {
@@ -221,7 +221,7 @@ body {
   right: 9px;
   top: 8px;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
 }
 .item-list {
   overflow-y: auto;
@@ -237,7 +237,7 @@ body {
   padding: 8px 9px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--ink);
   border: 1px solid transparent;
@@ -269,7 +269,7 @@ body {
 }
 .tip-box.panel {
   padding: 14px;
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--ink-soft);
   line-height: 1.5;
   position: relative;
@@ -279,7 +279,7 @@ body {
   font-weight: 700;
   color: var(--ink);
   letter-spacing: 1px;
-  font-size: 11px;
+  font-size: 12px;
   margin-bottom: 6px;
 }
 .tip-face {
@@ -316,7 +316,7 @@ body {
 }
 .header-bar h1 {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 24px;
   margin: 0;
   color: var(--ink);
   font-weight: 400;
@@ -337,7 +337,7 @@ body {
   align-items: center;
   gap: 8px;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
   margin-bottom: 4px;
 }
 .tpl-card {
@@ -352,7 +352,7 @@ body {
   justify-content: center;
   gap: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--ink-soft);
   transition: 0.15s;
@@ -374,7 +374,7 @@ body {
   align-items: center;
   gap: 9px;
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--ink);
   margin: 0 0 12px 0;
@@ -416,7 +416,7 @@ body {
 }
 .field label {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--ink-soft);
   margin-bottom: 5px;
@@ -432,7 +432,7 @@ body {
   border: 1px solid var(--parchment-line);
   background: #f4ecd6;
   font-family: var(--font-body);
-  font-size: 13.5px;
+  font-size: 14.5px;
   color: var(--ink);
 }
 .field textarea {
@@ -450,7 +450,7 @@ body {
   border: 1px solid var(--parchment-line);
   background: #f4ecd6;
   font-family: var(--font-body);
-  font-size: 13.5px;
+  font-size: 14.5px;
   color: var(--ink);
 }
 .input-box:disabled {
@@ -459,7 +459,7 @@ body {
 
 .btn-remove {
   color: var(--accent-red);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   background: none;
   border: none;
@@ -473,12 +473,12 @@ body {
 }
 .field .error {
   margin-top: 4px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--accent-red);
 }
 .field .hint {
   margin-top: 4px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--ink-soft);
 }
 .row-2 {
@@ -514,7 +514,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 600;
   padding: 7px 11px;
   border-radius: 6px;
@@ -535,7 +535,7 @@ body {
   border-radius: 6px;
   border: 1px solid var(--parchment-line);
   background: #f4ecd6;
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
   color: var(--ink);
@@ -581,7 +581,7 @@ body {
   flex-direction: column;
   gap: 9px;
   margin-top: 6px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .checks label {
   display: flex;
@@ -610,7 +610,7 @@ body {
   border-radius: 6px;
   border: 1px solid var(--parchment-line);
   background: #f4ecd6;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   color: var(--ink);
@@ -624,7 +624,7 @@ body {
   border-color: var(--gold-dark);
 }
 .sel-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--ink-soft);
   margin-bottom: 8px;
@@ -642,7 +642,7 @@ body {
   border-radius: 6px;
   background: linear-gradient(180deg, #3a2c18, #2a1f10);
   color: var(--gold-bright);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 .sel-tag .x {
@@ -667,7 +667,7 @@ body {
   background: #f4ecd6;
   border: 1px solid var(--parchment-line);
   margin-bottom: 8px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 .ingredient-row input {
@@ -678,7 +678,7 @@ body {
   border: 1px solid var(--parchment-line);
   border-radius: 5px;
   padding: 5px 6px;
-  font-size: 12px;
+  font-size: 13px;
   background: #fff;
 }
 .add-ingredient {
@@ -689,7 +689,7 @@ body {
   border: 1.5px dashed var(--parchment-line);
   background: transparent;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -716,7 +716,7 @@ body {
   display: flex;
   align-items: center;
   gap: 16px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--ink-soft);
   font-weight: 600;
 }
@@ -727,7 +727,7 @@ body {
   padding: 11px 26px;
   color: #2a1a08;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
@@ -761,7 +761,7 @@ body {
 .preview-label {
   text-align: center;
   color: var(--gold-bright);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 3px;
   font-weight: 700;
   margin-bottom: 14px;
@@ -770,7 +770,7 @@ body {
   text-align: center;
   font-family: var(--font-display);
   color: #f1e6c8;
-  font-size: 22px;
+  font-size: 23px;
   letter-spacing: 0.5px;
   margin: 0 0 16px 0;
 }
@@ -789,7 +789,7 @@ body {
 .preview-cat {
   text-align: center;
   color: #b89a68;
-  font-size: 13px;
+  font-size: 14px;
   margin-bottom: 18px;
 }
 .preview-stats {
@@ -802,7 +802,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 13.5px;
+  font-size: 14.5px;
   color: #e6d8b8;
   gap: 8px;
 }
@@ -823,7 +823,7 @@ body {
 }
 .preview-sub {
   color: var(--gold-bright);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 1.5px;
   font-weight: 700;
   margin-bottom: 9px;
@@ -840,7 +840,7 @@ body {
   color: var(--gold-bright);
   padding: 5px 10px;
   border-radius: 6px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -848,7 +848,7 @@ body {
 }
 .preview-desc {
   color: #c9b998;
-  font-size: 12.5px;
+  font-size: 13.5px;
   line-height: 1.5;
   margin-bottom: 20px;
 }

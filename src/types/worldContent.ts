@@ -5,25 +5,25 @@ import { z } from 'zod'
 // research behind this file. Room/Task ids are free-form strings used as Lua
 // table keys (the real game uses ids like "Make a pick"), NOT lua-identifier
 // constrained like item/creature ids — always escape them via luaString().
-const worldContentId = z.string().min(1, 'Obrigatório').max(64, 'Use no máximo 64 caracteres')
+const worldContentId = z.string().min(1, 'Required').max(64, 'Use at most 64 characters')
 
 // Ground tile types confirmed by reading real room/task definitions
 // (rooms.lua, rooms/forest/pigs.lua, tasks/forest.lua, ocean_gen_config.lua).
 // This is a curated subset, not the full WORLD_TILES enum (which we don't have
 // a complete reference for) — covers the common land + ocean tiles seen in use.
 export const WORLD_TILES = [
-  { value: 'GRASS', label: 'Grama' },
-  { value: 'FOREST', label: 'Floresta' },
-  { value: 'ROCKY', label: 'Rochoso' },
-  { value: 'SAVANNA', label: 'Savana' },
-  { value: 'IMPASSABLE', label: 'Intransponível' },
-  { value: 'PEBBLEBEACH', label: 'Praia de seixos' },
-  { value: 'METEOR', label: 'Meteoro (Ilha da Lua)' },
-  { value: 'OCEAN_COASTAL', label: 'Oceano costeiro' },
-  { value: 'OCEAN_SWELL', label: 'Oceano — ondulação' },
-  { value: 'OCEAN_ROUGH', label: 'Oceano agitado' },
-  { value: 'OCEAN_HAZARDOUS', label: 'Oceano perigoso' },
-  { value: 'OCEAN_BRINEPOOL', label: 'Poça salgada' },
+  { value: 'GRASS', label: 'Grass' },
+  { value: 'FOREST', label: 'Forest' },
+  { value: 'ROCKY', label: 'Rocky' },
+  { value: 'SAVANNA', label: 'Savanna' },
+  { value: 'IMPASSABLE', label: 'Impassable' },
+  { value: 'PEBBLEBEACH', label: 'Pebble beach' },
+  { value: 'METEOR', label: 'Meteor (Lunar Island)' },
+  { value: 'OCEAN_COASTAL', label: 'Ocean — coastal' },
+  { value: 'OCEAN_SWELL', label: 'Ocean — swell' },
+  { value: 'OCEAN_ROUGH', label: 'Ocean — rough' },
+  { value: 'OCEAN_HAZARDOUS', label: 'Ocean — hazardous' },
+  { value: 'OCEAN_BRINEPOOL', label: 'Brine pool' },
 ] as const
 
 // Full list confirmed in lockandkey.lua (LOCKS_ARRAY). Locks gate a Task behind
@@ -59,7 +59,7 @@ export const KEYS = [
 
 const countRangeSchema = z
   .object({ min: z.number().int().min(0), max: z.number().int().min(0) })
-  .refine((r) => r.max >= r.min, { message: 'Máximo precisa ser maior ou igual ao mínimo', path: ['max'] })
+  .refine((r) => r.max >= r.min, { message: 'Max must be greater than or equal to the min', path: ['max'] })
 
 export const roomDefSchema = z.object({
   id: worldContentId,
@@ -79,7 +79,7 @@ export const taskDefSchema = z.object({
   id: worldContentId,
   locks: z.array(z.enum(LOCKS.map((l) => l) as [string, ...string[]])),
   keysGiven: z.array(z.enum(KEYS.map((k) => k) as [string, ...string[]])),
-  roomChoices: z.array(z.object({ roomId: z.string().min(1), count: countRangeSchema })).min(1, 'Adicione pelo menos 1 sala'),
+  roomChoices: z.array(z.object({ roomId: z.string().min(1), count: countRangeSchema })).min(1, 'Add at least 1 room'),
   backgroundTerrain: z.enum(WORLD_TILES.map((t) => t.value) as [string, ...string[]]),
   // No .min(1): an always-rendered, never-typed-in <input> submits '' (empty string),
   // not undefined, and a .transform() here would fight zodResolver's input/output

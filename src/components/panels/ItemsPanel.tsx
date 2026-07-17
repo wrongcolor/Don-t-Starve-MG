@@ -11,11 +11,11 @@ export function ItemsPanel() {
   return (
     <EntityListPanel
       headerIcon="⚔️"
-      title="Itens"
-      addLabel="Novo item"
-      emptyMessage="Nenhum item adicionado ainda."
-      emptyHint="A fogueira está apagada — adicione o primeiro item pra começar."
-      tip="Crie itens incríveis para o seu mod! Cada categoria (ferramenta, arma, armadura) libera campos diferentes."
+      title="Items"
+      addLabel="New item"
+      emptyMessage="No items added yet."
+      emptyHint="The campfire is out — add the first item to get started."
+      tip="Create amazing items for your mod! Each category (tool, weapon, armor) unlocks different fields."
       items={items}
       getLabel={(item) => item.displayName}
       getIcon={(item) => categoryVisual(item.category)}

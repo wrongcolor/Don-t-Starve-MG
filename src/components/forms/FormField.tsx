@@ -83,7 +83,7 @@ export function FormFooter({ itemName, saveLabel, onCancel }: FormFooterProps) {
       <div style={{ display: 'flex', gap: 8 }}>
         {onCancel && (
           <button type="button" className={btnSecondary} onClick={onCancel}>
-            Cancelar
+            Cancel
           </button>
         )}
         <button type="submit" className={btnPrimary}>
