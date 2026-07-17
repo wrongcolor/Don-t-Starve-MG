@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { saveAs } from 'file-saver'
 import { useModProjectStore } from '../store/modProjectStore'
 import { buildModZip } from '../generators/zipBuilder'
-import { btnPrimary } from './forms/FormField'
 
 export function GenerateButton() {
   const project = useModProjectStore((s) => s.project)
@@ -26,17 +25,13 @@ export function GenerateButton() {
     }
   }
 
+  const title = !canGenerate
+    ? 'Preencha o nome do mod e adicione pelo menos 1 item, personagem ou criatura.'
+    : (error ?? undefined)
+
   return (
-    <div className="flex flex-col items-end gap-1">
-      <button className={btnPrimary} disabled={!canGenerate || busy} onClick={handleGenerate}>
-        {busy ? 'Gerando...' : 'Gerar mod (.zip)'}
-      </button>
-      {!canGenerate && (
-        <span className="text-xs text-parchment-400">
-          Preencha o nome do mod e adicione pelo menos 1 item, personagem ou criatura.
-        </span>
-      )}
-      {error && <span className="text-xs text-blood-400">{error}</span>}
-    </div>
+    <button className="nav-item" style={{ opacity: !canGenerate || busy ? 0.5 : 1 }} disabled={!canGenerate || busy} onClick={handleGenerate} title={title}>
+      {busy ? '⏳ Gerando...' : '📤 Gerar mod (.zip)'}
+    </button>
   )
 }

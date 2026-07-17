@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { taskDefSchema, WORLD_TILES, LOCKS, KEYS, type TaskDef } from '../../types/worldContent'
-import { FormField, Fieldset, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
+import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
+import { TaskPreview } from './TaskPreview'
 
 interface TaskFormProps {
   initialTask?: TaskDef
@@ -37,9 +38,9 @@ function EnumListEditor({
 }) {
   const [selected, setSelected] = useState(options[0])
   return (
-    <div className="space-y-2">
-      <span className="block text-sm font-medium text-parchment-300">{label}</span>
-      <div className="flex gap-2">
+    <div className="field">
+      <span>{label}</span>
+      <div style={{ display: 'flex', gap: 8 }}>
         <select className={inputClass} value={selected} onChange={(e) => setSelected(e.target.value)}>
           {options.map((o) => (
             <option key={o} value={o}>
@@ -47,24 +48,21 @@ function EnumListEditor({
             </option>
           ))}
         </select>
-        <button type="button" className={btnSecondary} onClick={() => onAdd(selected)}>
+        <button type="button" className="btn-outline" onClick={() => onAdd(selected)}>
           + Adicionar
         </button>
       </div>
       {values.length > 0 && (
-        <ul className="flex flex-wrap gap-1.5">
+        <div className="sel-tags" style={{ marginTop: 8 }}>
           {values.map((v, index) => (
-            <li
-              key={`${v}-${index}`}
-              className="flex items-center gap-1 rounded-full bg-ink-800 border border-ink-700 px-2 py-0.5 text-xs text-parchment-200"
-            >
+            <div key={`${v}-${index}`} className="sel-tag">
               {v}
-              <button type="button" className="text-blood-400" onClick={() => onRemove(index)}>
-                ×
+              <button type="button" className="x" onClick={() => onRemove(index)}>
+                ✕
               </button>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   )
@@ -88,131 +86,120 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
   const [locks, setLocks] = useState<string[]>((initialTask ?? emptyTask).locks)
   const [keysGiven, setKeysGiven] = useState<string[]>((initialTask ?? emptyTask).keysGiven)
 
-  const enableRegion = watch('regionId') !== undefined
+  const watched = watch()
+  const enableRegion = watched.regionId !== undefined
 
   const onSubmit = (data: TaskDef) => onSave(data)
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-2xl">
-      <FormField label="Id (nome da task)" error={errors.id?.message}>
-        <input className={inputClass} {...register('id')} disabled={!!initialTask} placeholder="Minha Nova Area" />
-      </FormField>
+    <>
+      <form className="main" onSubmit={handleSubmit(onSubmit)}>
+        <FormHeader icon="📍" title={initialTask ? initialTask.id : 'Nova Task'} />
 
-      <Fieldset legend="Progressão (lock & key)" className="space-y-3">
-        <EnumListEditor
-          label="Travas (precisa ter essas chaves pra entrar aqui)"
-          options={LOCKS}
-          values={locks}
-          onAdd={(v) => {
-            const next = [...locks, v]
-            setLocks(next)
-            setValue('locks', next)
-          }}
-          onRemove={(i) => {
-            const next = locks.filter((_, idx) => idx !== i)
-            setLocks(next)
-            setValue('locks', next)
-          }}
-        />
-        <EnumListEditor
-          label="Chaves dadas (o que essa área libera pra outras)"
-          options={KEYS}
-          values={keysGiven}
-          onAdd={(v) => {
-            const next = [...keysGiven, v]
-            setKeysGiven(next)
-            setValue('keysGiven', next)
-          }}
-          onRemove={(i) => {
-            const next = keysGiven.filter((_, idx) => idx !== i)
-            setKeysGiven(next)
-            setValue('keysGiven', next)
-          }}
-        />
-      </Fieldset>
+        <div className="main-scroll">
+          <Fieldset legend="Identidade" step={1}>
+            <FormField label="Id (nome da task)" error={errors.id?.message}>
+              <input className={inputClass} {...register('id')} disabled={!!initialTask} placeholder="Minha Nova Area" />
+            </FormField>
+          </Fieldset>
 
-      <Fieldset legend="Salas (Rooms)">
-        <div className="space-y-2">
-          {roomChoices.fields.map((field, index) => (
-            <div key={field.id} className="flex gap-2 items-center">
-              <input
-                className={inputClass}
-                placeholder="id da sala (sua ou do jogo base)"
-                {...register(`roomChoices.${index}.roomId` as const)}
+          <div className="grid-2">
+            <Fieldset legend="Progressão (lock &amp; key)" step={2}>
+              <EnumListEditor
+                label="Travas (precisa ter essas chaves pra entrar aqui)"
+                options={LOCKS}
+                values={locks}
+                onAdd={(v) => {
+                  const next = [...locks, v]
+                  setLocks(next)
+                  setValue('locks', next)
+                }}
+                onRemove={(i) => {
+                  const next = locks.filter((_, idx) => idx !== i)
+                  setLocks(next)
+                  setValue('locks', next)
+                }}
               />
-              <input
-                type="number"
-                className={`${inputClass} w-20`}
-                placeholder="mín"
-                {...register(`roomChoices.${index}.count.min` as const, { valueAsNumber: true })}
+              <EnumListEditor
+                label="Chaves dadas (o que essa área libera pra outras)"
+                options={KEYS}
+                values={keysGiven}
+                onAdd={(v) => {
+                  const next = [...keysGiven, v]
+                  setKeysGiven(next)
+                  setValue('keysGiven', next)
+                }}
+                onRemove={(i) => {
+                  const next = keysGiven.filter((_, idx) => idx !== i)
+                  setKeysGiven(next)
+                  setValue('keysGiven', next)
+                }}
               />
-              <span className="text-xs text-parchment-400">a</span>
-              <input
-                type="number"
-                className={`${inputClass} w-20`}
-                placeholder="máx"
-                {...register(`roomChoices.${index}.count.max` as const, { valueAsNumber: true })}
-              />
-              <button type="button" className={btnDanger} onClick={() => roomChoices.remove(index)}>
-                Remover
-              </button>
-            </div>
-          ))}
-        </div>
-        <button
-          type="button"
-          className={`${btnSecondary} mt-2`}
-          onClick={() => roomChoices.append({ roomId: '', count: { min: 1, max: 1 } })}
-        >
-          + Sala
-        </button>
-        {errors.roomChoices?.message && <p className="mt-1 text-xs text-blood-400">{errors.roomChoices.message}</p>}
-      </Fieldset>
+            </Fieldset>
 
-      <Fieldset legend="Terreno e mapa">
-        <div className="grid grid-cols-2 gap-4">
-          <FormField label="Terreno de fundo">
-            <select className={inputClass} {...register('backgroundTerrain')}>
-              {WORLD_TILES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
+            <Fieldset legend="Salas (Rooms)" step={3}>
+              {roomChoices.fields.map((field, index) => (
+                <div key={field.id} className="ingredient-row">
+                  <input className={inputClass} placeholder="id da sala (sua ou do jogo base)" {...register(`roomChoices.${index}.roomId` as const)} />
+                  <input type="number" className="qty-input" placeholder="mín" {...register(`roomChoices.${index}.count.min` as const, { valueAsNumber: true })} />
+                  <input type="number" className="qty-input" placeholder="máx" {...register(`roomChoices.${index}.count.max` as const, { valueAsNumber: true })} />
+                  <button type="button" className={btnDanger} onClick={() => roomChoices.remove(index)}>
+                    Remover
+                  </button>
+                </div>
               ))}
-            </select>
-          </FormField>
-          <FormField label="Sala de fundo (opcional)">
-            <input className={inputClass} {...register('backgroundRoom')} placeholder="ex: BGGrass" />
-          </FormField>
+              <button
+                type="button"
+                className="add-ingredient"
+                onClick={() => roomChoices.append({ roomId: '', count: { min: 1, max: 1 } })}
+              >
+                + Adicionar sala
+              </button>
+              {errors.roomChoices?.message && <p className="field error">{errors.roomChoices.message}</p>}
+            </Fieldset>
+          </div>
+
+          <Fieldset legend="Terreno e mapa" step={4}>
+            <div className="row-2">
+              <FormField label="Terreno de fundo">
+                <select className={inputClass} {...register('backgroundTerrain')}>
+                  {WORLD_TILES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <FormField label="Sala de fundo (opcional)">
+                <input className={inputClass} {...register('backgroundRoom')} placeholder="ex: BGGrass" />
+              </FormField>
+            </div>
+
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableRegion}
+                  onChange={(e) => setValue('regionId', e.target.checked ? 'minhailha1' : undefined)}
+                />
+                Faz parte de uma ilha separada do continente
+              </label>
+            </div>
+            {enableRegion && (
+              <FormField
+                label="Id da região (use o mesmo id em todas as Tasks dessa ilha)"
+                hint='Tasks com o mesmo "id da região" viram um único pedaço de terra isolado, ligado ao continente por uma única travessia — é assim que a Ilha da Lua é montada no jogo (patterns.md#17).'
+              >
+                <input className={inputClass} {...register('regionId')} />
+              </FormField>
+            )}
+          </Fieldset>
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-parchment-300">
-          <input
-            type="checkbox"
-            checked={enableRegion}
-            onChange={(e) => setValue('regionId', e.target.checked ? 'minhailha1' : undefined)}
-          />
-          Faz parte de uma ilha separada do continente
-        </label>
-        {enableRegion && (
-          <FormField
-            label="Id da região (use o mesmo id em todas as Tasks dessa ilha)"
-            hint='Tasks com o mesmo "id da região" viram um único pedaço de terra isolado, ligado ao continente por uma única travessia — é assim que a Ilha da Lua é montada no jogo (patterns.md#17).'
-          >
-            <input className={inputClass} {...register('regionId')} />
-          </FormField>
-        )}
-      </Fieldset>
+        <FormFooter itemName={watched.id || 'Nova task'} saveLabel={initialTask ? 'Salvar alterações' : 'Adicionar task'} onCancel={onCancel} />
+      </form>
 
-      <div className="flex gap-2">
-        <button type="submit" className={btnPrimary}>
-          {initialTask ? 'Salvar alterações' : 'Adicionar task'}
-        </button>
-        {onCancel && (
-          <button type="button" className={btnSecondary} onClick={onCancel}>
-            Cancelar
-          </button>
-        )}
-      </div>
-    </form>
+      <TaskPreview task={watched} />
+    </>
   )
 }

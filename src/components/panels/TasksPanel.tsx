@@ -10,14 +10,15 @@ export function TasksPanel() {
 
   return (
     <EntityListPanel
-      title="Tasks (áreas do mapa)"
-      addLabel="+ Nova task"
+      headerIcon="📍"
+      title="Tasks"
+      addLabel="Nova task"
       emptyMessage="Nenhuma task adicionada ainda."
       emptyHint="Nenhuma área foi explorada ainda — marque a primeira no mapa."
+      tip="Tasks agrupam Rooms numa área navegável, com progressão por trava (lock) e chave (key)."
       items={tasks}
       getLabel={(task) => task.id}
-      getMeta={(task) => (task.regionId ? `ilha: ${task.regionId}` : '')}
-      getVisual={(task) => taskVisual(!!task.regionId)}
+      getIcon={(task) => taskVisual(!!task.regionId)}
       onUpsert={upsertTask}
       onRemove={removeTask}
       renderForm={({ initial, onSave, onCancel }) => (

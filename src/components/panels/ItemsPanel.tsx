@@ -10,13 +10,15 @@ export function ItemsPanel() {
 
   return (
     <EntityListPanel
-      title="Itens e receitas"
-      addLabel="+ Novo item"
+      headerIcon="⚔️"
+      title="Itens"
+      addLabel="Novo item"
       emptyMessage="Nenhum item adicionado ainda."
       emptyHint="A fogueira está apagada — adicione o primeiro item pra começar."
+      tip="Crie itens incríveis para o seu mod! Cada categoria (ferramenta, arma, armadura) libera campos diferentes."
       items={items}
       getLabel={(item) => item.displayName}
-      getVisual={(item) => categoryVisual(item.category)}
+      getIcon={(item) => categoryVisual(item.category)}
       onUpsert={upsertItem}
       onRemove={removeItem}
       renderForm={({ initial, onSave, onCancel }) => (

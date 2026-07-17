@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 interface FormFieldProps {
   label: string
@@ -9,47 +9,87 @@ interface FormFieldProps {
 
 export function FormField({ label, error, children, hint }: FormFieldProps) {
   return (
-    <label className="block">
-      <span className="block text-sm font-medium text-parchment-300">{label}</span>
-      <div className="mt-1">{children}</div>
-      {hint && <p className="mt-1 text-xs text-parchment-400">{hint}</p>}
-      {error && <p className="mt-1 text-xs text-blood-400">{error}</p>}
+    <label className="field">
+      <span>{label}</span>
+      {children}
+      {hint && <p className="hint">{hint}</p>}
+      {error && <p className="error">{error}</p>}
     </label>
   )
 }
 
 interface FieldsetProps {
   legend: string
+  step?: number
   children: ReactNode
   className?: string
 }
 
-export function Fieldset({ legend, children, className = '' }: FieldsetProps) {
+export function Fieldset({ legend, step, children, className = '' }: FieldsetProps) {
   return (
-    <fieldset className={`rounded-lg border border-ink-700 bg-ink-900/60 p-3 space-y-2 ${className}`}>
-      <legend className="px-1 font-display text-sm text-ember-400">{legend}</legend>
+    <div className={`card panel ${className}`}>
+      <div className="section-title">
+        {step !== undefined && <span className="step-num">{step}</span>}
+        {legend}
+      </div>
       {children}
-    </fieldset>
+    </div>
   )
 }
 
 interface CardProps {
   children: ReactNode
   className?: string
+  style?: CSSProperties
 }
 
-export function Card({ children, className = '' }: CardProps) {
-  return <div className={`rounded-lg border border-ink-700 bg-ink-900/60 ${className}`}>{children}</div>
+export function Card({ children, className = '', style }: CardProps) {
+  return (
+    <div className={`card panel ${className}`} style={style}>
+      {children}
+    </div>
+  )
 }
 
-export const inputClass =
-  'w-full rounded border border-ink-600 bg-ink-900 px-3 py-1.5 text-sm text-parchment-100 placeholder-parchment-400/60 focus:outline-none focus:ring-2 focus:ring-ember-400 focus:border-ember-400'
+export const inputClass = 'input-box'
 
-export const btnPrimary =
-  'inline-flex items-center gap-1.5 rounded border border-ember-500 bg-ember-500 px-3 py-1.5 text-sm font-semibold text-ink-950 hover:bg-ember-400 hover:border-ember-400 hover:-translate-y-0.5 hover:shadow-[0_6px_16px_-6px_var(--color-ember-500)] active:translate-y-0 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none transition-all duration-150'
+export const btnPrimary = 'btn-save'
 
-export const btnSecondary =
-  'inline-flex items-center gap-1.5 rounded border border-ink-600 bg-ink-800 px-3 py-1.5 text-sm font-medium text-parchment-200 hover:bg-ink-700 hover:border-ink-500 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all duration-150'
+export const btnSecondary = 'btn-outline'
 
-export const btnDanger =
-  'inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-blood-400 hover:bg-blood-500/10 active:scale-95 transition-all duration-150'
+export const btnDanger = 'btn-remove'
+
+export function FormHeader({ icon, title }: { icon: string; title: string }) {
+  return (
+    <div className="header-bar panel">
+      <span className="header-icon">{icon}</span>
+      <h1>{title}</h1>
+    </div>
+  )
+}
+
+interface FormFooterProps {
+  itemName: string
+  saveLabel: string
+  onCancel?: () => void
+}
+
+export function FormFooter({ itemName, saveLabel, onCancel }: FormFooterProps) {
+  return (
+    <div className="footer panel">
+      <div className="footer-left">
+        <span>{itemName}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {onCancel && (
+          <button type="button" className={btnSecondary} onClick={onCancel}>
+            Cancelar
+          </button>
+        )}
+        <button type="submit" className={btnPrimary}>
+          {saveLabel}
+        </button>
+      </div>
+    </div>
+  )
+}

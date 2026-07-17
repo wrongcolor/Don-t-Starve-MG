@@ -1,7 +1,8 @@
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { characterDefSchema, CHARACTER_GENDERS, CHARACTER_PERKS, type CharacterDef } from '../../types/modProject'
-import { FormField, Fieldset, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
+import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
+import { CharacterPreview } from './CharacterPreview'
 
 interface CharacterFormProps {
   initialCharacter?: CharacterDef
@@ -36,6 +37,7 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
     register,
     control,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<CharacterDef>({
     resolver: zodResolver(characterDefSchema),
@@ -43,102 +45,104 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
   })
 
   const inventory = useFieldArray({ control, name: 'startingInventory' as never })
+  const watched = watch()
 
   const onSubmit = (data: CharacterDef) => onSave(data)
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-2xl">
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Id (identificador interno)" error={errors.id?.message}>
-          <input className={inputClass} {...register('id')} disabled={!!initialCharacter} placeholder="meu_char" />
-        </FormField>
-        <FormField label="Gênero">
-          <select className={inputClass} {...register('gender')}>
-            {CHARACTER_GENDERS.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
-          </select>
-        </FormField>
-      </div>
+    <>
+      <form className="main" onSubmit={handleSubmit(onSubmit)}>
+        <FormHeader icon="🧑" title={initialCharacter ? initialCharacter.name : 'Novo Personagem'} />
 
-      <FormField label="Nome exibido" error={errors.name?.message}>
-        <input className={inputClass} {...register('name')} />
-      </FormField>
+        <div className="main-scroll">
+          <div className="grid-2">
+            <Fieldset legend="Identidade" step={1}>
+              <div className="row-2">
+                <FormField label="Id (identificador interno)" error={errors.id?.message}>
+                  <input className={inputClass} {...register('id')} disabled={!!initialCharacter} placeholder="meu_char" />
+                </FormField>
+                <FormField label="Gênero">
+                  <select className={inputClass} {...register('gender')}>
+                    {CHARACTER_GENDERS.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+              </div>
 
-      <FormField label='Título (ex: "a estranha", "o inventor")' error={errors.title?.message}>
-        <input className={inputClass} {...register('title')} />
-      </FormField>
+              <FormField label="Nome exibido" error={errors.name?.message}>
+                <input className={inputClass} {...register('name')} />
+              </FormField>
 
-      <FormField label="Descrição (tela de seleção)" error={errors.description?.message}>
-        <textarea className={inputClass} rows={2} {...register('description')} />
-      </FormField>
+              <FormField label='Título (ex: "a estranha", "o inventor")' error={errors.title?.message}>
+                <input className={inputClass} {...register('title')} />
+              </FormField>
+            </Fieldset>
 
-      <FormField label="Frase de efeito" error={errors.quote?.message}>
-        <input className={inputClass} {...register('quote')} />
-      </FormField>
+            <Fieldset legend="Apresentação" step={2}>
+              <FormField label="Descrição (tela de seleção)" error={errors.description?.message}>
+                <textarea className={inputClass} rows={2} {...register('description')} />
+              </FormField>
 
-      <Fieldset legend="Atributos">
-        <div className="grid grid-cols-3 gap-2">
-          <FormField label="Vida">
-            <input type="number" className={inputClass} {...register('stats.health', { valueAsNumber: true })} />
-          </FormField>
-          <FormField label="Fome">
-            <input type="number" className={inputClass} {...register('stats.hunger', { valueAsNumber: true })} />
-          </FormField>
-          <FormField label="Sanidade">
-            <input type="number" className={inputClass} {...register('stats.sanity', { valueAsNumber: true })} />
-          </FormField>
-        </div>
-      </Fieldset>
+              <FormField label="Frase de efeito" error={errors.quote?.message}>
+                <input className={inputClass} {...register('quote')} />
+              </FormField>
+            </Fieldset>
+          </div>
 
-      <Fieldset legend="Perks">
-        <div className="grid grid-cols-2 gap-1">
-          {CHARACTER_PERKS.map((perk) => (
-            <label key={perk} className="flex items-center gap-1.5 text-xs text-parchment-300">
-              <input type="checkbox" value={perk} {...register('perks')} />
-              {PERK_LABELS[perk]}
-            </label>
-          ))}
-        </div>
-      </Fieldset>
+          <div className="grid-3">
+            <Fieldset legend="Atributos" step={3}>
+              <div className="row-2">
+                <FormField label="Vida">
+                  <input type="number" className={inputClass} {...register('stats.health', { valueAsNumber: true })} />
+                </FormField>
+                <FormField label="Fome">
+                  <input type="number" className={inputClass} {...register('stats.hunger', { valueAsNumber: true })} />
+                </FormField>
+              </div>
+              <FormField label="Sanidade">
+                <input type="number" className={inputClass} {...register('stats.sanity', { valueAsNumber: true })} />
+              </FormField>
+            </Fieldset>
 
-      <Fieldset legend="Inventário inicial">
-        <div className="space-y-2">
-          {inventory.fields.map((field, index) => (
-            <div key={field.id} className="flex gap-2">
-              <input
-                className={inputClass}
-                placeholder="id do prefab (ex: torch)"
-                {...register(`startingInventory.${index}` as const)}
-              />
-              <button type="button" className={btnDanger} onClick={() => inventory.remove(index)}>
-                Remover
+            <Fieldset legend="Perks" step={4}>
+              <div className="tag-grid">
+                {CHARACTER_PERKS.map((perk) => (
+                  <label key={perk} className={`tag-opt ${watched.perks?.includes(perk) ? 'selected' : ''}`}>
+                    <input type="checkbox" value={perk} className="sr-only" {...register('perks')} />
+                    {PERK_LABELS[perk]}
+                  </label>
+                ))}
+              </div>
+            </Fieldset>
+
+            <Fieldset legend="Inventário inicial" step={5}>
+              {inventory.fields.map((field, index) => (
+                <div key={field.id} className="ingredient-row">
+                  <input className={inputClass} placeholder="id do prefab (ex: torch)" {...register(`startingInventory.${index}` as const)} />
+                  <button type="button" className={btnDanger} onClick={() => inventory.remove(index)}>
+                    Remover
+                  </button>
+                </div>
+              ))}
+              <button type="button" className="add-ingredient" onClick={() => inventory.append('')}>
+                + Adicionar item
               </button>
-            </div>
-          ))}
+            </Fieldset>
+          </div>
+
+          <p style={{ fontSize: 12, color: 'var(--ink-soft)', padding: '0 4px' }}>
+            Fala customizada: por padrão o personagem herda toda a fala do Wilson (speech_wilson). Você pode
+            ajustar chaves específicas depois de gerar o mod, editando <code>speech_{'{id}'}.lua</code>.
+          </p>
         </div>
-        <button type="button" className={`${btnSecondary} mt-2`} onClick={() => inventory.append('')}>
-          + Item
-        </button>
-      </Fieldset>
 
-      <p className="text-xs text-parchment-400">
-        Fala customizada: por padrão o personagem herda toda a fala do Wilson (speech_wilson). Você
-        pode ajustar chaves específicas depois de gerar o mod, editando <code>speech_{'{id}'}.lua</code>.
-      </p>
+        <FormFooter itemName={watched.name || 'Novo personagem'} saveLabel={initialCharacter ? 'Salvar alterações' : 'Adicionar personagem'} onCancel={onCancel} />
+      </form>
 
-      <div className="flex gap-2">
-        <button type="submit" className={btnPrimary}>
-          {initialCharacter ? 'Salvar alterações' : 'Adicionar personagem'}
-        </button>
-        {onCancel && (
-          <button type="button" className={btnSecondary} onClick={onCancel}>
-            Cancelar
-          </button>
-        )}
-      </div>
-    </form>
+      <CharacterPreview character={watched} />
+    </>
   )
 }

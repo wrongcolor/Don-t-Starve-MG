@@ -1,50 +1,54 @@
-import { useState, type ReactNode } from 'react'
-import { btnPrimary, btnSecondary, btnDanger } from '../forms/FormField'
-import { EmptyState, accentClasses } from './entityVisuals'
-
-interface EntityVisual {
-  icon: ReactNode
-  accent: string
-}
+import { Fragment, useState, type ReactNode } from 'react'
+import { EmptyState } from './entityVisuals'
 
 interface EntityListPanelProps<T extends { id: string }> {
+  headerIcon: string
   title: string
   addLabel: string
   emptyMessage: string
   emptyHint?: string
+  tip: ReactNode
+  tipIcon?: string
   items: T[]
   getLabel: (item: T) => string
-  getMeta?: (item: T) => ReactNode
-  getVisual?: (item: T) => EntityVisual
+  getIcon?: (item: T) => string
   onUpsert: (item: T) => void
   onRemove: (id: string) => void
   renderForm: (props: { initial?: T; onSave: (item: T) => void; onCancel: () => void }) => ReactNode
 }
 
-// Items/Characters/Creatures/Rooms/Tasks panels are all the same CRUD-over-a-list
-// shape — this generalizes that shape once instead of five near-identical files.
+// Items/Characters/Creatures/Rooms/Tasks panels all share this shape: a
+// searchable sidebar list + a form (which owns its own `.main` + `.preview`
+// panes, since only the form has live access to the watched field values).
 export function EntityListPanel<T extends { id: string }>({
+  headerIcon,
   title,
   addLabel,
   emptyMessage,
   emptyHint,
+  tip,
+  tipIcon = '🧑‍🎨',
   items,
   getLabel,
-  getMeta,
-  getVisual,
+  getIcon,
   onUpsert,
   onRemove,
   renderForm,
 }: EntityListPanelProps<T>) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [search, setSearch] = useState('')
 
-  const editingItem = editingId ? items.find((i) => i.id === editingId) : undefined
+  const resolvedEditingId = editingId && items.some((i) => i.id === editingId) ? editingId : null
+  const activeId = resolvedEditingId ?? (adding ? null : (items[0]?.id ?? null))
+  const activeItem = activeId ? items.find((i) => i.id === activeId) : undefined
+
+  const filtered = items.filter((item) => getLabel(item).toLowerCase().includes(search.toLowerCase()))
 
   const handleSave = (item: T) => {
     onUpsert(item)
-    setEditingId(null)
     setAdding(false)
+    setEditingId(item.id)
   }
 
   const handleCancel = () => {
@@ -52,57 +56,70 @@ export function EntityListPanel<T extends { id: string }>({
     setEditingId(null)
   }
 
+  const handleRemove = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    onRemove(id)
+  }
+
   return (
-    <div className="space-y-4 max-w-2xl">
-      <div className="flex items-center justify-between">
-        <h2 className="font-display text-base text-parchment-100">{title}</h2>
-        {!adding && !editingId && (
-          <button className={`${btnPrimary} ${items.length === 0 ? 'animate-ember-pulse' : ''}`} onClick={() => setAdding(true)}>
-            {addLabel}
-          </button>
-        )}
+    <div className="layout">
+      <div className="sidebar">
+        <button className="btn-new" onClick={() => setAdding(true)}>
+          + {addLabel}
+        </button>
+        <div className="sidebar-list panel">
+          <div className="sidebar-title">{title.toUpperCase()}</div>
+          <div className="search-box">
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <span>🔍</span>
+          </div>
+          <div className="item-list">
+            {filtered.map((item) => (
+              <button
+                key={item.id}
+                className={`item-row ${item.id === activeId ? 'active' : ''}`}
+                onClick={() => {
+                  setEditingId(item.id)
+                  setAdding(false)
+                }}
+              >
+                {getIcon && <span className="ic">{getIcon(item)}</span>}
+                <span>{getLabel(item)}</span>
+                <span className="remove" onClick={(e) => handleRemove(e, item.id)}>
+                  ✕
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="tip-box panel">
+          <div className="tip-title">DICA</div>
+          {tip}
+          <div className="tip-face">{tipIcon}</div>
+        </div>
       </div>
 
-      {items.length === 0 && !adding && <EmptyState message={emptyMessage} hint={emptyHint} />}
-
-      {!adding && !editingId && items.length > 0 && (
-        <ul className="space-y-2">
-          {items.map((item, index) => {
-            const visual = getVisual?.(item)
-            const accent = accentClasses(visual?.accent ?? 'parchment')
-            return (
-              <li key={item.id} className="animate-fade-in-up" style={{ animationDelay: `${Math.min(index, 10) * 40}ms` }}>
-                <div
-                  className={`group flex items-center justify-between gap-3 rounded-lg border border-ink-700 border-l-4 ${accent.border} bg-ink-900/60 px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:bg-ink-800/80 hover:shadow-[0_10px_24px_-12px_rgba(0,0,0,0.7)]`}
-                >
-                  <div className="flex items-center gap-3">
-                    {visual && (
-                      <span className={`flex size-9 shrink-0 items-center justify-center rounded-md ${accent.bg} ${accent.text} transition-transform duration-200 group-hover:scale-110`}>
-                        {visual.icon}
-                      </span>
-                    )}
-                    <div>
-                      <span className="text-sm font-medium text-parchment-100">{getLabel(item)}</span>
-                      <span className="ml-2 text-xs text-parchment-400">{getMeta ? getMeta(item) : `#${item.id}`}</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 opacity-80 transition-opacity group-hover:opacity-100">
-                    <button className={btnSecondary} onClick={() => setEditingId(item.id)}>
-                      Editar
-                    </button>
-                    <button className={btnDanger} onClick={() => onRemove(item.id)}>
-                      Remover
-                    </button>
-                  </div>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+      {(adding || activeItem) && (
+        <Fragment key={activeItem?.id ?? 'new'}>
+          {renderForm({ initial: activeItem, onSave: handleSave, onCancel: handleCancel })}
+        </Fragment>
       )}
 
-      {(adding || editingItem) && (
-        <div className="animate-fade-in-up">{renderForm({ initial: editingItem, onSave: handleSave, onCancel: handleCancel })}</div>
+      {!adding && !activeItem && (
+        <div className="main">
+          <div className="header-bar panel">
+            <span className="header-icon">{headerIcon}</span>
+            <h1>{title}</h1>
+          </div>
+          <div className="card panel" style={{ flex: 1 }}>
+            <EmptyState message={emptyMessage} hint={emptyHint} />
+          </div>
+        </div>
       )}
     </div>
   )

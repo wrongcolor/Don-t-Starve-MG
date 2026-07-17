@@ -10,14 +10,15 @@ export function RoomsPanel() {
 
   return (
     <EntityListPanel
-      title="Rooms (salas de conteúdo)"
-      addLabel="+ Nova sala"
+      headerIcon="🌳"
+      title="Rooms"
+      addLabel="Nova sala"
       emptyMessage="Nenhuma sala adicionada ainda."
       emptyHint="O mapa ainda é só névoa — desenhe a primeira sala."
+      tip="Rooms definem o conteúdo real de uma área: terreno + prefabs fixos/espalhados."
       items={rooms}
       getLabel={(room) => room.id}
-      getMeta={(room) => room.terrain}
-      getVisual={(room) => roomVisual(room.terrain)}
+      getIcon={(room) => roomVisual(room.terrain)}
       onUpsert={upsertRoom}
       onRemove={removeRoom}
       renderForm={({ initial, onSave, onCancel }) => (

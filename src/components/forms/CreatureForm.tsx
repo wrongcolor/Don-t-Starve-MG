@@ -7,7 +7,8 @@ import {
   VANILLA_CREATURE_BUILDS,
   type CreatureDef,
 } from '../../types/modProject'
-import { FormField, Fieldset, inputClass, btnPrimary, btnSecondary, btnDanger } from './FormField'
+import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
+import { CreaturePreview } from './CreaturePreview'
 
 interface CreatureFormProps {
   initialCreature?: CreatureDef
@@ -47,236 +48,224 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   const [animationSource, setAnimationSource] = useState<'custom' | 'vanilla'>(
     (initialCreature ?? emptyCreature).animation?.source ?? 'custom',
   )
-  const enableAttackRange = watch('stats.attackRange') !== undefined
-  const enableSanityAura = watch('sanityAura') !== undefined
-  const enableCookable = watch('cookable') !== undefined
+  const watched = watch()
+  const enableAttackRange = watched.stats?.attackRange !== undefined
+  const enableSanityAura = watched.sanityAura !== undefined
+  const enableCookable = watched.cookable !== undefined
 
   const onSubmit = (data: CreatureDef) => onSave(data)
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-2xl">
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Id (identificador interno)" error={errors.id?.message}>
-          <input className={inputClass} {...register('id')} disabled={!!initialCreature} placeholder="minha_criatura" />
-        </FormField>
-        <FormField label="Comportamento">
-          <select className={inputClass} {...register('behavior')}>
-            {CREATURE_BEHAVIORS.map((b) => (
-              <option key={b} value={b}>
-                {b === 'passive' ? 'Passiva (foge/vagueia)' : b === 'neutral' ? 'Neutra (revida se atacada)' : 'Hostil (ataca por conta própria)'}
-              </option>
-            ))}
-          </select>
-        </FormField>
-      </div>
+    <>
+      <form className="main" onSubmit={handleSubmit(onSubmit)}>
+        <FormHeader icon="👹" title={initialCreature ? initialCreature.displayName : 'Nova Criatura'} />
 
-      <FormField label="Nome exibido" error={errors.displayName?.message}>
-        <input className={inputClass} {...register('displayName')} />
-      </FormField>
+        <div className="main-scroll">
+          <div className="grid-2">
+            <Fieldset legend="Identidade" step={1}>
+              <div className="row-2">
+                <FormField label="Id (identificador interno)" error={errors.id?.message}>
+                  <input className={inputClass} {...register('id')} disabled={!!initialCreature} placeholder="minha_criatura" />
+                </FormField>
+                <FormField label="Comportamento">
+                  <select className={inputClass} {...register('behavior')}>
+                    {CREATURE_BEHAVIORS.map((b) => (
+                      <option key={b} value={b}>
+                        {b === 'passive' ? 'Passiva (foge/vagueia)' : b === 'neutral' ? 'Neutra (revida se atacada)' : 'Hostil (ataca por conta própria)'}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+              </div>
 
-      <FormField label="Descrição (inspect)" error={errors.description?.message}>
-        <textarea className={inputClass} rows={2} {...register('description')} />
-      </FormField>
-
-      <Fieldset legend="Atributos">
-        <div className="grid grid-cols-4 gap-2">
-          <FormField label="Vida">
-            <input type="number" className={inputClass} {...register('stats.health', { valueAsNumber: true })} />
-          </FormField>
-          <FormField label="Dano">
-            <input type="number" className={inputClass} {...register('stats.damage', { valueAsNumber: true })} />
-          </FormField>
-          <FormField label="Período de ataque (s)">
-            <input type="number" step="0.1" className={inputClass} {...register('stats.attackPeriod', { valueAsNumber: true })} />
-          </FormField>
-          <FormField label="Velocidade">
-            <input type="number" step="0.1" className={inputClass} {...register('stats.walkSpeed', { valueAsNumber: true })} />
-          </FormField>
-        </div>
-
-        <label className="flex items-center gap-2 text-sm text-parchment-300">
-          <input
-            type="checkbox"
-            checked={enableAttackRange}
-            onChange={(e) => setValue('stats.attackRange', e.target.checked ? 3 : undefined)}
-          />
-          Alcance de ataque customizado (padrão do jogo: 2)
-        </label>
-        {enableAttackRange && (
-          <FormField label="Alcance">
-            <input
-              type="number"
-              step="0.1"
-              className={inputClass}
-              {...register('stats.attackRange', { valueAsNumber: true })}
-            />
-          </FormField>
-        )}
-
-        <label className="flex items-center gap-2 text-sm text-parchment-300">
-          <input
-            type="checkbox"
-            checked={enableSanityAura}
-            onChange={(e) => setValue('sanityAura', e.target.checked ? -10 : undefined)}
-          />
-          Afeta a sanidade de quem está por perto
-        </label>
-        {enableSanityAura && (
-          <FormField label="Aura de sanidade (negativo = assusta, positivo = acalma)">
-            <input type="number" className={inputClass} {...register('sanityAura', { valueAsNumber: true })} />
-          </FormField>
-        )}
-
-        <label className="flex items-center gap-2 text-sm text-parchment-300">
-          <input type="checkbox" {...register('flammable')} />
-          Pode pegar fogo
-        </label>
-
-        <label className="flex items-center gap-2 text-sm text-parchment-300">
-          <input type="checkbox" {...register('freezable')} />
-          Pode congelar
-        </label>
-
-        <label className="flex items-center gap-2 text-sm text-parchment-300">
-          <input
-            type="checkbox"
-            checked={enableCookable}
-            onChange={(e) => setValue('cookable', e.target.checked ? { product: 'cookedsmallmeat' } : undefined)}
-          />
-          Pode ser cozida numa fogueira (se pega viva)
-        </label>
-        {enableCookable && (
-          <FormField label="Vira este prefab ao cozinhar (ex: cookedsmallmeat)">
-            <input className={inputClass} {...register('cookable.product')} />
-          </FormField>
-        )}
-      </Fieldset>
-
-      <Fieldset legend="Animação">
-        <label className="flex items-center gap-2 text-sm text-parchment-300">
-          <input
-            type="radio"
-            name="creature-animation-source"
-            checked={animationSource === 'custom'}
-            onChange={() => {
-              setAnimationSource('custom')
-              setValue('animation', { source: 'custom' })
-            }}
-          />
-          Vou criar minha própria animação (build próprio, anim/&lt;id&gt;.zip)
-        </label>
-        <label className="flex items-center gap-2 text-sm text-parchment-300">
-          <input
-            type="radio"
-            name="creature-animation-source"
-            checked={animationSource === 'vanilla'}
-            onChange={() => {
-              setAnimationSource('vanilla')
-              setValue('animation', {
-                source: 'vanilla',
-                build: VANILLA_CREATURE_BUILDS[0].build,
-                clips: DEFAULT_CLIPS,
-              })
-            }}
-          />
-          Usar uma animação já existente no jogo
-        </label>
-
-        {animationSource === 'vanilla' && (
-          <div className="space-y-2 pl-1">
-            <FormField label="Build">
-              <select className={inputClass} {...register('animation.build' as const)}>
-                {VANILLA_CREATURE_BUILDS.map((b) => (
-                  <option key={b.build} value={b.build}>
-                    {b.label}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-            <p className="text-xs text-parchment-400">
-              Nomes das animações usadas nesse build (ajuste se o build escolhido usar nomes
-              diferentes — esta ferramenta não confirma isso contra os arquivos do jogo):
-            </p>
-            <div className="grid grid-cols-5 gap-2">
-              <FormField label="Idle">
-                <input className={inputClass} {...register('animation.clips.idle' as const)} />
+              <FormField label="Nome exibido" error={errors.displayName?.message}>
+                <input className={inputClass} {...register('displayName')} />
               </FormField>
-              <FormField label="Andar">
-                <input className={inputClass} {...register('animation.clips.walk' as const)} />
+
+              <FormField label="Descrição (inspect)" error={errors.description?.message}>
+                <textarea className={inputClass} rows={2} {...register('description')} />
               </FormField>
-              <FormField label="Ataque">
-                <input className={inputClass} {...register('animation.clips.atk' as const)} />
-              </FormField>
-              <FormField label="Acertado">
-                <input className={inputClass} {...register('animation.clips.hit' as const)} />
-              </FormField>
-              <FormField label="Morte">
-                <input className={inputClass} {...register('animation.clips.death' as const)} />
-              </FormField>
-            </div>
+            </Fieldset>
+
+            <Fieldset legend="Animação" step={2}>
+              <div className="checks">
+                <label>
+                  <input
+                    type="radio"
+                    name="creature-animation-source"
+                    checked={animationSource === 'custom'}
+                    onChange={() => {
+                      setAnimationSource('custom')
+                      setValue('animation', { source: 'custom' })
+                    }}
+                  />
+                  Vou criar minha própria animação (build próprio, anim/&lt;id&gt;.zip)
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="creature-animation-source"
+                    checked={animationSource === 'vanilla'}
+                    onChange={() => {
+                      setAnimationSource('vanilla')
+                      setValue('animation', {
+                        source: 'vanilla',
+                        build: VANILLA_CREATURE_BUILDS[0].build,
+                        clips: DEFAULT_CLIPS,
+                      })
+                    }}
+                  />
+                  Usar uma animação já existente no jogo
+                </label>
+              </div>
+
+              {animationSource === 'vanilla' && (
+                <>
+                  <FormField label="Build">
+                    <select className={inputClass} {...register('animation.build' as const)}>
+                      {VANILLA_CREATURE_BUILDS.map((b) => (
+                        <option key={b.build} value={b.build}>
+                          {b.label}
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                  <p className="field hint">Nomes das animações usadas nesse build (ajuste se necessário — não confirmado contra os arquivos do jogo):</p>
+                  <div className="row-2">
+                    <FormField label="Idle">
+                      <input className={inputClass} {...register('animation.clips.idle' as const)} />
+                    </FormField>
+                    <FormField label="Andar">
+                      <input className={inputClass} {...register('animation.clips.walk' as const)} />
+                    </FormField>
+                    <FormField label="Ataque">
+                      <input className={inputClass} {...register('animation.clips.atk' as const)} />
+                    </FormField>
+                    <FormField label="Acertado">
+                      <input className={inputClass} {...register('animation.clips.hit' as const)} />
+                    </FormField>
+                    <FormField label="Morte">
+                      <input className={inputClass} {...register('animation.clips.death' as const)} />
+                    </FormField>
+                  </div>
+                </>
+              )}
+            </Fieldset>
           </div>
-        )}
 
-        <p className="text-xs text-parchment-400">
-          Reaproveitar uma animação do jogo dispensa o build próprio, mas confirme em-jogo (
-          <code>c_spawn</code>) que a criatura anda/ataca/morre corretamente antes de publicar.
-        </p>
-      </Fieldset>
+          <div className="grid-3">
+            <Fieldset legend="Atributos de combate" step={3}>
+              <div className="row-2">
+                <FormField label="Vida">
+                  <input type="number" className={inputClass} {...register('stats.health', { valueAsNumber: true })} />
+                </FormField>
+                <FormField label="Dano">
+                  <input type="number" className={inputClass} {...register('stats.damage', { valueAsNumber: true })} />
+                </FormField>
+              </div>
+              <div className="row-2">
+                <FormField label="Período de ataque (s)">
+                  <input type="number" step="0.1" className={inputClass} {...register('stats.attackPeriod', { valueAsNumber: true })} />
+                </FormField>
+                <FormField label="Velocidade">
+                  <input type="number" step="0.1" className={inputClass} {...register('stats.walkSpeed', { valueAsNumber: true })} />
+                </FormField>
+              </div>
 
-      <Fieldset legend="Loot">
-        <div className="space-y-2">
-          {loot.fields.map((field, index) => (
-            <div key={field.id} className="flex gap-2">
-              <input
-                className={inputClass}
-                placeholder="id do prefab (ex: monstermeat)"
-                {...register(`loot.${index}.prefab` as const)}
-              />
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                max="1"
-                className={`${inputClass} w-24`}
-                {...register(`loot.${index}.chance` as const, { valueAsNumber: true })}
-              />
-              <button type="button" className={btnDanger} onClick={() => loot.remove(index)}>
-                Remover
+              <div className="checks">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={enableAttackRange}
+                    onChange={(e) => setValue('stats.attackRange', e.target.checked ? 3 : undefined)}
+                  />
+                  Alcance de ataque customizado (padrão: 2)
+                </label>
+              </div>
+              {enableAttackRange && (
+                <FormField label="Alcance">
+                  <input type="number" step="0.1" className={inputClass} {...register('stats.attackRange', { valueAsNumber: true })} />
+                </FormField>
+              )}
+            </Fieldset>
+
+            <Fieldset legend="Características" step={4}>
+              <div className="checks">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={enableSanityAura}
+                    onChange={(e) => setValue('sanityAura', e.target.checked ? -10 : undefined)}
+                  />
+                  Afeta a sanidade de quem está por perto
+                </label>
+              </div>
+              {enableSanityAura && (
+                <FormField label="Aura de sanidade (negativo = assusta)">
+                  <input type="number" className={inputClass} {...register('sanityAura', { valueAsNumber: true })} />
+                </FormField>
+              )}
+
+              <div className="checks">
+                <label>
+                  <input type="checkbox" {...register('flammable')} />
+                  Pode pegar fogo
+                </label>
+                <label>
+                  <input type="checkbox" {...register('freezable')} />
+                  Pode congelar
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={enableCookable}
+                    onChange={(e) => setValue('cookable', e.target.checked ? { product: 'cookedsmallmeat' } : undefined)}
+                  />
+                  Pode ser cozida numa fogueira
+                </label>
+              </div>
+              {enableCookable && (
+                <FormField label="Vira este prefab ao cozinhar (ex: cookedsmallmeat)">
+                  <input className={inputClass} {...register('cookable.product')} />
+                </FormField>
+              )}
+            </Fieldset>
+
+            <Fieldset legend="Loot e tags" step={5}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', marginBottom: 8 }}>Loot</span>
+              {loot.fields.map((field, index) => (
+                <div key={field.id} className="ingredient-row">
+                  <input className={inputClass} placeholder="id do prefab (ex: monstermeat)" {...register(`loot.${index}.prefab` as const)} />
+                  <input type="number" step="0.01" min="0.01" max="1" className="qty-input" {...register(`loot.${index}.chance` as const, { valueAsNumber: true })} />
+                  <button type="button" className={btnDanger} onClick={() => loot.remove(index)}>
+                    Remover
+                  </button>
+                </div>
+              ))}
+              <button type="button" className="add-ingredient" onClick={() => loot.append({ prefab: '', chance: 1 })}>
+                + Adicionar loot
               </button>
-            </div>
-          ))}
-        </div>
-        <button type="button" className={`${btnSecondary} mt-2`} onClick={() => loot.append({ prefab: '', chance: 1 })}>
-          + Loot
-        </button>
-      </Fieldset>
 
-      <Fieldset legend="Tags extras (opcional)">
-        <div className="space-y-2">
-          {tags.fields.map((field, index) => (
-            <div key={field.id} className="flex gap-2">
-              <input className={inputClass} placeholder="ex: prey, largecreature" {...register(`tags.${index}` as const)} />
-              <button type="button" className={btnDanger} onClick={() => tags.remove(index)}>
-                Remover
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', margin: '12px 0 8px' }}>Tags extras</span>
+              {tags.fields.map((field, index) => (
+                <div key={field.id} className="ingredient-row">
+                  <input className={inputClass} placeholder="ex: prey, largecreature" {...register(`tags.${index}` as const)} />
+                  <button type="button" className={btnDanger} onClick={() => tags.remove(index)}>
+                    Remover
+                  </button>
+                </div>
+              ))}
+              <button type="button" className="add-ingredient" onClick={() => tags.append('')}>
+                + Adicionar tag
               </button>
-            </div>
-          ))}
+            </Fieldset>
+          </div>
         </div>
-        <button type="button" className={`${btnSecondary} mt-2`} onClick={() => tags.append('')}>
-          + Tag
-        </button>
-      </Fieldset>
 
-      <div className="flex gap-2">
-        <button type="submit" className={btnPrimary}>
-          {initialCreature ? 'Salvar alterações' : 'Adicionar criatura'}
-        </button>
-        {onCancel && (
-          <button type="button" className={btnSecondary} onClick={onCancel}>
-            Cancelar
-          </button>
-        )}
-      </div>
-    </form>
+        <FormFooter itemName={watched.displayName || 'Nova criatura'} saveLabel={initialCreature ? 'Salvar alterações' : 'Adicionar criatura'} onCancel={onCancel} />
+      </form>
+
+      <CreaturePreview creature={watched} />
+    </>
   )
 }
