@@ -5,7 +5,7 @@ import { itemDefSchema, type ItemDef } from '../../types/modProject'
 import { sampleProject } from '../fixtures'
 
 describe('generateItemFiles', () => {
-  const [sword, structure, trinket, axe, firestaff, armor] = sampleProject.items
+  const [sword, structure, trinket, axe, firestaff, armor, food] = sampleProject.items
 
   it('checks TheWorld.ismastersim right after SetPristine, before server components', () => {
     const code = generateItemPrefab(sword)
@@ -174,6 +174,49 @@ describe('generateItemFiles', () => {
   it('sets equippable.dapperness for armor with a sanity effect while worn', () => {
     const code = generateItemPrefab(armor)
     expect(code).toContain('inst.components.equippable.dapperness = -0.5')
+  })
+
+  it('wires the edible component with foodtype and TUNING-driven hunger/health/sanity values', () => {
+    const code = generateItemPrefab(food)
+    expect(code).toContain('inst:AddComponent("edible")')
+    expect(code).toContain('inst.components.edible.foodtype = FOODTYPE.MEAT')
+    expect(code).toContain('inst.components.edible.healthvalue = TUNING.TESTFOOD_HEALTH')
+    expect(code).toContain('inst.components.edible.hungervalue = TUNING.TESTFOOD_HUNGER')
+    expect(code).toContain('inst.components.edible.sanityvalue = TUNING.TESTFOOD_SANITY')
+  })
+
+  it('requires edible values when category is food', () => {
+    const withoutEdible = { ...food, edible: undefined }
+    expect(itemDefSchema.safeParse(withoutEdible).success).toBe(false)
+
+    const withEdible = itemDefSchema.safeParse(food)
+    expect(withEdible.success).toBe(true)
+  })
+
+  it('wires a temporary combat damage buff on eat via oneatenfn + externaldamagemultipliers', () => {
+    const code = generateItemPrefab(food)
+    expect(code).toContain('local function oneaten(inst, eater)')
+    expect(code).toContain('if eater == nil or eater.components.combat == nil then return end')
+    expect(code).toContain(
+      'eater.components.combat.externaldamagemultipliers:SetModifier(inst, 1 + TUNING.TESTFOOD_DAMAGE_BUFF_MULT, "testfood_damage_buff")',
+    )
+    expect(code).toContain('eater:DoTaskInTime(TUNING.TESTFOOD_DAMAGE_BUFF_DURATION, function()')
+    expect(code).toContain(
+      'eater.components.combat.externaldamagemultipliers:RemoveModifier(inst, "testfood_damage_buff")',
+    )
+    expect(code).toContain('inst.components.edible.oneatenfn = oneaten')
+  })
+
+  it('does not generate an oneatenfn when the food has no eat buff configured', () => {
+    const plainFood = { ...food, onEatBuff: undefined }
+    const code = generateItemPrefab(plainFood)
+    expect(code).not.toContain('oneatenfn')
+    expect(code).not.toContain('local function oneaten')
+  })
+
+  it('rejects a temporary combat buff on a non-food item', () => {
+    const buffOnWeapon = { ...sword, onEatBuff: { damageMultiplier: 0.25, durationSeconds: 120 } }
+    expect(itemDefSchema.safeParse(buffOnWeapon).success).toBe(false)
   })
 
   it('supports a weapon that fires a projectile on attack AND casts createLight on a point — two independent components, no collision', () => {

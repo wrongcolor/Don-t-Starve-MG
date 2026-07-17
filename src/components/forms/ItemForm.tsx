@@ -9,6 +9,7 @@ import {
   TOOL_ACTIONS,
   ON_HIT_EFFECTS,
   SPELL_EFFECTS,
+  FOOD_TYPES,
   type ItemDef,
 } from '../../types/modProject'
 import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
@@ -88,7 +89,17 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const enableDapperness = watched.armor?.dapperness !== undefined
   const enableWeakness = watched.armor?.weakness !== undefined
   const enableSanityLossOnHit = watched.armor?.sanityLossOnHitPercent !== undefined
+  const enableOnEatBuff = watched.onEatBuff !== undefined
   const handheld = category === 'tool' || enableWeapon
+
+  const onCategoryChange = (nextCategory: ItemDef['category']) => {
+    if (nextCategory === 'food' && !watched.edible) {
+      setValue('edible', { foodType: 'GENERIC', healthValue: 1, hungerValue: 12.5, sanityValue: 0 })
+    } else if (nextCategory !== 'food' && watched.edible) {
+      setValue('edible', undefined)
+      setValue('onEatBuff', undefined)
+    }
+  }
 
   const onSubmit = (data: ItemDef) => {
     onSave(data)
@@ -123,7 +134,10 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   <input className={inputClass} {...register('id')} disabled={!!initialItem} placeholder="my_item" />
                 </FormField>
                 <FormField label="Category">
-                  <select className={inputClass} {...register('category')}>
+                  <select
+                    className={inputClass}
+                    {...register('category', { onChange: (e) => onCategoryChange(e.target.value) })}
+                  >
                     <option value="generic">Generic</option>
                     <option value="tool">Tool</option>
                     <option value="weapon">Weapon</option>
@@ -516,6 +530,71 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
               </>
             )}
           </Fieldset>
+
+          {category === 'food' && (
+            <Fieldset legend="Food (Edible)" step={7}>
+              <div className="row-2">
+                <FormField label="Food type">
+                  <select className={inputClass} {...register('edible.foodType')}>
+                    {FOOD_TYPES.map((f) => (
+                      <option key={f} value={f}>
+                        {f}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+              </div>
+              <div className="row-2">
+                <FormField label="Hunger restored">
+                  <input type="number" step="0.5" className={inputClass} {...register('edible.hungerValue', { valueAsNumber: true })} />
+                </FormField>
+                <FormField label="Health restored">
+                  <input type="number" step="0.5" className={inputClass} {...register('edible.healthValue', { valueAsNumber: true })} />
+                </FormField>
+              </div>
+              <FormField label="Sanity restored (negative drains)">
+                <input type="number" step="0.5" className={inputClass} {...register('edible.sanityValue', { valueAsNumber: true })} />
+              </FormField>
+
+              <div className="checks">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={enableOnEatBuff}
+                    onChange={(e) =>
+                      setValue('onEatBuff', e.target.checked ? { damageMultiplier: 0.25, durationSeconds: 120 } : undefined)
+                    }
+                  />
+                  Grants a temporary combat buff when eaten
+                </label>
+              </div>
+              {enableOnEatBuff && (
+                <div className="row-2">
+                  <FormField
+                    label="Damage bonus (0 to 5, e.g. 0.25 = +25%)"
+                    hint="Not verified against the game's own scripts in this environment — test in-game before shipping."
+                  >
+                    <input
+                      type="number"
+                      step="0.05"
+                      max="5"
+                      className={inputClass}
+                      {...register('onEatBuff.damageMultiplier', { valueAsNumber: true })}
+                    />
+                  </FormField>
+                  <FormField label="Duration (seconds)">
+                    <input
+                      type="number"
+                      step="1"
+                      min="1"
+                      className={inputClass}
+                      {...register('onEatBuff.durationSeconds', { valueAsNumber: true })}
+                    />
+                  </FormField>
+                </div>
+              )}
+            </Fieldset>
+          )}
         </div>
 
         <FormFooter itemName={watched.displayName || 'New item'} saveLabel={initialItem ? 'Save changes' : 'Add item'} onCancel={onCancel} />

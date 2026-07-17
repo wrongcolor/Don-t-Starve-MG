@@ -395,6 +395,36 @@ tasks/rooms no grupo = ilha fisicamente maior.
 **Forma da ilha:** não controlável — decidida pelo motor nativo (Voronoi +
 `SeparateIslands`), sem acesso via Lua/mod.
 
+## 18. Buff de combate temporário ao comer — **NÃO confirmado, implementado mesmo assim**
+
+Diferente de todo o resto deste catálogo, este padrão **não** veio de ler um
+prefab real — implementado a pedido (ItemDef.onEatBuff) sem cópia local do
+jogo disponível pra confirmar. Baseado na API pública amplamente documentada
+pela comunidade de modding de DST:
+
+```lua
+inst.components.edible.oneatenfn = function(inst, eater)
+    if eater == nil or eater.components.combat == nil then return end
+    eater.components.combat.externaldamagemultipliers:SetModifier(inst, 1 + TUNING.X_MULT, "x_damage_buff")
+    eater:DoTaskInTime(TUNING.X_DURATION, function()
+        if eater.components.combat ~= nil then
+            eater.components.combat.externaldamagemultipliers:RemoveModifier(inst, "x_damage_buff")
+        end
+    end)
+end
+```
+
+`edible.oneatenfn` e `combat.externaldamagemultipliers` (um `SourceModifierList`)
+moram em `scripts/components/`, que esta cópia local nunca teve (ver seção
+abaixo) — então, ao contrário dos outros itens deste arquivo, **ninguém leu o
+código-fonte real pra confirmar a assinatura exata**. Testar em jogo antes de
+publicar qualquer mod que use isso.
+
+**Prioridade de re-confirmação:** alta — é o único padrão do catálogo gerado
+sem leitura de script real; se algum dia tivermos acesso a
+`scripts/components/edible.lua` e `scripts/components/combat.lua`, confirmar
+aqui e remover este aviso.
+
 ## O que ainda não temos como confirmar
 
 Esta cópia local do jogo só tem `scripts/prefabs/`. Não temos
@@ -403,4 +433,5 @@ Esta cópia local do jogo só tem `scripts/prefabs/`. Não temos
 toca). Por isso a pergunta original sobre "golpe vs estocada" continua sem
 confirmação — não achamos nenhum prefab de arma com lógica de seleção de
 animação de ataque; se essa diferença existe, ela mora no stategraph do
-jogador, que não está nesta cópia.
+jogador, que não está nesta cópia. O mesmo vale para o buff de dano ao comer
+(seção 18) e para o `eater` component (`components.json`, `modeled_in_app: false`).

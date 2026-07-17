@@ -42,4 +42,15 @@ describe('generateModMain', () => {
     expect(code).toContain('GLOBAL.TUNING.TESTCHAR_HEALTH = 150')
     expect(code).toContain('GLOBAL.TUNING.TESTMOB_HEALTH = 100')
   })
+
+  it('sets TUNING hunger/health/sanity values for food items', () => {
+    expect(code).toContain('GLOBAL.TUNING.TESTFOOD_HEALTH = 3')
+    expect(code).toContain('GLOBAL.TUNING.TESTFOOD_HUNGER = 25')
+    expect(code).toContain('GLOBAL.TUNING.TESTFOOD_SANITY = -5')
+  })
+
+  it('sets TUNING values for the on-eat damage buff', () => {
+    expect(code).toContain('GLOBAL.TUNING.TESTFOOD_DAMAGE_BUFF_MULT = 0.25')
+    expect(code).toContain('GLOBAL.TUNING.TESTFOOD_DAMAGE_BUFF_DURATION = 120')
+  })
 })

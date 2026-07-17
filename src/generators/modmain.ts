@@ -50,6 +50,15 @@ function itemTuningBlock(item: ItemDef): string[] {
     )
   }
   if (item.stackable) lines.push(`GLOBAL.TUNING.${upper}_STACK_SIZE = ${item.stackable.maxSize}`)
+  if (item.edible) {
+    lines.push(`GLOBAL.TUNING.${upper}_HEALTH = ${item.edible.healthValue}`)
+    lines.push(`GLOBAL.TUNING.${upper}_HUNGER = ${item.edible.hungerValue}`)
+    lines.push(`GLOBAL.TUNING.${upper}_SANITY = ${item.edible.sanityValue}`)
+  }
+  if (item.onEatBuff) {
+    lines.push(`GLOBAL.TUNING.${upper}_DAMAGE_BUFF_MULT = ${item.onEatBuff.damageMultiplier}`)
+    lines.push(`GLOBAL.TUNING.${upper}_DAMAGE_BUFF_DURATION = ${item.onEatBuff.durationSeconds}`)
+  }
   return lines
 }
 

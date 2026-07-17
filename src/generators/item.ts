@@ -104,6 +104,33 @@ function spellFunctionBlock(): string[] {
   ]
 }
 
+function needsOnEaten(item: ItemDef): boolean {
+  return item.onEatBuff !== undefined
+}
+
+// NOT confirmed against a local game script copy (see docs/dst-knowledge/README.md) —
+// based on the publicly documented modding API: edible.oneatenfn runs when the eater
+// finishes eating, and combat.externaldamagemultipliers (a SourceModifierList) lets a
+// named modifier be added and later removed by the same key. SetModifier takes the
+// FINAL multiplier, hence the "1 +" — verify both calls in-game before shipping.
+function onEatenFunctionBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  const buffKey = luaString(`${item.id}_damage_buff`)
+  return [
+    'local function oneaten(inst, eater)',
+    '    if eater == nil or eater.components.combat == nil then return end',
+    '',
+    `    eater.components.combat.externaldamagemultipliers:SetModifier(inst, 1 + TUNING.${upper}_DAMAGE_BUFF_MULT, ${buffKey})`,
+    `    eater:DoTaskInTime(TUNING.${upper}_DAMAGE_BUFF_DURATION, function()`,
+    '        if eater.components.combat ~= nil then',
+    `            eater.components.combat.externaldamagemultipliers:RemoveModifier(inst, ${buffKey})`,
+    '        end',
+    '    end)',
+    'end',
+    '',
+  ]
+}
+
 function componentBlock(item: ItemDef): string {
   const upper = toUpperSnake(item.id)
   const lines: string[] = []
@@ -205,12 +232,16 @@ function componentBlock(item: ItemDef): string {
     lines.push('    inst.components.perishable:SetOnPerishFn(inst.Remove)')
   }
 
-  if (item.category === 'food') {
+  if (item.edible) {
     lines.push('')
     lines.push('    inst:AddComponent("edible")')
-    lines.push('    -- PLACEHOLDER: ajuste hunger/health/sanity conforme o balanceamento desejado')
-    lines.push('    inst.components.edible.hungervalue = 12.5')
-    lines.push('    inst.components.edible.healthvalue = 1')
+    lines.push(`    inst.components.edible.foodtype = FOODTYPE.${item.edible.foodType}`)
+    lines.push(`    inst.components.edible.healthvalue = TUNING.${upper}_HEALTH`)
+    lines.push(`    inst.components.edible.hungervalue = TUNING.${upper}_HUNGER`)
+    lines.push(`    inst.components.edible.sanityvalue = TUNING.${upper}_SANITY`)
+    if (needsOnEaten(item)) {
+      lines.push('    inst.components.edible.oneatenfn = oneaten')
+    }
   }
 
   return lines.join('\n')
@@ -303,6 +334,9 @@ export function generateItemPrefab(item: ItemDef): string {
   }
   if (needsArmorTakeDamage(item)) {
     lines.push(...armorTakeDamageFunctionBlock(item))
+  }
+  if (needsOnEaten(item)) {
+    lines.push(...onEatenFunctionBlock(item))
   }
   lines.push('local prefabs = {}')
   lines.push('')

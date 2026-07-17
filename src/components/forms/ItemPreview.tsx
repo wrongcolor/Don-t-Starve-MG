@@ -19,6 +19,8 @@ export function ItemPreview({ item }: { item: Partial<ItemDef> }) {
   if (item.weapon?.ranged?.onHitEffect === 'freeze') tags.push('❄️ Freezes')
   if (item.spellEffect) tags.push('✨ Magic')
   if (item.stackable) tags.push('📦 Stackable')
+  if (item.edible) tags.push('🍖 Edible')
+  if (item.onEatBuff) tags.push('💪 Combat buff on eat')
 
   return (
     <div className="preview">
@@ -58,6 +60,22 @@ export function ItemPreview({ item }: { item: Partial<ItemDef> }) {
             <div className="preview-stat">
               <span className="lbl">🛡️ Absorption</span>
               <span className="val">{Math.round((item.armor.absorption ?? 0) * 100)}%</span>
+            </div>
+          )}
+          {item.edible && (
+            <div className="preview-stat">
+              <span className="lbl">🍗 Hunger / Health / Sanity</span>
+              <span className="val">
+                {item.edible.hungerValue} / {item.edible.healthValue} / {item.edible.sanityValue}
+              </span>
+            </div>
+          )}
+          {item.onEatBuff && (
+            <div className="preview-stat">
+              <span className="lbl">💪 Damage buff</span>
+              <span className="val">
+                +{Math.round(item.onEatBuff.damageMultiplier * 100)}% ({item.onEatBuff.durationSeconds}s)
+              </span>
             </div>
           )}
         </div>

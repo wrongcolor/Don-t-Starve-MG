@@ -141,6 +141,26 @@ export const ON_HIT_EFFECTS = ['none', 'ignite', 'freeze'] as const
 // now — spellcaster in general is too open-ended to generalize (patterns.md#7).
 export const SPELL_EFFECTS = ['createLight'] as const
 
+// Keys of the game's FOODTYPE table (constants.lua) — used by the "edible" component
+// to gate which characters/creatures will eat an item (e.g. Wormwood only eats VEGGIE).
+export const FOOD_TYPES = ['GENERIC', 'MEAT', 'VEGGIE', 'GOODIES', 'ELEMENTAL', 'SEEDS'] as const
+
+export const edibleSchema = z.object({
+  foodType: z.enum(FOOD_TYPES),
+  healthValue: z.number(),
+  hungerValue: z.number(),
+  sanityValue: z.number(),
+})
+
+// NOT confirmed against a local copy of the game scripts (see docs/dst-knowledge/README.md —
+// this sandbox has no game install to grep). Based on the publicly documented modding API:
+// edible.oneatenfn as an eat-time callback, and combat.externaldamagemultipliers (a
+// SourceModifierList) for a stacking, removable damage bonus. Verify in-game before shipping.
+export const onEatBuffSchema = z.object({
+  damageMultiplier: z.number().min(0.01).max(5),
+  durationSeconds: z.number().min(1),
+})
+
 export const itemDefSchema = z
   .object({
     id: luaIdentifier,
@@ -186,6 +206,8 @@ export const itemDefSchema = z
       .optional(),
     equipWalkSpeedMult: z.number().min(0.1).max(3).optional(),
     spellEffect: z.enum(SPELL_EFFECTS).optional(),
+    edible: edibleSchema.optional(),
+    onEatBuff: onEatBuffSchema.optional(),
     recipe: z.object({
       ingredients: z.array(ingredientSchema).min(1, 'Add at least 1 ingredient'),
       techLevel: z.enum(TECH_LEVELS),
@@ -196,6 +218,14 @@ export const itemDefSchema = z
   .refine((item) => item.category !== 'tool' || item.toolAction !== undefined, {
     message: 'Select which action this tool performs (chop/mine/dig)',
     path: ['toolAction'],
+  })
+  .refine((item) => item.category !== 'food' || item.edible !== undefined, {
+    message: 'Set the hunger/health/sanity values this food restores',
+    path: ['edible'],
+  })
+  .refine((item) => item.onEatBuff === undefined || item.edible !== undefined, {
+    message: 'A temporary buff on eat requires the item to be edible (category food)',
+    path: ['onEatBuff'],
   })
   // Confirmed in hambat.lua (docs/dst-knowledge/patterns.md#3): the game uses EITHER
   // finiteuses (fixed use-count) OR perishable (time-based) as an item's durability
@@ -283,6 +313,8 @@ export const modProjectSchema = z.object({
 
 export type TechLevel = (typeof TECH_LEVELS)[number]
 export type RecipeFilter = (typeof RECIPE_FILTERS)[number]
+export type FoodType = (typeof FOOD_TYPES)[number]
+export type OnEatBuff = z.infer<typeof onEatBuffSchema>
 export type CharacterGender = (typeof CHARACTER_GENDERS)[number]
 export type CreatureBehavior = (typeof CREATURE_BEHAVIORS)[number]
 export type CharacterPerk = (typeof CHARACTER_PERKS)[number]

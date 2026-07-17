@@ -118,6 +118,20 @@ export const sampleProject: ModProject = {
         placer: false,
       },
     },
+    {
+      id: 'testfood',
+      displayName: 'Test Food',
+      description: 'A food item for testing',
+      category: 'food',
+      edible: { foodType: 'MEAT', healthValue: 3, hungerValue: 25, sanityValue: -5 },
+      onEatBuff: { damageMultiplier: 0.25, durationSeconds: 120 },
+      recipe: {
+        ingredients: [{ prefab: 'monstermeat', amount: 1 }],
+        techLevel: 'NONE',
+        filters: ['COOKING'],
+        placer: false,
+      },
+    },
   ],
   characters: [
     {
