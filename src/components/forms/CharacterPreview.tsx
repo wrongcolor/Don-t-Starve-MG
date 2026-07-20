@@ -2,12 +2,10 @@ import type { CharacterDef } from '../../types/modProject'
 import { characterVisual } from '../panels/entityVisuals'
 
 const PERK_TAGS: Record<string, string> = {
-  no_hunger: '🍗 No hunger',
   no_sanity_drain: '🧠 Stable sanity',
   fire_immune: '🔥 Fire immune',
   freeze_immune: '❄️ Cold immune',
   night_vision: '🌙 Night vision',
-  faster_walk: '🏃 Faster',
 }
 
 export function CharacterPreview({ character }: { character: Partial<CharacterDef> }) {
@@ -31,6 +29,24 @@ export function CharacterPreview({ character }: { character: Partial<CharacterDe
             <span className="lbl">🧠 Sanity</span>
             <span className="val">{character.stats?.sanity}</span>
           </div>
+          {character.damageMultiplier !== undefined && (
+            <div className="preview-stat">
+              <span className="lbl">⚔️ Damage x</span>
+              <span className="val">{character.damageMultiplier}</span>
+            </div>
+          )}
+          {character.hungerRateMultiplier !== undefined && (
+            <div className="preview-stat">
+              <span className="lbl">🍗 Hunger rate x</span>
+              <span className="val">{character.hungerRateMultiplier}</span>
+            </div>
+          )}
+          {character.walkSpeedMultiplier !== undefined && (
+            <div className="preview-stat">
+              <span className="lbl">🏃 Walk speed x</span>
+              <span className="val">{character.walkSpeedMultiplier}</span>
+            </div>
+          )}
         </div>
         <hr className="preview-hr" />
         <div className="preview-sub">Perks</div>
@@ -41,6 +57,18 @@ export function CharacterPreview({ character }: { character: Partial<CharacterDe
             </div>
           ))}
         </div>
+        {(character.foodTypeAffinities?.length ?? 0) > 0 && (
+          <>
+            <div className="preview-sub">Food affinities</div>
+            <div className="preview-tags">
+              {character.foodTypeAffinities!.map((a) => (
+                <div key={a.foodType} className="preview-tag">
+                  🍽️ {a.foodType} x{a.multiplier}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
         <div className="preview-sub">Catchphrase</div>
         <div className="preview-desc">{character.quote || '—'}</div>
       </div>

@@ -425,6 +425,397 @@ sem leitura de script real; se algum dia tivermos acesso a
 `scripts/components/edible.lua` e `scripts/components/combat.lua`, confirmar
 aqui e remover este aviso.
 
+## 19. Combinar dois itens iguais pra restaurar durabilidade — **implementado (versão simplificada)**
+
+Fonte: mod real publicado na Workshop ("Repair Combine", by Serpens66, DST
+Workshop id 767776640) — não é um script do jogo base, é um mod da comunidade
+que lemos por completo (`modmain.lua` + `scripts/components/combinerepairable.lua`).
+
+O mod original usa um componente Lua próprio (`combinerepairable`) e é bem
+configurável: bônus percentual (fixo ou aleatório dentro de uma faixa),
+modo opcional que aumenta o máximo em vez de só somar a porcentagem, e
+suporte a `fueled` (não modelamos — não temos combustível como conceito de
+item hoje) e divisor de eficiência pra itens empilháveis.
+
+**O que implementamos** (`ItemDef.combinable`, `src/generators/item.ts` +
+`src/generators/modmain.ts`): a essência da mecânica, sem a configuração —
+usar um item sobre outro igual soma a % de durabilidade restante dos dois
+(capado em 100%) e consome o segundo. Funciona com `finiteuses`, `armor` ou
+`perishable` (nessa ordem de prioridade, igual ao mod original).
+
+Ponto técnico confirmado no mod original e replicado aqui: registrar uma
+ação nova (`AddAction`/`AddComponentAction`/`AddStategraphActionHandler`) só
+funciona em `modmain.lua`, nunca no script de um prefab — por isso essa parte
+é gerada **uma única vez por mod** (compartilhada por todos os itens
+combináveis), não repetida item a item. Diferente do mod original (que cria
+um componente Lua de verdade), usamos `AddComponentAction("USEITEM",
+"inventoryitem", ...)` com checagem de tag manual dentro do callback — mais
+simples de gerar, sem precisar de um arquivo de componente separado.
+
+**Fora de escopo:** bônus percentual configurável, modo "aumentar o máximo",
+suporte a `fueled` (combustível).
+
+## 20. Item que funciona como contêiner (bolsa/caixa com slots) — **implementado (versão simplificada)**
+
+Fonte: mod real publicado na Workshop ("Wanda's Watch Case", by daguaishou,
+Workshop id 2879703811) — lemos o `modmain.lua` e o
+`scripts/prefabs/pocketwatch_bag.lua` completos.
+
+Padrão confirmado: `inst:AddComponent("container")` +
+`inst.components.container:WidgetSetup("<id>")` no prefab do item, e a
+configuração de verdade (skin visual, grid de slots, se abre automaticamente
+como painel lateral ao ser carregado) mora em `containers.params.<id>`,
+setado em `modmain.lua` (não no prefab) — igual ao padrão de `AddAction` da
+seção 19, config de mod só é possível no modmain.
+
+**Achado mais importante:** o mod original **reaproveita a skin de UI de um
+item vanilla** (`ui_krampusbag_2x8`, a bolsa do Krampus) com o grid exato de
+slots (2 colunas x 7 linhas, espaçados 75px) sem precisar de nenhuma arte
+própria. Isso é o mesmo princípio de "reaproveitar build vanilla" que já
+usávamos pra animação de item (`itemAnimationSchema`/`VANILLA_ITEM_BUILDS`),
+só que pra skin de contêiner.
+
+**O que implementamos** (`ItemDef.container`, `src/generators/item.ts` +
+`src/generators/modmain.ts`):
+- Modo "vanilla": ver seção "REDESENHADO" abaixo — não é mais um preset fixo.
+- Modo "custom": grid genérico (mesma convenção de 75px), calculado e
+  "desenrolado" em TypeScript (um `table.insert` por slot, sem loop em Lua) —
+  **não confirmado** contra nenhum exemplo real de arte customizada, já que
+  todo mod de contêiner que lemos reaproveitou uma skin vanilla. Precisa de
+  um build `ui_<id>` próprio (arte de UI), que o README avisa ser necessário.
+- `issidewidget` (nosso `sideWidget`): confirmado no mod original — um item
+  carregado (não equipado a nenhum slot do corpo) pode abrir automaticamente
+  como painel lateral, sem envolver o componente `equippable`.
+- `itemtestfn` (nosso `acceptsTag`): filtro opcional confirmado no mod
+  original — só aceita itens com uma tag específica; se omitido, aceita
+  qualquer item, como uma mochila comum.
+
+**Refinado com um SEGUNDO mod real ("Winona Toolbox", 149 linhas, lido por
+completo):** confirma o padrão de container de novo (mesmo `AddComponent`/
+`WidgetSetup`), e revela dois detalhes novos que incorporamos:
+- O `itemtestfn` pode filtrar por uma **lista de prefabs específicos**
+  (`item.prefab == "x" or item.prefab == "y" or ...`) em vez de só uma tag —
+  útil quando os itens aceitos não têm uma tag em comum. Implementado como
+  `container.acceptsPrefabs`, combinado com `acceptsTag` via `or` quando os
+  dois estão presentes.
+- `inventoryitem:SetOnPutInInventoryFn(...)` chamando `container:Close()` —
+  fecha o contêiner quando ele é guardado no inventário, evitando o bug
+  visual de um contêiner "aberto" desaparecer do mapa. Isso é **sempre**
+  gerado pra qualquer item com `container`, sem precisar de campo no
+  formulário — é puro comportamento correto, não uma escolha de design.
+
+**Refinado com um TERCEIRO mod real ("Automation Farm")**: confirma o
+componente `preserver`, usado no próprio `icebox`/`icepack` vanilla
+(o mod só ajusta o multiplicador via config, o componente já existe neles):
+```lua
+inst.components.preserver:SetPerishRateMultiplier(0.25) -- comida apodrece 4x mais lento
+inst.components.preserver:SetTemperatureRateMultiplier(0.25) -- opcional
+```
+Totalmente independente de `container` no sentido de wiring (não precisa de
+nada em `modmain.lua`), mas só faz sentido combinado com um container (é
+assim que o icebox/icepack usam) — implementado como `container.preservation`.
+
+**REDESENHADO com o mesmo mod ("Automation Farm"):** o modo "vanilla" deixou
+de ser um preset fixo com grid copiado à mão. Esse mod faz algo mais simples
+e mais confiável:
+```lua
+containers.params.automation_farm_chest = deepcopy(containers.params.sacred_chest)
+```
+Clona a tabela de configuração **inteira** (skin + grid exato) de QUALQUER
+prefab com container já existente no jogo, sem precisar saber os números
+exatos de antemão. Substituímos o preset único (`krampus_sack_2x8`,
+transcrito à mão a partir do mod anterior) por `container.widget.reusePrefab`
+(texto livre, o id de um prefab com container real) + `GLOBAL.deepcopy(...)`
+no gerador — mais simples, mais confiável, e funciona pra qualquer contêiner
+vanilla, não só um. `issidewidget`/`type` continuam sendo aplicados por cima
+do clone, então o usuário mantém controle sobre esses dois mesmo reaproveitando
+a skin de outra coisa.
+
+**Visto mas não incorporado:** o `type` do widget nem sempre é o id do
+próprio item — este mod usa `type = "chest"` (um valor compartilhado/
+genérico) em vez de `type = "toolbox"`. Não sabemos o efeito exato nem quais
+valores são válidos (só temos 2 exemplos reais, um usando o id do item e
+outro usando "chest"), então mantivemos sempre `type = <id do item>` (o
+padrão já confirmado no primeiro mod) em vez de expor isso como opção.
+
+**Fora de escopo (v1):** contêineres que ficam no mundo/são "implantados"
+(baús fixos, tipo o Chester ou um baú de tesouro) — isso é um arquétipo
+bem diferente (não é `inventoryitem`, usa `deployable` em vez de receita
+normal) e mereceria sua própria análise separada. Também fora de escopo:
+tornar o contêiner equipável a um slot do corpo (mochila "de verdade", que
+ocupa o slot BACK) — teria que combinar com `equippable`, que hoje só é
+gerado pra `weapon`/`tool`/`armor` (ver `isHandheld`/`isBodyArmor` em
+`item.ts`), não pra `container`.
+
+## 21. Multiplicadores de stat de personagem + afinidade por categoria de comida — **implementado**
+
+Fonte: mod real publicado na Workshop ("Dryad", by HanTears/HeavenMoon/MatchaLatte)
+— lemos `scripts/prefabs/dryad.lua` completo (878 linhas). É um personagem com
+uma árvore de habilidades própria bem elaborada (fora de escopo, mesmo motivo
+do Wolfgang na seção 15), mas o `master_postinit` também tem chamadas
+**estáticas**, sem depender de nenhuma tag de skill tree:
+
+```lua
+inst.components.combat.damagemultiplier = damage_mult
+inst.components.hunger.hungerrate = hunger_mult * TUNING.WILSON_HUNGER_RATE
+inst.components.locomotor:SetExternalSpeedMultiplier(inst, "dryad_speed_mod", speed_mult)
+inst.components.foodaffinity:AddFoodtypeAffinity(FOODTYPE.VEGGIE, 1.33)
+```
+
+Implementamos essas 4 chamadas como campos opcionais em `CharacterDef`
+(`damageMultiplier`, `hungerRateMultiplier`, `walkSpeedMultiplier`,
+`foodTypeAffinities`), sem a parte condicionada à skill tree do mod original.
+
+`foodaffinity:AddFoodtypeAffinity` é a versão "por categoria inteira" do
+`foodaffinity:AddPrefabAffinity` (por prefab específico, ex: Wilson gosta de
+bacon and eggs) já citado na seção 15 — mesma ideia, granularidade diferente.
+
+**Refatoração ao implementar:** os perks fixos `no_hunger` (`hungerrate = 0`)
+e `faster_walk` (velocidade x1.25) foram **removidos** de `CHARACTER_PERKS` —
+os dois eram só um valor fixo do mesmo mecanismo que os novos campos genéricos
+(`hungerRateMultiplier = 0`, `walkSpeedMultiplier = 1.25`) já cobrem por
+completo, sem precisar de duas formas diferentes de expressar a mesma coisa.
+
+**Não confirmado / não visto:** `health:SetAbsorptionAmount` (que daria o
+"defesa x1.25" mencionado na descrição pública do mod) aparece no código do
+Dryad, mas **comentado** (`--inst.components.health:SetAbsorptionAmount(...)`)
+— ou seja, o próprio autor desativou essa linha. Por isso não implementamos
+nenhum campo de "multiplicador de defesa" — a única fonte real que temos para
+essa chamada está desligada no mod de origem, não é uma confirmação de que
+funciona como esperado.
+
+## 22. Como um Room/Task de mod realmente entra no jogo — **confirmado, corrigido**
+
+Fonte: mod real publicado na Workshop ("Graveyard Island") — lemos
+`modmain.lua`, `modworldgenmain.lua` e `scripts/map/static_layouts/graveyard_island.lua`
+completos. Isso resolve as duas incertezas que as seções 16 e 17 deixaram
+marcadas como "não confirmado, precisa de mod de referência real":
+
+1. **Onde o `AddRoom`/`AddTask` do mod realmente mora**: não é
+   `scripts/map/rooms.lua`/`scripts/map/tasks.lua` (o que gerávamos antes) —
+   é um arquivo chamado **`modworldgenmain.lua`, na RAIZ do mod** (igual
+   `modmain.lua`, não dentro de `scripts/`). O jogo carrega esse arquivo
+   automaticamente durante a geração de mundo, sem precisar de
+   `modimport`/`PrefabFiles` ou qualquer registro extra.
+
+2. **Como a Task realmente aparece num mundo gerado**: registrar a Task com
+   `AddTask` só a deixa *disponível* — ela só é de fato **incluída** na
+   geração se algo inserir seu id em `self.tasks` de um TaskSet compatível.
+   O mod faz isso assim:
+   ```lua
+   AddTaskSetPreInitAny(function(self)
+       if self.location == "forest" then
+           table.insert(self.tasks, "graveyard_island")
+       end
+   end)
+   ```
+   **Sem isso, uma Task gerada pelo app nunca apareceria em nenhum mundo
+   real** — isso não é um detalhe cosmético, é o que faz a feature funcionar
+   de fato. Corrigido: `TaskDef.locations` (obrigatório, mínimo 1) agora
+   gera esse bloco automaticamente, agrupado por localização.
+
+**O que ficou de fora, mesmo confirmado no mod:** `countstaticlayouts`
+(referencia um `static_layout` — blueprint desenhado à mão — dentro de uma
+Room) continua fora de escopo, mesmo motivo já registrado na seção 16
+(level design artesanal, não generalizável a um campo de formulário). O mod
+também usa `AddRoom`'s `contents.prefabdata` (override de dados específicos
+de UM prefab dentro da room, ex: `gravestone = { setepitaph = "..." }`) —
+não modelado, é bem específico por prefab.
+
+## 23. Estrutura de teleporte pareada — **implementado (releitura simplificada)**
+
+Fonte: mod real publicado na Workshop ("Craftable Wormholes") — lemos
+`modmain.lua` (340+ linhas) e `scripts/components/wormhole_connector.lua`
+(230 linhas) completos.
+
+**O que o mod de origem realmente faz:** não cria uma estrutura nova — torna
+o prefab **vanilla** `"wormhole"` (o buraco de verme que já existe no jogo)
+craftável via `AddRecipe2("wormhole", ...)` + `AddPrefabPostInit("wormhole", ...)`,
+e adiciona um componente próprio (`wormhole_connector`) que fica de olho em
+todo `wormhole` construído/destruído (eventos `wormhole_created`/
+`wormhole_destroyed` no `TheWorld`) pra ligar os dois mais recentes sem par,
+com nomeação automática, restrição de quem pode construir, sincronização de
+ícones do mapa via RPC pros clientes, e save/load próprio. Confirma que a
+chamada de verdade que faz dois teleportadores se conectarem é:
+```lua
+w1.components.teleporter:Target(w2)
+w2.components.teleporter:Target(w1)
+```
+
+**Risco identificado e evitado:** o mod também sobrescreve
+`inst.components.teleporter.onActivate`, mas SEMPRE encadeando a função
+anterior (`old_activate(inst, doer, ...)`) — ou seja, esse hook parece ser a
+própria função que executa o teleporte, não um efeito colateral opcional.
+Sem o código de `scripts/components/teleporter.lua` (não temos cópia),
+não temos como confirmar o que quebra se sobrescrever sem encadear
+corretamente — por isso NÃO implementamos nenhum efeito em `onActivate`
+(ex.: custo de sanidade ao usar, que o mod original tem), só o `:Target()`.
+
+**O que implementamos** (`ItemDef.teleportPair`, `src/generators/item.ts`):
+uma releitura bem mais simples — cada item marcado gera `AddComponent("teleporter")`
+e se auto-organiza em pares pela ORDEM DE CONSTRUÇÃO (a 1ª e 2ª instância
+formam um par, a 3ª e 4ª formam outro par, etc.), usando uma tabela
+`GLOBAL.TELEPORT_PAIRS` compartilhada — sem precisar de nenhum registro em
+`modmain.lua` (a tabela se inicializa sozinha, `... or {}`, na primeira
+instância construída). Exige que o item seja uma estrutura (`recipe.placer`),
+já que um teleportador de bolso não faz sentido.
+
+**Fora de escopo:** nomeação automática, restrição de quem pode construir,
+sincronização de ícones do mapa, custo de sanidade ao usar (pelo motivo de
+risco acima) e "wormhole pessoal" (só o dono pode usar).
+
+## 24. Item que o jogador pode renomear — **implementado (só o lado seguro)**
+
+Fonte: mod real publicado na Workshop ("Renameable Watches") — lemos
+`modmain.lua` (110 linhas) completo.
+
+Confirmado: `named` + `writeable` é o mesmo sistema que placas e lápides
+usam pra deixar o jogador digitar um nome customizado:
+```lua
+prefab:AddComponent("named")
+
+prefab:AddComponent("writeable")
+prefab.components.writeable:SetDefaultWriteable(false)
+prefab.components.writeable:SetAutomaticDescriptionEnabled(false)
+prefab.components.writeable:SetWriteableDistance(1)
+prefab.components.writeable:SetOnWrittenFn(onnamed) -- onnamed chama named:SetName(name)
+```
+Implementamos exatamente isso como `ItemDef.nameable`.
+
+**Risco identificado e evitado (mesmo padrão do #23):** pra esse recurso
+funcionar de ponta a ponta, o mod também "ensina" a pena de pluma vanilla
+(`featherpencil`) a reconhecer o novo item como alvo válido, via
+`AddPrefabPostInit("featherpencil", ...)` adicionando `useabletargeteditem` +
+`SetOnUseFn`. Sem o código de `scripts/components/useabletargeteditem.lua`
+(não temos cópia), não temos como confirmar se `SetOnUseFn` **substitui** o
+comportamento de escrita já existente da pena (ex.: escrever em placas) ou
+se convive com ele. Por segurança, **não geramos essa parte** — o item fica
+pronto para ser nomeado, mas ativar a escrita com a pena precisa de
+verificação manual em jogo (o README gerado avisa isso explicitamente).
+
+## 25. Uma estrutura nunca é um item de inventário — **confirmado, corrigido**
+
+Fonte: mod real publicado na Workshop ("Automation Farm") — lemos
+`scripts/prefabs/automation_farm_chest.lua` (144 linhas) completo.
+
+**Bug real encontrado e corrigido:** o gerador SEMPRE usava
+`MakeInventoryPhysics(inst)` + `inst:AddTag("item")` +
+`inst:AddComponent("inventoryitem")`, mesmo para itens marcados como
+"estrutura" (`recipe.placer = true`). O mod confirma que isso está errado —
+uma estrutura de verdade nunca é um item de inventário (você não "guarda"
+um baú de volta na mochila; ele só sai do mundo sendo destruído a martelo):
+```lua
+MakeObstaclePhysics(inst, 0.5)
+inst:AddTag("structure")
+-- SEM inst:AddComponent("inventoryitem"), sem AddTag("item")
+
+inst:AddComponent("workable")
+inst.components.workable:SetWorkAction(ACTIONS.HAMMER)
+inst.components.workable:SetOnFinishCallback(onhammered) -- dropa loot (se tiver) e :Remove()
+```
+
+Isso afetava TODO item-estrutura já gerado pela ferramenta, inclusive o
+`teleportPair` (seção 23), que exige `recipe.placer = true` — todo
+teleportador gerado antes desta correção saía com um `inventoryitem` que
+não deveria existir.
+
+**Implementado** (`isStructure()` em `src/generators/item.ts`, baseado em
+`item.recipe.placer`):
+- Física de obstáculo em vez de física de inventário, tag `"structure"` em
+  vez de `"item"`, sem `inventoryitem`.
+- `workable` + martelo + `onhammered` (dropa loot via `lootdropper`, depois
+  `inst:Remove()`) — consequência direta e necessária da mudança acima: sem
+  isso, uma estrutura nunca sairia do mundo de nenhum jeito.
+- O container (`ItemDef.container`) agora só gera o auto-close-ao-guardar
+  (seção 20) quando o item NÃO é uma estrutura — um container-estrutura
+  (ex.: um baú fixo) não tem `inventoryitem` pra prender esse hook.
+
+**Simplificação assumida, não confirmada:** o raio de `MakeObstaclePhysics`
+foi fixado em `0.5` (mesmo valor usado no mod de origem) — o tamanho real
+de cada estrutura varia, então isso é só um valor de partida razoável, não
+uma medida calculada a partir de nada específico do item do usuário.
+
+## 26. Durabilidade por cooldown, em vez de usos/tempo — **implementado**
+
+Fonte: mod real publicado na Workshop ("Wanda Extended: The Shifting Watch")
+— lemos o `scripts/prefabs/pocketwatch_shifting.lua` (330+ linhas, focado
+nas partes confirmáveis) e cruzamos com uma chamada já vista antes em
+"Renameable Watches" (seção 24).
+
+Confirmado: `rechargeable` é um TERCEIRO modelo de durabilidade (além de
+`finiteuses` e `perishable`), mas em vez de gastar/apodrecer, o item entra
+em cooldown depois de usado e volta a funcionar sozinho:
+```lua
+inst:AddComponent("rechargeable")
+inst.components.rechargeable:SetChargeTime(30) -- confirmado em "Renameable Watches"
+...
+inst.components.rechargeable:Discharge(30) -- dispara o cooldown, confirmado nos dois mods
+```
+
+Implementado como `ItemDef.rechargeable` (mutuamente exclusivo com
+`finiteuses`/`perishable`). O gatilho de `Discharge` é compartilhado com
+qualquer callback de "uso" que já geramos: `onattack` (arma) ou a função do
+`spellcaster` (efeito mágico em um ponto) — os dois únicos pontos de "isso
+foi usado agora" que o gerador já conhece. Não exigimos que seja
+especificamente uma arma (correção nossa durante a implementação: o
+mecanismo real não é exclusivo de armas, é qualquer coisa com um "uso"
+identificável).
+
+**Lido o mod completo (334 linhas do prefab principal) pra confirmar que não
+faltava nada mais simples de absorver.** A maior parte é uma habilidade bem
+específica da Wanda (reparar estruturas queimadas, refazer buracos de
+caverna, re-rolar aranhas, resetar armadilhas de cão) — fora de escopo, mesmo
+critério de sempre. Mas achamos mais um detalhe pequeno e seguro:
+`inst.components.inspectable.getstatus = function(inst) ... end` — mostra
+"RECHARGING" na descrição do item enquanto ele está em cooldown. Incorporado
+também, sempre que `rechargeable` está ativo.
+
+**Não confirmado:** se o próprio componente bloqueia automaticamente o
+ataque/uso enquanto está descarregado (`not IsCharged()`), ou se isso
+precisa ser checado manualmente em algum lugar. Sem
+`scripts/components/rechargeable.lua`, não arriscamos adicionar nenhuma
+lógica de bloqueio — o item entra em cooldown, mas se ele continua
+"funcionando" durante esse tempo não foi confirmado.
+
+## 27. Criatura que forma manada (herd) — **implementado**
+
+Fonte: mod real publicado na Workshop ("Seafellow") — lemos
+`scripts/prefabs/seafellow.lua` (290 linhas, focado nas partes
+generalizáveis) e `scripts/prefabs/seafellowherd.lua` (43 linhas, completo).
+Esse mecanismo é o mesmo que o Beefalo e o Lightning Goat usam no jogo base.
+
+Confirmado: uma "manada" é uma entidade GERENCIADORA separada (sem
+`AddNetwork`, sem `SetPristine`/`ismastersim` — é não-networked de propósito),
+que periodicamente invoca novos membros perto dos existentes, até um
+tamanho máximo:
+```lua
+-- na criatura:
+inst:AddComponent("herdmember")
+inst.components.herdmember:SetHerdPrefab("<id>herd")
+
+-- no prefab separado "<id>herd" (SEM AddNetwork):
+inst:AddComponent("herd")
+inst.components.herd:SetMemberTag("<id>")
+inst.components.herd:SetMaxSize(N)
+inst.components.herd:SetGatherRange(R)
+inst.components.herd:SetOnEmptyFn(inst.Remove)
+
+inst:AddComponent("periodicspawner")
+inst.components.periodicspawner:SetRandomTimes(min, max)
+inst.components.periodicspawner:SetPrefab("<id>")
+inst.components.periodicspawner:SetOnSpawnFn(function(inst, newent) inst.components.herd:AddMember(newent) end)
+inst.components.periodicspawner:SetSpawnTestFn(function(inst) return not inst.components.herd:IsFull() end)
+inst.components.periodicspawner:Start()
+```
+
+Implementado como `CreatureDef.herd` (`maxSize`, `gatherRange`,
+`spawnIntervalDays`) em `src/generators/creature.ts` — gera um SEGUNDO
+arquivo de prefab (`<id>herd.lua`), registrado em `PrefabFiles` junto com o
+principal. Removemos o detalhe específico do mod de origem (o intervalo de
+spawn era ligado a uma "temporada de acasalamento" de outro bicho do jogo,
+`LIGHTNING_GOAT_MATING_SEASON_BABYDELAY`) — usamos um min/max de dias
+genérico em vez disso.
+
 ## O que ainda não temos como confirmar
 
 Esta cópia local do jogo só tem `scripts/prefabs/`. Não temos

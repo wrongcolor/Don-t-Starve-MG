@@ -1,6 +1,14 @@
 import type { ItemDef } from '../../types/modProject'
 import { categoryVisual } from '../panels/entityVisuals'
 
+// A 'vanilla' widget clones its grid from an existing container at runtime
+// (patterns.md#20) — we never know its slot count ourselves, so show what we
+// DO know (which prefab it's copying) instead of guessing a number.
+function containerSlotsLabel(container: NonNullable<ItemDef['container']>): string {
+  const widget = container.widget
+  return widget.source === 'vanilla' ? `like ${widget.reusePrefab || '?'}` : String(widget.slots)
+}
+
 const CATEGORY_LABELS: Record<ItemDef['category'], string> = {
   tool: 'Tool',
   weapon: 'Weapon',
@@ -12,6 +20,7 @@ const CATEGORY_LABELS: Record<ItemDef['category'], string> = {
 export function ItemPreview({ item }: { item: Partial<ItemDef> }) {
   const category = item.category ?? 'generic'
   const tags: string[] = []
+  if (item.recipe?.placer) tags.push('🏗️ Structure (not an inventory item)')
   if (item.category === 'tool') tags.push('🔧 Tool')
   if (item.weapon) tags.push('⚔️ Weapon')
   if (item.armor) tags.push('🛡️ Armor')
@@ -21,6 +30,12 @@ export function ItemPreview({ item }: { item: Partial<ItemDef> }) {
   if (item.stackable) tags.push('📦 Stackable')
   if (item.edible) tags.push('🍖 Edible')
   if (item.onEatBuff) tags.push('💪 Combat buff on eat')
+  if (item.combinable) tags.push('🔗 Combinable')
+  if (item.container) tags.push('🎒 Container')
+  if (item.container?.preservation) tags.push('🧊 Preserves contents')
+  if (item.teleportPair) tags.push('🌀 Teleporter pair')
+  if (item.nameable) tags.push('✏️ Renameable')
+  if (item.rechargeable) tags.push('🔋 Rechargeable')
 
   return (
     <div className="preview">
@@ -40,6 +55,12 @@ export function ItemPreview({ item }: { item: Partial<ItemDef> }) {
             <div className="preview-stat">
               <span className="lbl">✊ Max uses</span>
               <span className="val">{item.finiteuses.maxUses}</span>
+            </div>
+          )}
+          {item.rechargeable && (
+            <div className="preview-stat">
+              <span className="lbl">🔋 Cooldown (s)</span>
+              <span className="val">{item.rechargeable.cooldownSeconds}</span>
             </div>
           )}
           {item.perishable && (
@@ -68,6 +89,12 @@ export function ItemPreview({ item }: { item: Partial<ItemDef> }) {
               <span className="val">
                 {item.edible.hungerValue} / {item.edible.healthValue} / {item.edible.sanityValue}
               </span>
+            </div>
+          )}
+          {item.container && (
+            <div className="preview-stat">
+              <span className="lbl">🎒 Slots</span>
+              <span className="val">{containerSlotsLabel(item.container)}</span>
             </div>
           )}
           {item.onEatBuff && (

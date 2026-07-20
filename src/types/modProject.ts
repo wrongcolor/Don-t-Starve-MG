@@ -69,14 +69,12 @@ export const VANILLA_ITEM_BUILDS = [
   { build: 'nightmarefuel', label: 'Nightmare fuel' },
 ] as const
 
-export const CHARACTER_PERKS = [
-  'no_hunger',
-  'no_sanity_drain',
-  'fire_immune',
-  'freeze_immune',
-  'night_vision',
-  'faster_walk',
-] as const
+// "no_hunger" and "faster_walk" used to live here as fixed on/off perks
+// (hungerrate = 0, speed multiplier = 1.25). Removed in favor of the general
+// damageMultiplier/hungerRateMultiplier/walkSpeedMultiplier fields below
+// (patterns.md#21) — a fixed perk is just one specific value of the same
+// mechanism, no need for two ways to express it.
+export const CHARACTER_PERKS = ['no_sanity_drain', 'fire_immune', 'freeze_immune', 'night_vision'] as const
 
 // Prefab names from the base game — used to stop users from generating an id that
 // silently overwrites/collides with a vanilla prefab.
@@ -140,6 +138,56 @@ export const ON_HIT_EFFECTS = ['none', 'ignite', 'freeze'] as const
 // existing vanilla light prefab at a target point. Only one concrete effect for
 // now — spellcaster in general is too open-ended to generalize (patterns.md#7).
 export const SPELL_EFFECTS = ['createLight'] as const
+
+// Sourced from TWO real published Workshop mods (see docs/dst-knowledge/
+// patterns.md#20). Two different confirmed techniques for reusing a vanilla
+// container's look without shipping UI art:
+// 1. "Wanda's Watch Case" hand-builds the slot grid + reuses the vanilla
+//    "ui_krampusbag_2x8" bank/build strings directly.
+// 2. "Automation Farm" (simpler, more reliable — this is what we generate
+//    now) does `containers.params.<id> = deepcopy(containers.params.<existing
+//    container prefab id>)` — clones the ENTIRE widget config (skin + exact
+//    slot grid) from any existing container-having prefab by its id, no
+//    manual grid math needed. Works for any valid container prefab, not just
+//    one curated preset.
+export const containerWidgetSchema = z.discriminatedUnion('source', [
+  z.object({ source: z.literal('vanilla'), reusePrefab: z.string().min(1, 'Enter an existing container prefab id') }),
+  // 'custom': a purely formulaic even grid (75px spacing) — NOT confirmed
+  // against a working custom-art example, since every container mod we read
+  // reused a vanilla skin. Needs a matching UI build (ui_<id>) supplied by
+  // the user; see the generated README.
+  z.object({
+    source: z.literal('custom'),
+    slots: z.number().int().min(2).max(16),
+    columns: z.number().int().min(1).max(8),
+  }),
+])
+
+export const containerSchema = z.object({
+  widget: containerWidgetSchema,
+  // Confirmed in the source mod: containers you simply carry (not equipped to
+  // a body slot) still auto-open as a side panel while in your inventory when
+  // this is true — no equippable component involved.
+  sideWidget: z.boolean(),
+  // Confirmed in the source mod (itemtestfn): optional filter so only items
+  // with this tag can go inside — otherwise any item is accepted.
+  acceptsTag: z.string().min(1).optional(),
+  // Confirmed in a SECOND real mod ("Winona Toolbox", patterns.md#20): the
+  // same itemtestfn can instead (or additionally) list specific accepted
+  // prefab ids directly (item.prefab == "x" or ...) — useful when there's no
+  // shared tag among the allowed items. OR'd together with acceptsTag if both are set.
+  acceptsPrefabs: z.array(z.string().min(1)).optional(),
+  // Confirmed in a THIRD real mod ("Automation Farm", see patterns.md#20) —
+  // icebox/icepack both use exactly this component to slow decay of whatever
+  // is stored inside them. Self-contained: no modmain.lua wiring needed,
+  // just AddComponent("preserver") on the same prefab as the container itself.
+  preservation: z
+    .object({
+      perishRateMultiplier: z.number().min(0).max(1),
+      temperatureRateMultiplier: z.number().min(0).max(1).optional(),
+    })
+    .optional(),
+})
 
 // Keys of the game's FOODTYPE table (constants.lua) — used by the "edible" component
 // to gate which characters/creatures will eat an item (e.g. Wormwood only eats VEGGIE).
@@ -208,6 +256,35 @@ export const itemDefSchema = z
     spellEffect: z.enum(SPELL_EFFECTS).optional(),
     edible: edibleSchema.optional(),
     onEatBuff: onEatBuffSchema.optional(),
+    // Sourced from a real published Workshop mod ("Repair Combine"), not a vanilla
+    // game script — simplified from its full logic (drops the config-driven bonus%
+    // and "raise the max" mode) to just: sum both items' remaining durability %,
+    // cap at 100%, consume the second item.
+    combinable: z.boolean().optional(),
+    container: containerSchema.optional(),
+    // Adapted from a real published Workshop mod ("Craftable Wormholes", see
+    // docs/dst-knowledge/patterns.md#23) — confirmed real API:
+    // teleporter:Target(otherEntity) links two entities one-way (set on both
+    // sides for a two-way pair). The source mod's own auto-pairing is a whole
+    // event-driven queue with admin restrictions, custom naming, and minimap
+    // RPC sync — too bespoke to generalize. Kept just the core idea: built
+    // structures of this type link up two at a time, in build order.
+    teleportPair: z.boolean().optional(),
+    // Adapted from a real published Workshop mod ("Renameable Watches", see
+    // docs/dst-knowledge/patterns.md#24) — confirmed real API: named + writeable
+    // is the same system signs/gravestones use to let a player type a custom
+    // name. The mod's OTHER half (teaching the vanilla feather pencil to
+    // recognize a new writeable target) isn't included — we can't confirm from
+    // source whether that risks breaking the pencil's existing sign-writing
+    // behavior, so it's left as a manual, documented step (see README).
+    nameable: z.boolean().optional(),
+    // Adapted from a real published Workshop mod ("Wanda Extended: The
+    // Shifting Watch", see docs/dst-knowledge/patterns.md#26) — confirmed
+    // real API: rechargeable is a THIRD durability model alongside
+    // finiteuses/perishable, but instead of being consumed the item goes on
+    // a cooldown and becomes usable again on its own. SetChargeTime/Discharge
+    // confirmed across two mods (this one, and "Renameable Watches").
+    rechargeable: z.object({ cooldownSeconds: z.number().min(1) }).optional(),
     recipe: z.object({
       ingredients: z.array(ingredientSchema).min(1, 'Add at least 1 ingredient'),
       techLevel: z.enum(TECH_LEVELS),
@@ -234,6 +311,36 @@ export const itemDefSchema = z
     message: 'Can\'t have both "max uses" and "perishable" at the same time — pick one as the durability model',
     path: ['finiteuses'],
   })
+  .refine((item) => !item.combinable || item.finiteuses !== undefined || item.armor !== undefined || item.perishable !== undefined, {
+    message: 'Combining requires a durability model — set max uses, perishable, or armor first',
+    path: ['combinable'],
+  })
+  // A teleporter you carry around in your inventory doesn't make sense — the
+  // source mod's own version is always a placed structure players walk into.
+  .refine((item) => !item.teleportPair || item.recipe.placer, {
+    message: 'A teleporter pair only makes sense as a structure — enable "It\'s a structure" first',
+    path: ['teleportPair'],
+  })
+  .refine((item) => !item.rechargeable || item.weapon !== undefined || item.spellEffect !== undefined, {
+    message: 'Rechargeable needs a way to be "used" — make it a weapon or give it a magic effect first',
+    path: ['rechargeable'],
+  })
+  .refine((item) => !item.rechargeable || (item.finiteuses === undefined && item.perishable === undefined), {
+    message: 'Rechargeable is an alternative durability model — turn off max uses/perishable first',
+    path: ['rechargeable'],
+  })
+
+// Confirmed in dryad.lua's master_postinit (docs/dst-knowledge/patterns.md#21) —
+// stripped of Dryad's own (unmodeled) skill-tree conditionals, keeping just the
+// underlying static multiplier calls: combat.damagemultiplier, hunger.hungerrate
+// (as a multiple of TUNING.WILSON_HUNGER_RATE), and a permanent
+// SetExternalSpeedMultiplier. foodaffinity:AddFoodtypeAffinity is the broader,
+// whole-category sibling of the single-prefab AddPrefabAffinity already
+// mentioned in patterns.md#15 (not modeled — no character in this project uses it).
+export const foodTypeAffinitySchema = z.object({
+  foodType: z.enum(FOOD_TYPES),
+  multiplier: z.number().min(0.01).max(5),
+})
 
 export const characterDefSchema = z.object({
   id: luaIdentifier,
@@ -250,6 +357,10 @@ export const characterDefSchema = z.object({
   startingInventory: z.array(z.string().min(1)),
   speechOverrides: z.record(z.string(), z.string()),
   perks: z.array(z.enum(CHARACTER_PERKS)),
+  damageMultiplier: z.number().min(0.01).max(5).optional(),
+  hungerRateMultiplier: z.number().min(0).max(5).optional(),
+  walkSpeedMultiplier: z.number().min(0.1).max(5).optional(),
+  foodTypeAffinities: z.array(foodTypeAffinitySchema),
 })
 
 // Unlike items (where "idle" is near-universal across every inventory build), creature
@@ -300,6 +411,21 @@ export const creatureDefSchema = z.object({
   flammable: z.boolean().optional(),
   freezable: z.boolean().optional(),
   cookable: z.object({ product: z.string().min(1, 'Enter the resulting prefab (e.g. cookedsmallmeat)') }).optional(),
+  // Adapted from a real published Workshop mod ("Seafellow", see
+  // docs/dst-knowledge/patterns.md#27) — confirmed real API: herdmember (on
+  // the creature) + a companion, non-networked "herd" manager prefab that
+  // periodically spawns new members up to a max size (the same pattern
+  // vanilla Beefalo/Lightning Goats use). Dropped the mating-season-specific
+  // tuning from the source mod — just a plain min/max spawn interval.
+  herd: z
+    .object({
+      maxSize: z.number().int().min(2).max(30),
+      gatherRange: z.number().min(1).max(100),
+      spawnIntervalDays: z
+        .object({ min: z.number().min(0.05), max: z.number().min(0.05) })
+        .refine((r) => r.max >= r.min, { message: 'Max must be greater than or equal to the min', path: ['max'] }),
+    })
+    .optional(),
 })
 
 export const modProjectSchema = z.object({
@@ -321,6 +447,9 @@ export type CharacterPerk = (typeof CHARACTER_PERKS)[number]
 
 export type ConfigOption = z.infer<typeof configOptionSchema>
 export type ItemAnimation = z.infer<typeof itemAnimationSchema>
+export type ContainerWidget = z.infer<typeof containerWidgetSchema>
+export type Container = z.infer<typeof containerSchema>
+export type FoodTypeAffinity = z.infer<typeof foodTypeAffinitySchema>
 export type CreatureAnimation = z.infer<typeof creatureAnimationSchema>
 export type ModMeta = z.infer<typeof modMetaSchema>
 export type Ingredient = z.infer<typeof ingredientSchema>

@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
+import { parse } from 'luaparse'
 import { generateCreatureFiles, generateCreaturePrefab } from '../../generators/creature'
 import { generateStategraph } from '../../generators/stategraph'
 import { sampleProject } from '../fixtures'
+import type { CreatureDef } from '../../types/modProject'
 
 describe('generateCreatureFiles', () => {
   const [creature, spiderMob, hound] = sampleProject.creatures
@@ -119,5 +121,39 @@ describe('generateCreatureFiles', () => {
     const code = generateCreaturePrefab(hound)
     expect(code).toContain('inst:AddComponent("cookable")')
     expect(code).toContain('inst.components.cookable.product = "cookedsmallmeat"')
+  })
+
+  it('wires herdmember + generates a second herd manager prefab when herd is set (patterns.md#27)', () => {
+    const herdCreature: CreatureDef = {
+      ...creature,
+      herd: { maxSize: 8, gatherRange: 40, spawnIntervalDays: { min: 4, max: 6 } },
+    }
+    expect(generateCreatureFiles(creature)['scripts/prefabs/testmobherd.lua']).toBeUndefined()
+
+    const files = generateCreatureFiles(herdCreature)
+    expect(Object.keys(files).sort()).toEqual(
+      [
+        'scripts/prefabs/testmob.lua',
+        'scripts/prefabs/testmobherd.lua',
+        'scripts/stategraphs/SGtestmob.lua',
+        'scripts/brains/testmobbrain.lua',
+      ].sort(),
+    )
+
+    const mainCode = files['scripts/prefabs/testmob.lua']
+    expect(mainCode).toContain('inst:AddComponent("herdmember")')
+    expect(mainCode).toContain('inst.components.herdmember:SetHerdPrefab("testmobherd")')
+
+    const herdCode = files['scripts/prefabs/testmobherd.lua']
+    expect(herdCode).toContain('inst:AddComponent("herd")')
+    expect(herdCode).toContain('inst.components.herd:SetMemberTag("testmob")')
+    expect(herdCode).toContain('inst.components.herd:SetMaxSize(TUNING.TESTMOBHERD_MAX_SIZE)')
+    expect(herdCode).toContain('inst.components.herd:SetOnEmptyFn(inst.Remove)')
+    expect(herdCode).toContain('inst:AddComponent("periodicspawner")')
+    expect(herdCode).toContain('inst.components.periodicspawner:SetPrefab("testmob")')
+    expect(herdCode).not.toContain('AddNetwork')
+    expect(herdCode).not.toContain('ismastersim')
+
+    expect(() => parse(herdCode, { luaVersion: '5.1' })).not.toThrow()
   })
 })

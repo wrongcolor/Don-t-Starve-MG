@@ -68,10 +68,11 @@ function generateReadme(project: ModProject): string {
   }
 
   if (project.rooms.length > 0 || project.tasks.length > 0) {
-    lines.push('- **Mundo (Rooms/Tasks)**: `scripts/map/rooms.lua`/`scripts/map/tasks.lua` foram gerados,')
-    lines.push('  mas o ponto exato de registro a partir do `modmain.lua` (qual `modimport`/hook carrega')
-    lines.push('  esses arquivos no momento certo da geração de mundo) **não foi confirmado** por esta')
-    lines.push('  ferramenta — verifique com um mod de referência real antes de publicar.')
+    lines.push('- **Mundo (Rooms/Tasks)**: gerados em `modworldgenmain.lua`, na raiz do mod — o jogo carrega')
+    lines.push('  esse arquivo automaticamente durante a geração de mundo, sem precisar de nenhum registro')
+    lines.push('  extra (confirmado lendo um mod real publicado, ver docs/dst-knowledge/patterns.md#22).')
+    lines.push('  Cada Task também é inserida via `AddTaskSetPreInitAny` nas localizações (superfície/')
+    lines.push('  cavernas) marcadas no formulário — sem isso a Task nunca apareceria em nenhum mundo gerado.')
   }
 
   lines.push('')
@@ -93,6 +94,13 @@ function generateReadme(project: ModProject): string {
   }
   if (project.characters.length > 0) {
     lines.push('- [ ] Para cada personagem: aparece na tela de seleção e carrega sem crash.')
+  }
+  if (project.items.some((i) => i.nameable)) {
+    lines.push(
+      '- [ ] Para cada item renomeável: verifique se a pena de pluma (`featherpencil`) consegue abrir a caixa de ' +
+        'texto nele — não é automático (ver docs/dst-knowledge/patterns.md#24); pode ser preciso registrar o item ' +
+        'manualmente como alvo válido em `AddPrefabPostInit("featherpencil", ...)`.',
+    )
   }
   if (project.creatures.length > 0) {
     lines.push('- [ ] Para cada criatura: `c_spawn("<id>")` e observar se anda/ataca sem erro no log.')

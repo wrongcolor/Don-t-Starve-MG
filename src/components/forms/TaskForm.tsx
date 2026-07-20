@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { taskDefSchema, WORLD_TILES, LOCKS, KEYS, type TaskDef } from '../../types/worldContent'
+import { taskDefSchema, WORLD_TILES, LOCKS, KEYS, TASK_LOCATIONS, type TaskDef } from '../../types/worldContent'
 import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
 import { TaskPreview } from './TaskPreview'
 
@@ -18,6 +18,7 @@ const emptyTask: TaskDef = {
   roomChoices: [],
   backgroundTerrain: 'GRASS',
   backgroundRoom: undefined,
+  locations: ['forest'],
 }
 
 // Locks gate this Task behind keys given by other tasks; keysGiven are what THIS
@@ -160,6 +161,22 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
           </div>
 
           <Fieldset legend="Terrain and map" step={4}>
+            <div className="field">
+              <span>Appears in these world locations</span>
+              <div
+                className="tag-grid"
+                title="Confirmed in a real mod (patterns.md#22): without this, the Task is registered but never actually inserted into any generated world."
+              >
+                {TASK_LOCATIONS.map((l) => (
+                  <label key={l.value} className={`tag-opt ${watched.locations?.includes(l.value) ? 'selected' : ''}`}>
+                    <input type="checkbox" value={l.value} className="sr-only" {...register('locations')} />
+                    {l.label}
+                  </label>
+                ))}
+              </div>
+              {errors.locations?.message && <p className="field error">{errors.locations.message}</p>}
+            </div>
+
             <div className="row-2">
               <FormField label="Background terrain">
                 <select className={inputClass} {...register('backgroundTerrain')}>

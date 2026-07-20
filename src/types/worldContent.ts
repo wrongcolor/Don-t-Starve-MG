@@ -75,12 +75,26 @@ export const roomDefSchema = z.object({
     .optional(),
 })
 
+// Confirmed in a real published Workshop mod ("Graveyard Island", see
+// docs/dst-knowledge/patterns.md#22) — this is the missing piece patterns.md#16
+// flagged as unconfirmed: a Task only actually shows up in a generated world if
+// something inserts its id into a TaskSet's `self.tasks` for a matching
+// `self.location`. The source mod only used "forest"; "cave" is the other
+// location the base game's own map/tasksets.lua distinguishes between.
+export const TASK_LOCATIONS = [
+  { value: 'forest', label: 'Surface (forest)' },
+  { value: 'cave', label: 'Caves' },
+] as const
+
 export const taskDefSchema = z.object({
   id: worldContentId,
   locks: z.array(z.enum(LOCKS.map((l) => l) as [string, ...string[]])),
   keysGiven: z.array(z.enum(KEYS.map((k) => k) as [string, ...string[]])),
   roomChoices: z.array(z.object({ roomId: z.string().min(1), count: countRangeSchema })).min(1, 'Add at least 1 room'),
   backgroundTerrain: z.enum(WORLD_TILES.map((t) => t.value) as [string, ...string[]]),
+  locations: z
+    .array(z.enum(TASK_LOCATIONS.map((l) => l.value) as [string, ...string[]]))
+    .min(1, 'Select at least one location, or this Task will never appear in a generated world'),
   // No .min(1): an always-rendered, never-typed-in <input> submits '' (empty string),
   // not undefined, and a .transform() here would fight zodResolver's input/output
   // typing. The generator treats a falsy value ('' or undefined) as "not set".
@@ -113,5 +127,6 @@ export function createEmptyTask(): TaskDef {
     roomChoices: [],
     backgroundTerrain: 'GRASS',
     backgroundRoom: undefined,
+    locations: ['forest'],
   }
 }

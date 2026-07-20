@@ -7,9 +7,6 @@ function perkLines(character: CharacterDef): string[] {
   const lines: string[] = []
   for (const perk of character.perks) {
     switch (perk) {
-      case 'no_hunger':
-        lines.push('    inst.components.hunger.hungerrate = 0 -- ajuste conforme necessário')
-        break
       case 'no_sanity_drain':
         lines.push('    inst.components.sanity.dapperness = 0 -- ajuste conforme necessário')
         break
@@ -24,12 +21,31 @@ function perkLines(character: CharacterDef): string[] {
         lines.push('        inst.components.playervision:ToggleNightVision(true)')
         lines.push('    end')
         break
-      case 'faster_walk':
-        lines.push(
-          `    inst.components.locomotor:SetExternalSpeedMultiplier(inst, "${character.id}_speed_perk", 1.25) -- ajuste o multiplicador`,
-        )
-        break
     }
+  }
+  return lines
+}
+
+// Confirmed in dryad.lua's master_postinit (docs/dst-knowledge/patterns.md#21),
+// with Dryad's own skill-tree conditionals stripped out — just the static
+// multiplier value. "no_hunger" and "faster_walk" used to be fixed perks for
+// two of these (hungerrate = 0, speed x1.25); a plain multiplier field covers
+// both plus anything in between, so those perks were removed.
+function statMultiplierLines(character: CharacterDef): string[] {
+  const lines: string[] = []
+  if (character.damageMultiplier !== undefined) {
+    lines.push(`    inst.components.combat.damagemultiplier = ${character.damageMultiplier}`)
+  }
+  if (character.hungerRateMultiplier !== undefined) {
+    lines.push(`    inst.components.hunger.hungerrate = ${character.hungerRateMultiplier} * TUNING.WILSON_HUNGER_RATE`)
+  }
+  if (character.walkSpeedMultiplier !== undefined) {
+    lines.push(
+      `    inst.components.locomotor:SetExternalSpeedMultiplier(inst, "${character.id}_speed_mod", ${character.walkSpeedMultiplier})`,
+    )
+  }
+  for (const affinity of character.foodTypeAffinities) {
+    lines.push(`    inst.components.foodaffinity:AddFoodtypeAffinity(FOODTYPE.${affinity.foodType}, ${affinity.multiplier})`)
   }
   return lines
 }
@@ -65,6 +81,11 @@ export function generateCharacterPrefab(character: CharacterDef): string {
   if (perks.length > 0) {
     lines.push('')
     lines.push(...perks)
+  }
+  const multipliers = statMultiplierLines(character)
+  if (multipliers.length > 0) {
+    lines.push('')
+    lines.push(...multipliers)
   }
   lines.push('end')
   lines.push('')

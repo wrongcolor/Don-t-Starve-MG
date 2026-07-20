@@ -86,10 +86,20 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const enableSanityCost = watched.weapon?.sanityCostOnUse !== undefined
   const enableWalkSpeedMult = watched.equipWalkSpeedMult !== undefined
   const enableSpellEffect = watched.spellEffect !== undefined
+  const enableRechargeable = watched.rechargeable !== undefined
+  const canRecharge = enableWeapon || enableSpellEffect
   const enableDapperness = watched.armor?.dapperness !== undefined
   const enableWeakness = watched.armor?.weakness !== undefined
   const enableSanityLossOnHit = watched.armor?.sanityLossOnHitPercent !== undefined
   const enableOnEatBuff = watched.onEatBuff !== undefined
+  const hasDurabilityModel = enableFiniteuses || enableArmor || enablePerishable
+  const enableCombinable = watched.combinable === true
+  const enableContainer = watched.container !== undefined
+  const containerWidgetSource = watched.container?.widget?.source ?? 'vanilla'
+  const enableAcceptsTag = watched.container?.acceptsTag !== undefined
+  const enablePreservation = watched.container?.preservation !== undefined
+  const isPlacer = watched.recipe?.placer === true
+  const enableTeleportPair = watched.teleportPair === true
   const handheld = category === 'tool' || enableWeapon
 
   const onCategoryChange = (nextCategory: ItemDef['category']) => {
@@ -247,7 +257,11 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     type="checkbox"
                     checked={enablePerishable}
                     disabled={enableFiniteuses}
-                    onChange={(e) => setValue('perishable', e.target.checked ? { perishTimeDays: 3 } : undefined)}
+                    onChange={(e) => {
+                      setValue('perishable', e.target.checked ? { perishTimeDays: 3 } : undefined)
+                      if (!e.target.checked && !enableArmor) setValue('combinable', undefined)
+                      if (e.target.checked) setValue('rechargeable', undefined)
+                    }}
                   />
                   Perishable {enableFiniteuses && '(turn off "max uses" first)'}
                 </label>
@@ -264,7 +278,11 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     type="checkbox"
                     checked={enableFiniteuses}
                     disabled={enablePerishable}
-                    onChange={(e) => setValue('finiteuses', e.target.checked ? { maxUses: 100 } : undefined)}
+                    onChange={(e) => {
+                      setValue('finiteuses', e.target.checked ? { maxUses: 100 } : undefined)
+                      if (!e.target.checked && !enableArmor) setValue('combinable', undefined)
+                      if (e.target.checked) setValue('rechargeable', undefined)
+                    }}
                   />
                   Max uses {enablePerishable && '(turn off "perishable" first)'}
                 </label>
@@ -282,6 +300,19 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   </div>
                 </>
               )}
+
+              {hasDurabilityModel && (
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableCombinable}
+                      onChange={(e) => setValue('combinable', e.target.checked)}
+                    />
+                    Combinable (use two together to merge remaining durability)
+                  </label>
+                </div>
+              )}
             </Fieldset>
 
             <Fieldset legend="Combat" step={4}>
@@ -290,7 +321,10 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   <input
                     type="checkbox"
                     checked={enableWeapon}
-                    onChange={(e) => setValue('weapon', e.target.checked ? { damage: 20 } : undefined)}
+                    onChange={(e) => {
+                      setValue('weapon', e.target.checked ? { damage: 20 } : undefined)
+                      if (!e.target.checked && !enableSpellEffect) setValue('rechargeable', undefined)
+                    }}
                   />
                   Weapon (damage on attack)
                 </label>
@@ -389,7 +423,10 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   <input
                     type="checkbox"
                     checked={enableSpellEffect}
-                    onChange={(e) => setValue('spellEffect', e.target.checked ? SPELL_EFFECTS[0] : undefined)}
+                    onChange={(e) => {
+                      setValue('spellEffect', e.target.checked ? SPELL_EFFECTS[0] : undefined)
+                      if (!e.target.checked && !enableWeapon) setValue('rechargeable', undefined)
+                    }}
                   />
                   Magic effect (use on a map point)
                 </label>
@@ -400,6 +437,33 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     <option value="createLight">Create light at the point</option>
                   </select>
                 </FormField>
+              )}
+
+              {canRecharge && (
+                <>
+                  <div className="checks">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={enableRechargeable}
+                        disabled={enableFiniteuses || enablePerishable}
+                        onChange={(e) => setValue('rechargeable', e.target.checked ? { cooldownSeconds: 30 } : undefined)}
+                      />
+                      Rechargeable (cooldown instead of durability)
+                      {(enableFiniteuses || enablePerishable) && ' (turn off max uses/perishable first)'}
+                    </label>
+                  </div>
+                  {enableRechargeable && (
+                    <FormField label="Cooldown after use (seconds)">
+                      <input
+                        type="number"
+                        min="1"
+                        className={inputClass}
+                        {...register('rechargeable.cooldownSeconds', { valueAsNumber: true })}
+                      />
+                    </FormField>
+                  )}
+                </>
               )}
             </Fieldset>
 
@@ -446,10 +510,29 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
 
               <div className="checks">
                 <label>
-                  <input type="checkbox" {...register('recipe.placer')} />
+                  <input
+                    type="checkbox"
+                    {...register('recipe.placer', {
+                      onChange: (e) => {
+                        if (!e.target.checked) setValue('teleportPair', undefined)
+                      },
+                    })}
+                  />
                   It's a structure (generates a placer)
                 </label>
               </div>
+              {isPlacer && (
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableTeleportPair}
+                      onChange={(e) => setValue('teleportPair', e.target.checked || undefined)}
+                    />
+                    Teleporter pair (every 2 built link to each other)
+                  </label>
+                </div>
+              )}
             </Fieldset>
           </div>
 
@@ -459,7 +542,10 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                 <input
                   type="checkbox"
                   checked={enableArmor}
-                  onChange={(e) => setValue('armor', e.target.checked ? { absorption: 0.8 } : undefined)}
+                  onChange={(e) => {
+                    setValue('armor', e.target.checked ? { absorption: 0.8 } : undefined)
+                    if (!e.target.checked && !enableFiniteuses && !enablePerishable) setValue('combinable', undefined)
+                  }}
                 />
                 It's armor (damage absorption)
               </label>
@@ -595,6 +681,182 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
               )}
             </Fieldset>
           )}
+
+          <Fieldset legend="Container" step={8}>
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableContainer}
+                  onChange={(e) =>
+                    setValue(
+                      'container',
+                      e.target.checked
+                        ? { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true }
+                        : undefined,
+                    )
+                  }
+                />
+                It's a container (bag/box with slots)
+              </label>
+            </div>
+            {enableContainer && (
+              <>
+                <div className="icon-toggle-row" style={{ marginBottom: 12 }}>
+                  <div
+                    className={`icon-toggle ${containerWidgetSource === 'vanilla' ? 'active' : ''}`}
+                    onClick={() => setValue('container.widget', { source: 'vanilla', reusePrefab: 'sacred_chest' })}
+                  >
+                    Reuse a vanilla widget
+                  </div>
+                  <div
+                    className={`icon-toggle ${containerWidgetSource === 'custom' ? 'active' : ''}`}
+                    onClick={() => setValue('container.widget', { source: 'custom', slots: 8, columns: 2 })}
+                  >
+                    Custom widget (own UI art)
+                  </div>
+                </div>
+
+                {containerWidgetSource === 'vanilla' ? (
+                  <FormField
+                    label="Reuse this container's widget (prefab id)"
+                    hint='Clones its exact skin and slot grid at runtime — no UI art needed. e.g. "sacred_chest", "icebox", "treasurechest". Must be a real container-having prefab.'
+                  >
+                    <input className={inputClass} {...register('container.widget.reusePrefab' as const)} placeholder="sacred_chest" />
+                  </FormField>
+                ) : (
+                  <div className="row-2">
+                    <FormField label="Slots" hint="Needs a matching ui_<id> build supplied by you — see README.">
+                      <input
+                        type="number"
+                        min={2}
+                        max={16}
+                        className={inputClass}
+                        {...register('container.widget.slots' as const, { valueAsNumber: true })}
+                      />
+                    </FormField>
+                    <FormField label="Columns">
+                      <input
+                        type="number"
+                        min={1}
+                        max={8}
+                        className={inputClass}
+                        {...register('container.widget.columns' as const, { valueAsNumber: true })}
+                      />
+                    </FormField>
+                  </div>
+                )}
+
+                <div className="checks">
+                  <label>
+                    <input type="checkbox" {...register('container.sideWidget')} />
+                    Auto-opens as a side panel while carried (like a backpack)
+                  </label>
+                </div>
+
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableAcceptsTag}
+                      onChange={(e) => setValue('container.acceptsTag', e.target.checked ? '' : undefined)}
+                    />
+                    Only accepts items with a specific tag
+                  </label>
+                </div>
+                {enableAcceptsTag && (
+                  <FormField label="Required tag (e.g. pocketwatch)">
+                    <input className={inputClass} {...register('container.acceptsTag')} />
+                  </FormField>
+                )}
+
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', margin: '12px 0 8px' }}>
+                  Or accept a specific list of prefabs (OR'd with the tag above)
+                </span>
+                {(watched.container?.acceptsPrefabs ?? []).map((prefab, index) => {
+                  const list = watched.container?.acceptsPrefabs ?? []
+                  return (
+                    <div key={index} className="ingredient-row">
+                      <input
+                        className={inputClass}
+                        placeholder="prefab id (e.g. sewing_tape)"
+                        value={prefab}
+                        onChange={(e) => {
+                          const next = [...list]
+                          next[index] = e.target.value
+                          setValue('container.acceptsPrefabs', next)
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className={btnDanger}
+                        onClick={() => setValue('container.acceptsPrefabs', list.filter((_, i) => i !== index))}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )
+                })}
+                <button
+                  type="button"
+                  className="add-ingredient"
+                  onClick={() => setValue('container.acceptsPrefabs', [...(watched.container?.acceptsPrefabs ?? []), ''])}
+                >
+                  + Add accepted prefab
+                </button>
+
+                <div className="checks" style={{ marginTop: 12 }}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enablePreservation}
+                      onChange={(e) =>
+                        setValue('container.preservation', e.target.checked ? { perishRateMultiplier: 0.25 } : undefined)
+                      }
+                    />
+                    Preserves contents (like an icebox)
+                  </label>
+                </div>
+                {enablePreservation && (
+                  <div className="row-2">
+                    <FormField label="Spoilage rate (0 = never spoils, 1 = normal)">
+                      <input
+                        type="number"
+                        step="0.05"
+                        min="0"
+                        max="1"
+                        className={inputClass}
+                        {...register('container.preservation.perishRateMultiplier', { valueAsNumber: true })}
+                      />
+                    </FormField>
+                    <FormField label="Temperature effect rate (optional, 1 = normal)">
+                      <input
+                        type="number"
+                        step="0.05"
+                        min="0"
+                        max="1"
+                        className={inputClass}
+                        {...register('container.preservation.temperatureRateMultiplier', { valueAsNumber: true })}
+                      />
+                    </FormField>
+                  </div>
+                )}
+              </>
+            )}
+          </Fieldset>
+
+          <Fieldset legend="Naming" step={9}>
+            <div className="checks">
+              <label>
+                <input type="checkbox" {...register('nameable')} />
+                Player can rename it (like signs/gravestones)
+              </label>
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 8 }}>
+              This sets up the item itself (named + writeable). Triggering the rename prompt with the vanilla feather
+              pencil needs a manual check in-game — see the generated README.
+            </p>
+          </Fieldset>
         </div>
 
         <FormFooter itemName={watched.displayName || 'New item'} saveLabel={initialItem ? 'Save changes' : 'Add item'} onCancel={onCancel} />

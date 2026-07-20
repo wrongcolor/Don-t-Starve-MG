@@ -144,7 +144,11 @@ export const sampleProject: ModProject = {
       stats: { health: 150, hunger: 150, sanity: 200 },
       startingInventory: ['torch', 'flint'],
       speechOverrides: { ANNOUNCE_COLD: 'It is cold, for science.' },
-      perks: ['no_hunger', 'faster_walk'],
+      perks: ['freeze_immune'],
+      damageMultiplier: 0.75,
+      hungerRateMultiplier: 0,
+      walkSpeedMultiplier: 1.25,
+      foodTypeAffinities: [{ foodType: 'VEGGIE', multiplier: 1.33 }],
     },
   ],
   creatures: [
@@ -204,6 +208,7 @@ export const sampleProject: ModProject = {
       backgroundTerrain: 'FOREST',
       backgroundRoom: undefined,
       regionId: 'testisland1',
+      locations: ['forest'],
     },
   ],
 }

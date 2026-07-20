@@ -20,6 +20,10 @@ export function TaskPreview({ task }: { task: Partial<TaskDef> }) {
             <span className="lbl">🗝️ Keys given</span>
             <span className="val">{task.keysGiven?.filter((k) => k !== 'NONE').length ?? 0}</span>
           </div>
+          <div className="preview-stat">
+            <span className="lbl">🌍 Locations</span>
+            <span className="val">{(task.locations ?? []).join(', ') || 'none — won\'t appear!'}</span>
+          </div>
         </div>
         <hr className="preview-hr" />
         <div className="preview-sub">Locks</div>

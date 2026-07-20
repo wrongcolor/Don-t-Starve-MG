@@ -1,6 +1,26 @@
 import type { ItemDef } from '../types/modProject'
 import { luaString, toUpperSnake } from './luaUtils'
 
+// Only meaningful for a 'custom' widget — a 'vanilla' one clones its grid at
+// runtime via deepcopy (patterns.md#20), so we never know its slot count
+// ourselves. Shared with modmain.ts, which needs the same numbers to build
+// the custom grid.
+export function containerSlotCount(item: ItemDef): number {
+  const widget = item.container?.widget
+  return widget?.source === 'custom' ? widget.slots : 0
+}
+
+export function containerColumns(item: ItemDef): number {
+  const widget = item.container?.widget
+  return widget?.source === 'custom' ? widget.columns : 0
+}
+
+// The UI build a 'custom' container widget needs — always named after the
+// item's own id, distinct from its inventory-icon build.
+export function containerCustomWidgetBuild(item: ItemDef): string {
+  return `ui_${item.id}`
+}
+
 // Items with no animation choice keep the previous default: a custom build named
 // after the item's own id, which the user must supply as anim/<id>.zip (see README).
 function resolveAnimationBuild(item: ItemDef): string {
@@ -17,6 +37,15 @@ function isVanillaAnimation(item: ItemDef): boolean {
 // in-hand look, swapped onto the character's "swap_object" hand symbol on equip.
 export function isHandheld(item: ItemDef): boolean {
   return item.category === 'tool' || item.weapon !== undefined
+}
+
+// Confirmed in a real published Workshop mod ("Automation Farm", see
+// docs/dst-knowledge/patterns.md#25) — a placed structure is never an
+// inventory item: no MakeInventoryPhysics/inventoryitem/"item" tag, it uses
+// MakeObstaclePhysics + tag "structure" instead. It only leaves the world by
+// being hammered down (workable), never by being picked back up.
+export function isStructure(item: ItemDef): boolean {
+  return item.recipe.placer === true
 }
 
 // Confirmed in armor_grass.lua/armor_wood.lua/armor_marble.lua/armor_sanity.lua/
@@ -53,7 +82,8 @@ function needsOnAttack(item: ItemDef): boolean {
   if (!item.weapon) return false
   const hasSanityCost = item.weapon.sanityCostOnUse !== undefined
   const hasHitEffect = item.weapon.ranged?.onHitEffect !== undefined && item.weapon.ranged.onHitEffect !== 'none'
-  return hasSanityCost || hasHitEffect
+  const hasRecharge = item.rechargeable !== undefined
+  return hasSanityCost || hasHitEffect || hasRecharge
 }
 
 function onAttackFunctionBlock(item: ItemDef): string[] {
@@ -74,9 +104,30 @@ function onAttackFunctionBlock(item: ItemDef): string[] {
     lines.push('        target.components.freezable:AddColdness(1)')
     lines.push('    end')
   }
+  if (item.rechargeable !== undefined) {
+    lines.push('    if inst.components.rechargeable ~= nil then')
+    lines.push(`        inst.components.rechargeable:Discharge(TUNING.${upper}_COOLDOWN)`)
+    lines.push('    end')
+  }
   lines.push('end')
   lines.push('')
   return lines
+}
+
+// Confirmed in a real published Workshop mod ("Automation Farm", see
+// docs/dst-knowledge/patterns.md#25) — a structure needs its OWN way out of
+// the world, since (unlike a portable item) it can never go back into an
+// inventory: workable + hammer, dropping whatever loot it has and removing itself.
+function onHammeredFunctionBlock(): string[] {
+  return [
+    'local function onhammered(inst)',
+    '    if inst.components.lootdropper ~= nil then',
+    '        inst.components.lootdropper:DropLoot()',
+    '    end',
+    '    inst:Remove()',
+    'end',
+    '',
+  ]
 }
 
 // Confirmed in staff.lua (yellowstaff/opalstaff createlight + light_reticuletargetfn):
@@ -87,8 +138,9 @@ function needsSpellcaster(item: ItemDef): boolean {
   return item.spellEffect !== undefined
 }
 
-function spellFunctionBlock(): string[] {
-  return [
+function spellFunctionBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  const lines = [
     'local function spell_reticuletargetfn()',
     '    return Vector3(ThePlayer.entity:LocalToWorldSpace(5, 0.001, 0))',
     'end',
@@ -99,13 +151,47 @@ function spellFunctionBlock(): string[] {
     '    if staff.components.finiteuses ~= nil then',
     '        staff.components.finiteuses:Use(1)',
     '    end',
-    'end',
-    '',
   ]
+  if (item.rechargeable !== undefined) {
+    lines.push('    if staff.components.rechargeable ~= nil then')
+    lines.push(`        staff.components.rechargeable:Discharge(TUNING.${upper}_COOLDOWN)`)
+    lines.push('    end')
+  }
+  lines.push('end')
+  lines.push('')
+  return lines
 }
 
 function needsOnEaten(item: ItemDef): boolean {
   return item.onEatBuff !== undefined
+}
+
+// Adapted from a real published Workshop mod ("Repair Combine", see
+// docs/dst-knowledge/patterns.md#19) — simplified to: sum both items' remaining
+// durability %, cap at 100%, consume the second item. Priority order (finiteuses
+// > armor > perishable) mirrors the source mod's own if/elseif chain.
+function combineWithFunctionBlock(): string[] {
+  return [
+    'local function CombineWith(inst, material)',
+    '    if material == nil or not material:IsValid() or material == inst or material.prefab ~= inst.prefab then',
+    '        return false',
+    '    end',
+    '',
+    '    if inst.components.finiteuses ~= nil and material.components.finiteuses ~= nil then',
+    '        inst.components.finiteuses:SetPercent(math.min(inst.components.finiteuses:GetPercent() + material.components.finiteuses:GetPercent(), 1))',
+    '    elseif inst.components.armor ~= nil and material.components.armor ~= nil then',
+    '        inst.components.armor:SetPercent(math.min(inst.components.armor:GetPercent() + material.components.armor:GetPercent(), 1))',
+    '    elseif inst.components.perishable ~= nil and material.components.perishable ~= nil then',
+    '        inst.components.perishable:SetPercent(math.min(inst.components.perishable:GetPercent() + material.components.perishable:GetPercent(), 1))',
+    '    else',
+    '        return false',
+    '    end',
+    '',
+    '    material:Remove()',
+    '    return true',
+    'end',
+    '',
+  ]
 }
 
 // NOT confirmed against a local game script copy (see docs/dst-knowledge/README.md) —
@@ -131,12 +217,73 @@ function onEatenFunctionBlock(item: ItemDef): string[] {
   ]
 }
 
+// Adapted from a real published Workshop mod ("Craftable Wormholes", see
+// docs/dst-knowledge/patterns.md#23). A shared GLOBAL table (self-initializing,
+// no modmain.lua wiring needed) tracks built instances per item id; every 2nd
+// build links back to the 1st, every 4th to the 3rd, and so on.
+function teleportPairFunctionBlock(): string[] {
+  return [
+    'local function OnTeleportPairRemoved(inst)',
+    '    local siblings = GLOBAL.TELEPORT_PAIRS and GLOBAL.TELEPORT_PAIRS[inst.prefab]',
+    '    if siblings == nil then return end',
+    '    for i = #siblings, 1, -1 do',
+    '        if siblings[i] == inst then',
+    '            table.remove(siblings, i)',
+    '            break',
+    '        end',
+    '    end',
+    'end',
+    '',
+    'local function LinkTeleportPair(inst)',
+    '    GLOBAL.TELEPORT_PAIRS = GLOBAL.TELEPORT_PAIRS or {}',
+    '    local siblings = GLOBAL.TELEPORT_PAIRS[inst.prefab]',
+    '    if siblings == nil then',
+    '        siblings = {}',
+    '        GLOBAL.TELEPORT_PAIRS[inst.prefab] = siblings',
+    '    end',
+    '    table.insert(siblings, inst)',
+    '    if #siblings % 2 == 0 then',
+    '        local a, b = siblings[#siblings - 1], siblings[#siblings]',
+    '        a.components.teleporter:Target(b)',
+    '        b.components.teleporter:Target(a)',
+    '    end',
+    '    inst:ListenForEvent("onremove", OnTeleportPairRemoved)',
+    'end',
+    '',
+  ]
+}
+
+// Adapted from a real published Workshop mod ("Renameable Watches", see
+// docs/dst-knowledge/patterns.md#24) — named + writeable is the confirmed
+// vanilla mechanism behind signs/gravestones: the player can type a custom
+// name for the item. onnamed just writes it into the named component.
+function onNamedFunctionBlock(): string[] {
+  return [
+    'local function onnamed(inst, name)',
+    '    if inst.components.named ~= nil then',
+    '        inst.components.named:SetName(name)',
+    '    end',
+    'end',
+    '',
+  ]
+}
+
 function componentBlock(item: ItemDef): string {
   const upper = toUpperSnake(item.id)
   const lines: string[] = []
 
   lines.push('    inst:AddComponent("inspectable")')
-  lines.push('    inst:AddComponent("inventoryitem")')
+  if (!isStructure(item)) {
+    lines.push('    inst:AddComponent("inventoryitem")')
+  } else {
+    lines.push('')
+    lines.push('    inst:AddComponent("lootdropper")')
+    lines.push('')
+    lines.push('    inst:AddComponent("workable")')
+    lines.push('    inst.components.workable:SetWorkAction(ACTIONS.HAMMER)')
+    lines.push('    inst.components.workable:SetWorkLeft(4)')
+    lines.push('    inst.components.workable:SetOnFinishCallback(onhammered)')
+  }
 
   if (item.category === 'tool' && item.toolAction) {
     lines.push('')
@@ -161,6 +308,17 @@ function componentBlock(item: ItemDef): string {
     if (needsOnAttack(item)) {
       lines.push('    inst.components.weapon:SetOnAttack(onattack)')
     }
+  }
+
+  if (item.rechargeable) {
+    lines.push('')
+    lines.push('    inst:AddComponent("rechargeable")')
+    lines.push(`    inst.components.rechargeable:SetChargeTime(TUNING.${upper}_COOLDOWN)`)
+    // Confirmed in the same source mod: shows a "RECHARGING" status on the
+    // item's tooltip while it's on cooldown.
+    lines.push('    inst.components.inspectable.getstatus = function(inst)')
+    lines.push('        return (inst.components.rechargeable ~= nil and not inst.components.rechargeable:IsCharged()) and "RECHARGING" or nil')
+    lines.push('    end')
   }
 
   if (item.finiteuses) {
@@ -244,6 +402,53 @@ function componentBlock(item: ItemDef): string {
     }
   }
 
+  if (item.combinable) {
+    lines.push('')
+    lines.push('    inst.CombineWith = CombineWith')
+  }
+
+  if (item.container) {
+    lines.push('')
+    lines.push('    inst:AddComponent("container")')
+    lines.push(`    inst.components.container:WidgetSetup(${luaString(item.id)})`)
+    // Confirmed in a second real mod ("Winona Toolbox", patterns.md#20): close
+    // the container when it's put away, so it doesn't stay visually open.
+    // Only applies to a portable container — a placed structure has no
+    // inventoryitem to hook (see isStructure, patterns.md#25).
+    if (!isStructure(item)) {
+      lines.push('    inst.components.inventoryitem:SetOnPutInInventoryFn(function(inst)')
+      lines.push('        inst.components.container:Close()')
+      lines.push('    end)')
+    }
+    if (item.container.preservation) {
+      lines.push('')
+      lines.push('    inst:AddComponent("preserver")')
+      lines.push(`    inst.components.preserver:SetPerishRateMultiplier(${item.container.preservation.perishRateMultiplier})`)
+      if (item.container.preservation.temperatureRateMultiplier !== undefined) {
+        lines.push(
+          `    inst.components.preserver:SetTemperatureRateMultiplier(${item.container.preservation.temperatureRateMultiplier})`,
+        )
+      }
+    }
+  }
+
+  if (item.teleportPair) {
+    lines.push('')
+    lines.push('    inst:AddComponent("teleporter")')
+    lines.push('    LinkTeleportPair(inst)')
+  }
+
+  if (item.nameable) {
+    lines.push('')
+    lines.push('    inst:AddComponent("named")')
+    lines.push('')
+    lines.push('    inst:AddComponent("writeable")')
+    lines.push('    inst.components.writeable:SetDefaultWriteable(false)')
+    lines.push('    inst.components.writeable:SetAutomaticDescriptionEnabled(false)')
+    lines.push('    inst.components.writeable:SetWriteableDistance(1)')
+    lines.push('    inst.components.writeable:SetOnWrittenFn(onnamed)')
+  }
+
   return lines.join('\n')
 }
 
@@ -318,6 +523,9 @@ export function generateItemPrefab(item: ItemDef): string {
       lines.push(`    Asset("ANIM", "anim/swap_${item.id}.zip"), -- PLACEHOLDER: aparência na mão, ver README`)
     }
   }
+  if (item.container?.widget.source === 'custom') {
+    lines.push(`    Asset("ANIM", "anim/${containerCustomWidgetBuild(item)}.zip"), -- PLACEHOLDER: art da UI do contêiner, ver README`)
+  }
   lines.push(`    Asset("INV_IMAGE", "${item.id}"),`)
   lines.push('}')
   lines.push('')
@@ -330,13 +538,25 @@ export function generateItemPrefab(item: ItemDef): string {
     lines.push(...onAttackFunctionBlock(item))
   }
   if (needsSpellcaster(item)) {
-    lines.push(...spellFunctionBlock())
+    lines.push(...spellFunctionBlock(item))
   }
   if (needsArmorTakeDamage(item)) {
     lines.push(...armorTakeDamageFunctionBlock(item))
   }
   if (needsOnEaten(item)) {
     lines.push(...onEatenFunctionBlock(item))
+  }
+  if (item.combinable) {
+    lines.push(...combineWithFunctionBlock())
+  }
+  if (item.teleportPair) {
+    lines.push(...teleportPairFunctionBlock())
+  }
+  if (item.nameable) {
+    lines.push(...onNamedFunctionBlock())
+  }
+  if (isStructure(item)) {
+    lines.push(...onHammeredFunctionBlock())
   }
   lines.push('local prefabs = {}')
   lines.push('')
@@ -347,13 +567,26 @@ export function generateItemPrefab(item: ItemDef): string {
   lines.push('    inst.entity:AddAnimState()')
   lines.push('    inst.entity:AddNetwork()')
   lines.push('')
-  lines.push('    MakeInventoryPhysics(inst)')
+  if (isStructure(item)) {
+    lines.push('    MakeObstaclePhysics(inst, 0.5) -- ajuste o raio conforme o tamanho real da estrutura')
+  } else {
+    lines.push('    MakeInventoryPhysics(inst)')
+  }
   lines.push('')
   lines.push(`    inst.AnimState:SetBank(${luaString(build)})`)
   lines.push(`    inst.AnimState:SetBuild(${luaString(build)})`)
   lines.push('    inst.AnimState:PlayAnimation("idle")')
   lines.push('')
-  lines.push('    inst:AddTag("item")')
+  if (isStructure(item)) {
+    lines.push('    inst:AddTag("structure")')
+  } else {
+    lines.push('    inst:AddTag("item")')
+  }
+  if (item.combinable) {
+    // Needs to be visible client-side too — it's read by the USEITEM component
+    // action handler in modmain.lua to decide whether to show the "Combine" action.
+    lines.push('    inst:AddTag("combinable_item")')
+  }
   lines.push('')
   lines.push('    inst.entity:SetPristine()')
   lines.push('    if not TheWorld.ismastersim then')

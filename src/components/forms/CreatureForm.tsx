@@ -52,6 +52,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   const enableAttackRange = watched.stats?.attackRange !== undefined
   const enableSanityAura = watched.sanityAura !== undefined
   const enableCookable = watched.cookable !== undefined
+  const enableHerd = watched.herd !== undefined
 
   const onSubmit = (data: CreatureDef) => onSave(data)
 
@@ -260,6 +261,59 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
               </button>
             </Fieldset>
           </div>
+
+          <Fieldset legend="Herd (optional)" step={6}>
+            <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+              Sourced from a real creature mod (see docs/dst-knowledge/patterns.md#27) — the same mechanism vanilla
+              Beefalo/Lightning Goats use. Generates a second, non-networked "manager" prefab that periodically
+              spawns new members near existing ones, up to a max size.
+            </p>
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableHerd}
+                  onChange={(e) =>
+                    setValue(
+                      'herd',
+                      e.target.checked
+                        ? { maxSize: 8, gatherRange: 40, spawnIntervalDays: { min: 4, max: 6 } }
+                        : undefined,
+                    )
+                  }
+                />
+                Forms herds (spawns near others of its own kind)
+              </label>
+            </div>
+            {enableHerd && (
+              <div className="row-2">
+                <FormField label="Max herd size">
+                  <input type="number" min="2" max="30" className={inputClass} {...register('herd.maxSize', { valueAsNumber: true })} />
+                </FormField>
+                <FormField label="Gather range">
+                  <input type="number" min="1" className={inputClass} {...register('herd.gatherRange', { valueAsNumber: true })} />
+                </FormField>
+                <FormField label="Min days between spawns">
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0.05"
+                    className={inputClass}
+                    {...register('herd.spawnIntervalDays.min', { valueAsNumber: true })}
+                  />
+                </FormField>
+                <FormField label="Max days between spawns" error={errors.herd?.spawnIntervalDays?.max?.message}>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0.05"
+                    className={inputClass}
+                    {...register('herd.spawnIntervalDays.max', { valueAsNumber: true })}
+                  />
+                </FormField>
+              </div>
+            )}
+          </Fieldset>
         </div>
 
         <FormFooter itemName={watched.displayName || 'New creature'} saveLabel={initialCreature ? 'Save changes' : 'Add creature'} onCancel={onCancel} />

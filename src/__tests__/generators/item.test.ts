@@ -250,4 +250,224 @@ describe('generateItemFiles', () => {
 
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
+
+  it('wires CombineWith + the combinable_item tag when combinable is set (patterns.md#19)', () => {
+    const combinableSword = { ...sword, combinable: true }
+    const code = generateItemPrefab(combinableSword)
+    expect(code).toContain('inst:AddTag("combinable_item")')
+    expect(code).toContain('local function CombineWith(inst, material)')
+    expect(code).toContain(
+      'inst.components.finiteuses:SetPercent(math.min(inst.components.finiteuses:GetPercent() + material.components.finiteuses:GetPercent(), 1))',
+    )
+    expect(code).toContain('inst.CombineWith = CombineWith')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('does not add combinable wiring when combinable is not set', () => {
+    const code = generateItemPrefab(sword)
+    expect(code).not.toContain('combinable_item')
+    expect(code).not.toContain('CombineWith')
+  })
+
+  it('rejects combinable on an item with no durability model', () => {
+    const noDurability = { ...trinket, combinable: true }
+    expect(itemDefSchema.safeParse(noDurability).success).toBe(false)
+
+    const withDurability = { ...sword, combinable: true }
+    expect(itemDefSchema.safeParse(withDurability).success).toBe(true)
+  })
+
+  it('wires AddComponent("container") + WidgetSetup when container is set (patterns.md#20)', () => {
+    const bag: ItemDef = {
+      ...trinket,
+      id: 'testbag',
+      container: { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true },
+    }
+    const code = generateItemPrefab(bag)
+    expect(code).toContain('inst:AddComponent("container")')
+    expect(code).toContain('inst.components.container:WidgetSetup("testbag")')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('declares a placeholder UI art asset for a custom container widget, not for a vanilla one', () => {
+    const vanillaBag: ItemDef = {
+      ...trinket,
+      id: 'testbag',
+      container: { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true },
+    }
+    expect(generateItemPrefab(vanillaBag)).not.toContain('ui_testbag')
+
+    const customBag: ItemDef = {
+      ...trinket,
+      id: 'testcustombag',
+      container: { widget: { source: 'custom', slots: 8, columns: 2 }, sideWidget: false, acceptsTag: 'pocketwatch' },
+    }
+    const customCode = generateItemPrefab(customBag)
+    expect(customCode).toContain('Asset("ANIM", "anim/ui_testcustombag.zip")')
+    expect(customCode).toContain('PLACEHOLDER')
+  })
+
+  it('wires the preserver component when container.preservation is set (patterns.md#20)', () => {
+    const cooler: ItemDef = {
+      ...trinket,
+      id: 'testcooler',
+      container: {
+        widget: { source: 'vanilla', reusePrefab: 'sacred_chest' },
+        sideWidget: false,
+        preservation: { perishRateMultiplier: 0.25, temperatureRateMultiplier: 0.5 },
+      },
+    }
+    const code = generateItemPrefab(cooler)
+    expect(code).toContain('inst:AddComponent("preserver")')
+    expect(code).toContain('inst.components.preserver:SetPerishRateMultiplier(0.25)')
+    expect(code).toContain('inst.components.preserver:SetTemperatureRateMultiplier(0.5)')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('does not add a preserver when the container has no preservation configured', () => {
+    const plainBag: ItemDef = {
+      ...trinket,
+      id: 'testplainbag',
+      container: { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true },
+    }
+    const code = generateItemPrefab(plainBag)
+    expect(code).not.toContain('preserver')
+  })
+
+  it('closes the container when it is put away, for every container item (patterns.md#20)', () => {
+    const bag: ItemDef = {
+      ...trinket,
+      id: 'testbag',
+      container: { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true },
+    }
+    const code = generateItemPrefab(bag)
+    expect(code).toContain('inst.components.inventoryitem:SetOnPutInInventoryFn(function(inst)')
+    expect(code).toContain('inst.components.container:Close()')
+  })
+
+  it('wires teleporter + auto-pairing via a shared GLOBAL table when teleportPair is set (patterns.md#23)', () => {
+    const teleporter: ItemDef = { ...structure, id: 'testteleporter', teleportPair: true }
+    const code = generateItemPrefab(teleporter)
+    expect(code).toContain('inst:AddComponent("teleporter")')
+    expect(code).toContain('LinkTeleportPair(inst)')
+    expect(code).toContain('GLOBAL.TELEPORT_PAIRS = GLOBAL.TELEPORT_PAIRS or {}')
+    expect(code).toContain('a.components.teleporter:Target(b)')
+    expect(code).toContain('b.components.teleporter:Target(a)')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('rejects a teleporter pair on a non-structure item', () => {
+    const handheldTeleporter = { ...sword, teleportPair: true }
+    expect(itemDefSchema.safeParse(handheldTeleporter).success).toBe(false)
+
+    const structureTeleporter = { ...structure, teleportPair: true }
+    expect(itemDefSchema.safeParse(structureTeleporter).success).toBe(true)
+  })
+
+  it('treats a structure (recipe.placer) as never an inventory item (patterns.md#25)', () => {
+    const code = generateItemPrefab(structure)
+    expect(code).toContain('MakeObstaclePhysics(inst, 0.5)')
+    expect(code).not.toContain('MakeInventoryPhysics')
+    expect(code).toContain('inst:AddTag("structure")')
+    expect(code).not.toContain('inst:AddTag("item")')
+    expect(code).not.toContain('inst:AddComponent("inventoryitem")')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('wires workable + hammer-destroy for a structure, dropping loot if any', () => {
+    const code = generateItemPrefab(structure)
+    expect(code).toContain('inst:AddComponent("lootdropper")')
+    expect(code).toContain('inst:AddComponent("workable")')
+    expect(code).toContain('inst.components.workable:SetWorkAction(ACTIONS.HAMMER)')
+    expect(code).toContain('inst.components.workable:SetOnFinishCallback(onhammered)')
+    expect(code).toContain('local function onhammered(inst)')
+    expect(code).toContain('inst.components.lootdropper:DropLoot()')
+    expect(code).toContain('inst:Remove()')
+  })
+
+  it('keeps a non-structure item as a normal inventory item', () => {
+    const code = generateItemPrefab(sword)
+    expect(code).toContain('MakeInventoryPhysics(inst)')
+    expect(code).toContain('inst:AddTag("item")')
+    expect(code).toContain('inst:AddComponent("inventoryitem")')
+    expect(code).not.toContain('MakeObstaclePhysics')
+    expect(code).not.toContain('onhammered')
+  })
+
+  it('does not wire the container auto-close-on-pickup for a structure container (no inventoryitem to hook)', () => {
+    const structureContainer: ItemDef = {
+      ...structure,
+      id: 'teststructurebag',
+      container: { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: false },
+    }
+    const code = generateItemPrefab(structureContainer)
+    expect(code).toContain('inst:AddComponent("container")')
+    expect(code).not.toContain('SetOnPutInInventoryFn')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('wires rechargeable + Discharge inside onattack for a weapon (patterns.md#26)', () => {
+    const rechargeableWeapon = { ...firestaff, finiteuses: undefined, rechargeable: { cooldownSeconds: 30 } }
+    const code = generateItemPrefab(rechargeableWeapon)
+    expect(code).toContain('inst:AddComponent("rechargeable")')
+    expect(code).toContain('inst.components.rechargeable:SetChargeTime(TUNING.TESTFIRESTAFF_COOLDOWN)')
+    expect(code).toContain('if inst.components.rechargeable ~= nil then')
+    expect(code).toContain('inst.components.rechargeable:Discharge(TUNING.TESTFIRESTAFF_COOLDOWN)')
+    expect(code).toContain('inst.components.weapon:SetOnAttack(onattack)')
+    expect(code).toContain('inst.components.inspectable.getstatus = function(inst)')
+    expect(code).toContain('return (inst.components.rechargeable ~= nil and not inst.components.rechargeable:IsCharged()) and "RECHARGING" or nil')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('wires rechargeable + Discharge inside the spellcaster effect for a non-weapon magic item', () => {
+    const rechargeableStaff: ItemDef = {
+      id: 'testrechargewand',
+      displayName: 'Test Recharge Wand',
+      description: 'A wand for testing',
+      category: 'generic',
+      spellEffect: 'createLight',
+      rechargeable: { cooldownSeconds: 45 },
+      recipe: { ingredients: [{ prefab: 'nightmarefuel', amount: 1 }], techLevel: 'MAGIC_TWO', filters: ['MAGIC'], placer: false },
+    }
+    expect(itemDefSchema.safeParse(rechargeableStaff).success).toBe(true)
+
+    const code = generateItemPrefab(rechargeableStaff)
+    expect(code).toContain('inst:AddComponent("rechargeable")')
+    expect(code).toContain('if staff.components.rechargeable ~= nil then')
+    expect(code).toContain('staff.components.rechargeable:Discharge(TUNING.TESTRECHARGEWAND_COOLDOWN)')
+    expect(code).not.toContain('local function onattack')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('rejects rechargeable without a weapon or magic effect, and rejects it alongside finiteuses/perishable', () => {
+    const noTrigger = { ...trinket, rechargeable: { cooldownSeconds: 10 } }
+    expect(itemDefSchema.safeParse(noTrigger).success).toBe(false)
+
+    const withFiniteuses = { ...firestaff, rechargeable: { cooldownSeconds: 10 } }
+    expect(itemDefSchema.safeParse(withFiniteuses).success).toBe(false)
+
+    const valid = { ...firestaff, finiteuses: undefined, rechargeable: { cooldownSeconds: 10 } }
+    expect(itemDefSchema.safeParse(valid).success).toBe(true)
+  })
+
+  it('wires named + writeable when nameable is set, without touching featherpencil (patterns.md#24)', () => {
+    const nameableItem: ItemDef = { ...trinket, id: 'testwatch', nameable: true }
+    const code = generateItemPrefab(nameableItem)
+    expect(code).toContain('inst:AddComponent("named")')
+    expect(code).toContain('inst:AddComponent("writeable")')
+    expect(code).toContain('inst.components.writeable:SetDefaultWriteable(false)')
+    expect(code).toContain('inst.components.writeable:SetOnWrittenFn(onnamed)')
+    expect(code).toContain('local function onnamed(inst, name)')
+    expect(code).not.toContain('featherpencil')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
 })

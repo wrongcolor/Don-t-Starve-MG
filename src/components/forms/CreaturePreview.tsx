@@ -14,6 +14,7 @@ export function CreaturePreview({ creature }: { creature: Partial<CreatureDef> }
   if (creature.freezable) tags.push('❄️ Freezes')
   if (creature.cookable) tags.push('🍖 Cookable')
   if (creature.sanityAura) tags.push(creature.sanityAura < 0 ? '👻 Scares' : '🌸 Soothes')
+  if (creature.herd) tags.push(`🐄 Herd (up to ${creature.herd.maxSize})`)
 
   return (
     <div className="preview">

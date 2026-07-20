@@ -1,6 +1,6 @@
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { characterDefSchema, CHARACTER_GENDERS, CHARACTER_PERKS, type CharacterDef } from '../../types/modProject'
+import { characterDefSchema, CHARACTER_GENDERS, CHARACTER_PERKS, FOOD_TYPES, type CharacterDef } from '../../types/modProject'
 import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
 import { CharacterPreview } from './CharacterPreview'
 
@@ -21,15 +21,14 @@ const emptyCharacter: CharacterDef = {
   startingInventory: ['torch'],
   speechOverrides: {},
   perks: [],
+  foodTypeAffinities: [],
 }
 
 const PERK_LABELS: Record<(typeof CHARACTER_PERKS)[number], string> = {
-  no_hunger: 'Doesn\'t feel hunger',
   no_sanity_drain: 'Sanity doesn\'t drain naturally',
   fire_immune: 'Fire immune',
   freeze_immune: 'Freeze immune',
   night_vision: 'Sees in the dark',
-  faster_walk: 'Walks faster (+25%)',
 }
 
 export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterFormProps) {
@@ -38,6 +37,7 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
     control,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<CharacterDef>({
     resolver: zodResolver(characterDefSchema),
@@ -45,7 +45,11 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
   })
 
   const inventory = useFieldArray({ control, name: 'startingInventory' as never })
+  const affinities = useFieldArray({ control, name: 'foodTypeAffinities' })
   const watched = watch()
+  const enableDamageMultiplier = watched.damageMultiplier !== undefined
+  const enableHungerRateMultiplier = watched.hungerRateMultiplier !== undefined
+  const enableWalkSpeedMultiplier = watched.walkSpeedMultiplier !== undefined
 
   const onSubmit = (data: CharacterDef) => onSave(data)
 
@@ -132,6 +136,97 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
               </button>
             </Fieldset>
           </div>
+
+          <Fieldset legend="Stat multipliers (optional)" step={6}>
+            <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+              Sourced from a real character mod's master_postinit (see docs/dst-knowledge/patterns.md#21) — a static
+              multiplier applied once at spawn, independent of any skill tree.
+            </p>
+            <div className="row-2">
+              <div>
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableDamageMultiplier}
+                      onChange={(e) => setValue('damageMultiplier', e.target.checked ? 1 : undefined)}
+                    />
+                    Damage dealt
+                  </label>
+                </div>
+                {enableDamageMultiplier && (
+                  <FormField label="Multiplier (1 = normal)">
+                    <input type="number" step="0.05" className={inputClass} {...register('damageMultiplier', { valueAsNumber: true })} />
+                  </FormField>
+                )}
+              </div>
+              <div>
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableHungerRateMultiplier}
+                      onChange={(e) => setValue('hungerRateMultiplier', e.target.checked ? 1 : undefined)}
+                    />
+                    Hunger rate
+                  </label>
+                </div>
+                {enableHungerRateMultiplier && (
+                  <FormField label="Multiplier (1 = normal, 0 = never hungry)">
+                    <input type="number" step="0.05" className={inputClass} {...register('hungerRateMultiplier', { valueAsNumber: true })} />
+                  </FormField>
+                )}
+              </div>
+              <div>
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableWalkSpeedMultiplier}
+                      onChange={(e) => setValue('walkSpeedMultiplier', e.target.checked ? 1.25 : undefined)}
+                    />
+                    Walk speed
+                  </label>
+                </div>
+                {enableWalkSpeedMultiplier && (
+                  <FormField label="Multiplier (1 = normal)">
+                    <input type="number" step="0.05" className={inputClass} {...register('walkSpeedMultiplier', { valueAsNumber: true })} />
+                  </FormField>
+                )}
+              </div>
+            </div>
+
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', margin: '12px 0 8px' }}>
+              Food type affinities (extra hunger/health/sanity from a whole food category)
+            </span>
+            {affinities.fields.map((field, index) => (
+              <div key={field.id} className="ingredient-row">
+                <select className={inputClass} {...register(`foodTypeAffinities.${index}.foodType` as const)}>
+                  {FOOD_TYPES.map((f) => (
+                    <option key={f} value={f}>
+                      {f}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="qty-input"
+                  {...register(`foodTypeAffinities.${index}.multiplier` as const, { valueAsNumber: true })}
+                />
+                <button type="button" className={btnDanger} onClick={() => affinities.remove(index)}>
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="add-ingredient"
+              onClick={() => affinities.append({ foodType: 'VEGGIE', multiplier: 1.33 })}
+            >
+              + Add affinity
+            </button>
+          </Fieldset>
 
           <p style={{ fontSize: 12, color: 'var(--ink-soft)', padding: '0 4px' }}>
             Custom speech: by default the character inherits all of Wilson's speech (speech_wilson). You can adjust

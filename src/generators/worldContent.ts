@@ -67,19 +67,49 @@ function generateTaskLua(task: TaskDef): string {
   return lines.join('\n') + '\n'
 }
 
-// Wiring uncertainty: AddRoom/AddTask are confirmed real global functions (map/rooms.lua,
-// map/tasks.lua), but the exact modmain.lua hook that loads mod world-gen files into scope
-// wasn't confirmed in this session (no reference mod available) — see README/patterns.md#17.
-// This generator only produces the content files; loading them is left documented, not assumed.
+// Confirmed in a real published Workshop mod ("Graveyard Island", see
+// docs/dst-knowledge/patterns.md#22): AddRoom/AddTask calls go directly in a
+// file named "modworldgenmain.lua" at the MOD ROOT (a sibling of modmain.lua,
+// not under scripts/map/) — the game loads it automatically during world
+// generation, no PrefabFiles-style registration needed. This resolves the
+// wiring uncertainty patterns.md#16/#17 previously flagged as unconfirmed.
+function taskRegistrationBlock(project: ModProject): string[] {
+  const taskIdsByLocation = new Map<string, string[]>()
+  for (const task of project.tasks) {
+    for (const location of task.locations) {
+      const ids = taskIdsByLocation.get(location) ?? []
+      ids.push(task.id)
+      taskIdsByLocation.set(location, ids)
+    }
+  }
+  if (taskIdsByLocation.size === 0) return []
+
+  const lines = ['AddTaskSetPreInitAny(function(self)']
+  for (const [location, taskIds] of taskIdsByLocation) {
+    lines.push(`    if self.location == ${luaString(location)} then`)
+    for (const id of taskIds) {
+      lines.push(`        table.insert(self.tasks, ${luaString(id)})`)
+    }
+    lines.push('    end')
+  }
+  lines.push('end)')
+  return lines
+}
+
 export function generateWorldContentFiles(project: ModProject): Record<string, string> {
-  const files: Record<string, string> = {}
+  if (project.rooms.length === 0 && project.tasks.length === 0) return {}
 
-  if (project.rooms.length > 0) {
-    files['scripts/map/rooms.lua'] = project.rooms.map(generateRoomLua).join('\n')
+  const sections: string[] = []
+  for (const room of project.rooms) {
+    sections.push(generateRoomLua(room))
   }
-  if (project.tasks.length > 0) {
-    files['scripts/map/tasks.lua'] = project.tasks.map(generateTaskLua).join('\n')
+  for (const task of project.tasks) {
+    sections.push(generateTaskLua(task))
+  }
+  const registration = taskRegistrationBlock(project)
+  if (registration.length > 0) {
+    sections.push(registration.join('\n') + '\n')
   }
 
-  return files
+  return { 'modworldgenmain.lua': sections.join('\n') }
 }

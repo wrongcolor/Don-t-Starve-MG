@@ -1,5 +1,6 @@
 import type { ModProject, ItemDef, CharacterDef, CreatureDef } from '../types/modProject'
 import { luaString, luaStringArray, toUpperSnake } from './luaUtils'
+import { containerColumns, containerSlotCount, containerCustomWidgetBuild } from './item'
 
 function itemRecipeBlock(item: ItemDef): string {
   const ingredients = item.recipe.ingredients
@@ -59,6 +60,9 @@ function itemTuningBlock(item: ItemDef): string[] {
     lines.push(`GLOBAL.TUNING.${upper}_DAMAGE_BUFF_MULT = ${item.onEatBuff.damageMultiplier}`)
     lines.push(`GLOBAL.TUNING.${upper}_DAMAGE_BUFF_DURATION = ${item.onEatBuff.durationSeconds}`)
   }
+  if (item.rechargeable) {
+    lines.push(`GLOBAL.TUNING.${upper}_COOLDOWN = ${item.rechargeable.cooldownSeconds}`)
+  }
   return lines
 }
 
@@ -85,6 +89,12 @@ function creatureTuningBlock(creature: CreatureDef): string[] {
   if (creature.sanityAura !== undefined) {
     lines.push(`GLOBAL.TUNING.${upper}_SANITYAURA = ${creature.sanityAura}`)
   }
+  if (creature.herd !== undefined) {
+    lines.push(`GLOBAL.TUNING.${upper}HERD_MAX_SIZE = ${creature.herd.maxSize}`)
+    lines.push(`GLOBAL.TUNING.${upper}HERD_GATHER_RANGE = ${creature.herd.gatherRange}`)
+    lines.push(`GLOBAL.TUNING.${upper}HERD_SPAWN_MIN = TUNING.TOTAL_DAY_TIME * ${creature.herd.spawnIntervalDays.min}`)
+    lines.push(`GLOBAL.TUNING.${upper}HERD_SPAWN_MAX = TUNING.TOTAL_DAY_TIME * ${creature.herd.spawnIntervalDays.max}`)
+  }
   return lines
 }
 
@@ -102,6 +112,107 @@ function characterTuningBlock(character: CharacterDef): string[] {
     `GLOBAL.TUNING.${upper}_HEALTH = ${character.stats.health}`,
     `GLOBAL.TUNING.${upper}_HUNGER = ${character.stats.hunger}`,
     `GLOBAL.TUNING.${upper}_SANITY = ${character.stats.sanity}`,
+  ]
+}
+
+function needsContainerParams(project: ModProject): boolean {
+  return project.items.some((item) => item.container)
+}
+
+// Adapted from TWO real published Workshop mods (see docs/dst-knowledge/
+// patterns.md#20). `containers.params.<id>` — the slot grid, widget skin, and
+// whether it auto-opens as a side panel — can only be set up from
+// modmain.lua (the prefab script just calls WidgetSetup with this id).
+function containerParamsBlock(item: ItemDef): string[] {
+  const widget = item.container!.widget
+  const lines: string[] = []
+
+  if (widget.source === 'vanilla') {
+    // Confirmed in "Automation Farm": clone an existing container's ENTIRE
+    // widget config (skin + exact slot grid) at runtime — no manual grid math,
+    // works for any valid container prefab id, not just one curated preset.
+    lines.push(`params.${item.id} = GLOBAL.deepcopy(containers.params[${luaString(widget.reusePrefab)}])`)
+  } else {
+    const columns = containerColumns(item)
+    const slots = containerSlotCount(item)
+    const build = containerCustomWidgetBuild(item)
+    lines.push(`params.${item.id} = {`)
+    lines.push('    widget = {')
+    lines.push('        slotpos = {},')
+    lines.push(`        animbank = ${luaString(build)},`)
+    lines.push(`        animbuild = ${luaString(build)},`)
+    lines.push('        pos = Vector3(0, 0, 0),')
+    lines.push('    },')
+    lines.push('}')
+    lines.push('')
+    // NOT confirmed against a working custom-art example (see patterns.md#20)
+    // — a generic even grid at 75px spacing. Needs a matching ui_<id> build
+    // supplied by the user (see README).
+    const rows = Math.ceil(slots / columns)
+    for (let i = 0; i < slots; i++) {
+      const row = Math.floor(i / columns)
+      const col = i % columns
+      const x = (col - (columns - 1) / 2) * 75
+      const y = ((rows - 1) / 2 - row) * 75
+      lines.push(`table.insert(params.${item.id}.widget.slotpos, Vector3(${x}, ${y}, 0))`)
+    }
+  }
+
+  lines.push(`params.${item.id}.issidewidget = ${item.container!.sideWidget}`)
+  lines.push(`params.${item.id}.type = ${luaString(item.id)}`)
+  lines.push('')
+  lines.push(`containers.MAXITEMSLOTS = math.max(containers.MAXITEMSLOTS, #params.${item.id}.widget.slotpos)`)
+
+  const acceptConditions: string[] = []
+  if (item.container!.acceptsTag) {
+    acceptConditions.push(`item:HasTag(${luaString(item.container!.acceptsTag)})`)
+  }
+  for (const prefab of item.container!.acceptsPrefabs ?? []) {
+    acceptConditions.push(`item.prefab == ${luaString(prefab)}`)
+  }
+  if (acceptConditions.length > 0) {
+    lines.push('')
+    lines.push(`function params.${item.id}.itemtestfn(container, item, slot)`)
+    lines.push(`    return ${acceptConditions.join(' or ')}`)
+    lines.push('end')
+  }
+
+  return lines
+}
+
+function needsCombineAction(project: ModProject): boolean {
+  return project.items.some((item) => item.combinable)
+}
+
+// Adapted from a real published Workshop mod ("Repair Combine", see
+// docs/dst-knowledge/patterns.md#19). Registering a brand-new player action
+// (AddAction/AddComponentAction/AddStategraphActionHandler) only works from
+// modmain.lua, not from a prefab script — so this is emitted once here, shared
+// by every combinable item, instead of once per item. "inventoryitem" is used
+// as the AddComponentAction component (present on every item) with a manual
+// tag check inside, instead of a custom component class like the source mod.
+function combineActionBlock(): string[] {
+  return [
+    'local ACTIONS = GLOBAL.ACTIONS',
+    'local ActionHandler = GLOBAL.ActionHandler',
+    '',
+    'local COMBINE_ITEM_ACTION = AddAction("COMBINE_ITEM", "Combine", function(act)',
+    '    if act.target ~= nil and act.invobject ~= nil and act.target.CombineWith ~= nil then',
+    '        return act.target:CombineWith(act.invobject)',
+    '    end',
+    'end)',
+    'COMBINE_ITEM_ACTION.mount_valid = true',
+    'COMBINE_ITEM_ACTION.encumbered_valid = true',
+    '',
+    'AddComponentAction("USEITEM", "inventoryitem", function(inst, doer, target, actions, right)',
+    '    if right and target ~= nil and inst.prefab == target.prefab and inst ~= target',
+    '        and inst:HasTag("combinable_item") and target:HasTag("combinable_item") then',
+    '        table.insert(actions, ACTIONS.COMBINE_ITEM)',
+    '    end',
+    'end)',
+    '',
+    'AddStategraphActionHandler("wilson", ActionHandler(ACTIONS.COMBINE_ITEM, "dolongaction"))',
+    'AddStategraphActionHandler("wilson_client", ActionHandler(ACTIONS.COMBINE_ITEM, "dolongaction"))',
   ]
 }
 
@@ -127,7 +238,10 @@ export function generateModMain(project: ModProject): string {
     if (item.recipe.placer) prefabFiles.push(`${item.id}_placer`)
   }
   for (const character of project.characters) prefabFiles.push(character.id)
-  for (const creature of project.creatures) prefabFiles.push(creature.id)
+  for (const creature of project.creatures) {
+    prefabFiles.push(creature.id)
+    if (creature.herd) prefabFiles.push(`${creature.id}herd`)
+  }
 
   const sections: string[] = []
 
@@ -150,6 +264,25 @@ export function generateModMain(project: ModProject): string {
     sections.push('-- Items: recipes')
     for (const item of project.items) {
       sections.push(itemRecipeBlock(item))
+    }
+  }
+
+  if (needsCombineAction(project)) {
+    sections.push('')
+    sections.push('-- Combine action (shared by every combinable item)')
+    sections.push(...combineActionBlock())
+  }
+
+  if (needsContainerParams(project)) {
+    sections.push('')
+    sections.push('-- Container widgets')
+    sections.push('local containers = require("containers")')
+    sections.push('local params = containers.params')
+    for (const item of project.items) {
+      if (item.container) {
+        sections.push('')
+        sections.push(...containerParamsBlock(item))
+      }
     }
   }
 

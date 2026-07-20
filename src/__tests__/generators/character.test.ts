@@ -19,8 +19,23 @@ describe('generateCharacterPrefab', () => {
   })
 
   it('emits a snippet for every selected perk', () => {
-    expect(code).toContain('inst.components.hunger.hungerrate = 0')
-    expect(code).toContain('SetExternalSpeedMultiplier(inst, "testchar_speed_perk", 1.25)')
+    expect(code).toContain('inst:AddTag("freezeimmune")')
+  })
+
+  it('wires stat multipliers and food type affinity, sourced from dryad.lua (patterns.md#21)', () => {
+    expect(code).toContain('inst.components.combat.damagemultiplier = 0.75')
+    expect(code).toContain('inst.components.hunger.hungerrate = 0 * TUNING.WILSON_HUNGER_RATE')
+    expect(code).toContain('inst.components.locomotor:SetExternalSpeedMultiplier(inst, "testchar_speed_mod", 1.25)')
+    expect(code).toContain('inst.components.foodaffinity:AddFoodtypeAffinity(FOODTYPE.VEGGIE, 1.33)')
+  })
+
+  it('omits multiplier lines entirely when none are set', () => {
+    const plain = { ...character, damageMultiplier: undefined, hungerRateMultiplier: undefined, walkSpeedMultiplier: undefined, foodTypeAffinities: [] }
+    const plainCode = generateCharacterPrefab(plain)
+    expect(plainCode).not.toContain('damagemultiplier')
+    expect(plainCode).not.toContain('hungerrate')
+    expect(plainCode).not.toContain('SetExternalSpeedMultiplier')
+    expect(plainCode).not.toContain('foodaffinity')
   })
 })
 
