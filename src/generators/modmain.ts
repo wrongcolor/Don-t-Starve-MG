@@ -228,6 +228,20 @@ function characterStringsAndRegistrationBlock(character: CharacterDef): string[]
   ]
 }
 
+// Confirmed in the base game's own scripts/prefabs/skilltree_defs.lua (see
+// docs/dst-knowledge/patterns.md#28), mirrored exactly by a real character mod's
+// modmain.lua ("Dryad"): registering a tree is require the generated skill file,
+// call it with skilltree_defs.FN, then hand the resulting SKILLS/ORDERS to
+// CreateSkillTreeFor / SKILLTREE_ORDERS.
+function skillTreeRegistrationBlock(character: CharacterDef): string[] {
+  const varName = `${character.id}_skilltree_data`
+  return [
+    `local ${varName} = require(${luaString(`prefabs/skilltree_${character.id}`)})(skilltree_defs.FN)`,
+    `skilltree_defs.CreateSkillTreeFor(${luaString(character.id)}, ${varName}.SKILLS)`,
+    `skilltree_defs.SKILLTREE_ORDERS[${luaString(character.id)}] = ${varName}.ORDERS`,
+  ]
+}
+
 // modmain.lua is the only file with access to mod-registration functions
 // (AddRecipe2, AddModCharacter, PrefabFiles, STRINGS, TUNING) — prefab scripts
 // just read the TUNING/STRINGS values this file sets up.
@@ -237,7 +251,10 @@ export function generateModMain(project: ModProject): string {
     prefabFiles.push(item.id)
     if (item.recipe.placer) prefabFiles.push(`${item.id}_placer`)
   }
-  for (const character of project.characters) prefabFiles.push(character.id)
+  for (const character of project.characters) {
+    prefabFiles.push(character.id)
+    if (character.skillTree) prefabFiles.push(`skilltree_${character.id}`)
+  }
   for (const creature of project.creatures) {
     prefabFiles.push(creature.id)
     if (creature.herd) prefabFiles.push(`${creature.id}herd`)
@@ -301,6 +318,16 @@ export function generateModMain(project: ModProject): string {
     for (const character of project.characters) {
       sections.push(...characterTuningBlock(character))
       sections.push(...characterStringsAndRegistrationBlock(character))
+    }
+  }
+
+  const charactersWithSkillTree = project.characters.filter((character) => character.skillTree)
+  if (charactersWithSkillTree.length > 0) {
+    sections.push('')
+    sections.push('-- Skill trees (docs/dst-knowledge/patterns.md#28)')
+    sections.push('local skilltree_defs = require("prefabs/skilltree_defs")')
+    for (const character of charactersWithSkillTree) {
+      sections.push(...skillTreeRegistrationBlock(character))
     }
   }
 

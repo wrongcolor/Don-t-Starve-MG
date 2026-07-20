@@ -1,8 +1,177 @@
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useForm, useFieldArray, type Control, type UseFormRegister, type UseFormSetValue } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { characterDefSchema, CHARACTER_GENDERS, CHARACTER_PERKS, FOOD_TYPES, type CharacterDef } from '../../types/modProject'
 import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
 import { CharacterPreview } from './CharacterPreview'
+
+interface SkillTreeNodeFieldsProps {
+  control: Control<CharacterDef>
+  register: UseFormRegister<CharacterDef>
+  setValue: UseFormSetValue<CharacterDef>
+  branchIndex: number
+  nodeIndex: number
+  isFirstInBranch: boolean
+  gatedAfterBranchSkills: number | undefined
+  onRemove: () => void
+}
+
+function SkillTreeNodeFields({
+  register,
+  setValue,
+  branchIndex,
+  nodeIndex,
+  isFirstInBranch,
+  gatedAfterBranchSkills,
+  onRemove,
+}: SkillTreeNodeFieldsProps) {
+  const base = `skillTree.branches.${branchIndex}.nodes.${nodeIndex}` as const
+  const gateEnabled = gatedAfterBranchSkills !== undefined
+
+  return (
+    <div className="card panel" style={{ marginBottom: 8 }}>
+      <div className="row-2">
+        <FormField label="Skill id">
+          <input className={inputClass} {...register(`${base}.id` as const)} placeholder="skill_1" />
+        </FormField>
+        <FormField label="Title">
+          <input className={inputClass} {...register(`${base}.title` as const)} />
+        </FormField>
+      </div>
+      <FormField label="Description">
+        <textarea className={inputClass} rows={2} {...register(`${base}.desc` as const)} />
+      </FormField>
+      <div className="row-2">
+        <FormField label="Tag added while active (optional)" hint='Check it elsewhere in your mod with inst:HasTag("...")'>
+          <input className={inputClass} {...register(`${base}.addsTag` as const)} placeholder="fast_chopping" />
+        </FormField>
+        {!isFirstInBranch && (
+          <div>
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={gateEnabled}
+                  onChange={(e) => setValue(`${base}.gatedAfterBranchSkills` as const, e.target.checked ? 1 : undefined)}
+                />
+                Locked until earlier skills unlocked
+              </label>
+            </div>
+            {gateEnabled && (
+              <FormField label="How many earlier skills in this branch">
+                <input
+                  type="number"
+                  min={1}
+                  className={inputClass}
+                  {...register(`${base}.gatedAfterBranchSkills` as const, { valueAsNumber: true })}
+                />
+              </FormField>
+            )}
+          </div>
+        )}
+      </div>
+      <button type="button" className={btnDanger} onClick={onRemove}>
+        Remove skill
+      </button>
+    </div>
+  )
+}
+
+interface SkillTreeBranchFieldsProps {
+  control: Control<CharacterDef>
+  register: UseFormRegister<CharacterDef>
+  setValue: UseFormSetValue<CharacterDef>
+  branchIndex: number
+  watchedGates: (number | undefined)[]
+  onRemoveBranch: () => void
+}
+
+function SkillTreeBranchFields({
+  control,
+  register,
+  setValue,
+  branchIndex,
+  watchedGates,
+  onRemoveBranch,
+}: SkillTreeBranchFieldsProps) {
+  const nodes = useFieldArray({ control, name: `skillTree.branches.${branchIndex}.nodes` as const })
+
+  return (
+    <div className="card panel" style={{ marginBottom: 12 }}>
+      <div className="row-2">
+        <FormField label="Branch name (internal id)">
+          <input
+            className={inputClass}
+            {...register(`skillTree.branches.${branchIndex}.name` as const)}
+            placeholder="alchemy"
+          />
+        </FormField>
+        <button type="button" className={btnDanger} onClick={onRemoveBranch}>
+          Remove branch
+        </button>
+      </div>
+
+      {nodes.fields.map((field, nodeIndex) => (
+        <SkillTreeNodeFields
+          key={field.id}
+          control={control}
+          register={register}
+          setValue={setValue}
+          branchIndex={branchIndex}
+          nodeIndex={nodeIndex}
+          isFirstInBranch={nodeIndex === 0}
+          gatedAfterBranchSkills={watchedGates[nodeIndex]}
+          onRemove={() => nodes.remove(nodeIndex)}
+        />
+      ))}
+      <button
+        type="button"
+        className="add-ingredient"
+        onClick={() => nodes.append({ id: '', title: '', desc: '' })}
+      >
+        + Add skill
+      </button>
+    </div>
+  )
+}
+
+interface SkillTreeEditorProps {
+  control: Control<CharacterDef>
+  register: UseFormRegister<CharacterDef>
+  setValue: UseFormSetValue<CharacterDef>
+  watchedBranches: { nodes: { gatedAfterBranchSkills?: number }[] }[]
+}
+
+// Owns the branches field array itself, mounted only while the tree is enabled
+// — a useFieldArray started before its value exists won't pick up a plain
+// setValue() write to that same path (RHF tracks array mutations through its
+// own append/remove/replace, not generic setValue), so this can't live in the
+// parent alongside the enable checkbox.
+function SkillTreeEditor({ control, register, setValue, watchedBranches }: SkillTreeEditorProps) {
+  const branches = useFieldArray({ control, name: 'skillTree.branches' as const })
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      {branches.fields.map((field, branchIndex) => (
+        <SkillTreeBranchFields
+          key={field.id}
+          control={control}
+          register={register}
+          setValue={setValue}
+          branchIndex={branchIndex}
+          watchedGates={(watchedBranches[branchIndex]?.nodes ?? []).map((n) => n.gatedAfterBranchSkills)}
+          onRemoveBranch={() => branches.remove(branchIndex)}
+        />
+      ))}
+      <button
+        type="button"
+        className="add-ingredient"
+        onClick={() => branches.append({ name: '', nodes: [{ id: '', title: '', desc: '' }] })}
+      >
+        + Add branch
+      </button>
+    </div>
+  )
+}
 
 interface CharacterFormProps {
   initialCharacter?: CharacterDef
@@ -50,6 +219,7 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
   const enableDamageMultiplier = watched.damageMultiplier !== undefined
   const enableHungerRateMultiplier = watched.hungerRateMultiplier !== undefined
   const enableWalkSpeedMultiplier = watched.walkSpeedMultiplier !== undefined
+  const enableSkillTree = watched.skillTree !== undefined
 
   const onSubmit = (data: CharacterDef) => onSave(data)
 
@@ -226,6 +396,41 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
             >
               + Add affinity
             </button>
+          </Fieldset>
+
+          <Fieldset legend="Skill tree (optional)" step={7}>
+            <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+              Sourced from the base game's own skilltree_defs.lua and skilltree_wilson.lua (see
+              docs/dst-knowledge/patterns.md#28) — skilltreeupdater is already on every character, this just registers
+              the tree. Each branch is a chain of skills; a skill can optionally add a tag while active, and can be
+              locked until earlier skills in its branch are unlocked.
+            </p>
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableSkillTree}
+                  onChange={(e) =>
+                    setValue(
+                      'skillTree',
+                      e.target.checked
+                        ? { branches: [{ name: 'branch1', nodes: [{ id: 'skill_1', title: '', desc: '' }] }] }
+                        : undefined,
+                    )
+                  }
+                />
+                This character has a skill tree
+              </label>
+            </div>
+
+            {enableSkillTree && (
+              <SkillTreeEditor
+                control={control}
+                register={register}
+                setValue={setValue}
+                watchedBranches={watched.skillTree?.branches ?? []}
+              />
+            )}
           </Fieldset>
 
           <p style={{ fontSize: 12, color: 'var(--ink-soft)', padding: '0 4px' }}>

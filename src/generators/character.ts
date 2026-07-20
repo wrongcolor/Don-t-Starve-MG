@@ -1,5 +1,6 @@
 import type { CharacterDef } from '../types/modProject'
 import { luaStringArray, toUpperSnake } from './luaUtils'
+import { generateSkillTreeFile } from './skillTree'
 
 // Best-effort perk snippets using real, documented component APIs. These are starting
 // points — exact balance values are meant to be tweaked by the user, not final tuning.
@@ -100,8 +101,12 @@ export function generateCharacterFiles(
   character: CharacterDef,
   speechFile: string,
 ): Record<string, string> {
-  return {
+  const files: Record<string, string> = {
     [`scripts/prefabs/${character.id}.lua`]: generateCharacterPrefab(character),
     [`scripts/speech_${character.id}.lua`]: speechFile,
   }
+  if (character.skillTree) {
+    files[`scripts/prefabs/skilltree_${character.id}.lua`] = generateSkillTreeFile(character)
+  }
+  return files
 }

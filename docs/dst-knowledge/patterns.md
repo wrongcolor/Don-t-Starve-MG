@@ -816,6 +816,77 @@ spawn era ligado a uma "temporada de acasalamento" de outro bicho do jogo,
 `LIGHTNING_GOAT_MATING_SEASON_BABYDELAY`) — usamos um min/max de dias
 genérico em vez disso.
 
+## 28. Árvore de habilidades (skill tree) — **implementado**
+
+Fonte: o próprio jogo base — `scripts/prefabs/skilltree_defs.lua` (completo) e
+`scripts/prefabs/skilltree_wilson.lua` (completo), de uma cópia local dos
+prefabs que não tínhamos localizado antes (ver nota no início deste arquivo:
+o catálogo original dizia "não temos `scripts/components/`", o que segue
+verdadeiro, mas os `skilltree_*.lua` são `scripts/prefabs/`, não
+`scripts/components/` — por isso apareceram nesta cópia). Cruzado também
+contra `scripts/prefabs/skilltree_dryad.lua` de um mod de personagem real
+publicado na Workshop ("Dryad") e o `modmain.lua` desse mesmo mod.
+
+Confirmado:
+
+```lua
+-- em player_common.lua, presente em TODO personagem jogável — nada extra
+-- precisa ser adicionado no prefab do personagem em si:
+inst:AddComponent("skilltreeupdater")
+
+-- scripts/prefabs/skilltree_<id>.lua devolve uma função, não uma tabela:
+local function BuildSkillsData(SkillTreeFns)
+    local skills = {
+        <id>_no1 = {
+            title = "...", desc = "...",
+            pos = {x, y}, group = "<branch>", tags = {"<branch>"},
+            root = true,           -- só o primeiro nó de cada ramo
+            defaultfocus = true,   -- só UM nó em toda a árvore (foco do controle)
+            connects = {"<id>_no2"},  -- gate "OU": qualquer um destes libera o próximo
+            onactivate = function(inst, fromload) ... end,
+            ondeactivate = function(inst, fromload) ... end,
+        },
+    }
+    return { SKILLS = skills, ORDERS = ORDERS }
+end
+return BuildSkillsData
+
+-- modmain.lua registra a árvore (mesmo padrão usado por "Dryad"):
+local skilltree_defs = require("prefabs/skilltree_defs")
+local skills_data = require("prefabs/skilltree_<id>")(skilltree_defs.FN)
+skilltree_defs.CreateSkillTreeFor("<id>", skills_data.SKILLS)
+skilltree_defs.SKILLTREE_ORDERS["<id>"] = skills_data.ORDERS
+```
+
+Também confirmado em `skilltree_wilson.lua`: um nó "lock" (sem `title`, só
+`desc`, com `tags` incluindo `"lock"`) usa `lock_open(prefabname,
+activatedskills, readonly)` para decidir se libera o que vem depois dele via
+`connects`. O único tipo de lock genuinamente generalizável (não amarrado a
+boss/allegiance do jogo base) é "libera depois de N skills ativas no mesmo
+ramo", via `SkillTreeFns.CountTags(prefab, "<tag_do_ramo>", activatedskills)`
+— exatamente o que `wilson_torch_lock_1`/`wilson_beard_lock_1` fazem. Os
+outros locks vanilla (`fuelweaver_killed`, `celestialchampion_killed`,
+allegiance lunar/sombra) dependem de estado global do jogo base
+(`TheGenericKV`) e não fazem sentido pra um personagem de mod.
+
+Implementado como `CharacterDef.skillTree` (`src/generators/skillTree.ts` +
+wiring em `src/generators/character.ts` e `src/generators/modmain.ts`).
+Simplificações deliberadas em relação ao real:
+
+- Cada `onactivate`/`ondeactivate` foi generalizado pra um único
+  `AddTag`/`RemoveTag` (o padrão mais comum de longe, tanto em
+  `skilltree_wilson.lua` quanto em `skilltree_dryad.lua`) — não expomos
+  Lua arbitrário tocando outros componentes, como o jogo permite.
+  Efeitos mais ricos exigiriam expor Lua livre, algo que este app
+  não faz em nenhum outro lugar.
+- `pos`/`ORDERS` (só afeta o layout visual na tela de habilidades, sem efeito
+  de jogo) são calculados automaticamente como uma cadeia vertical por ramo —
+  não expomos posicionamento manual.
+- `icon` fica de fora — sem pipeline de arte, os nós funcionam sem ícone
+  (só não têm imagem). Ver comentário `PLACEHOLDER` no arquivo gerado.
+- Limite real de 32 skills "selecionáveis" por árvore (nós lock não contam,
+  confirmado em `CreateSkillTreeFor`) não é validado no formulário.
+
 ## O que ainda não temos como confirmar
 
 Esta cópia local do jogo só tem `scripts/prefabs/`. Não temos

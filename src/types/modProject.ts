@@ -342,6 +342,50 @@ export const foodTypeAffinitySchema = z.object({
   multiplier: z.number().min(0.01).max(5),
 })
 
+// Confirmed against the base game's own scripts/prefabs/skilltree_defs.lua and
+// scripts/prefabs/skilltree_wilson.lua (a local game-files copy — see
+// docs/dst-knowledge/patterns.md#28). skilltreeupdater is already added to every
+// player character by player_common.lua, so nothing extra is needed to enable
+// the system itself — a tree is just a separate scripts/prefabs/skilltree_<id>.lua
+// registered via skilltree_defs.CreateSkillTreeFor. We generalize every node's
+// onactivate/ondeactivate to a single AddTag/RemoveTag pair — by far the most
+// common real pattern (most of Wilson's own nodes, and most of a real
+// custom-character mod's ("Dryad") nodes, do exactly this). Node positions and
+// branch layout (ORDERS) are auto-computed as vertical chains — `pos` only
+// affects on-screen placement, no gameplay effect. The one lock type modeled is
+// the single generalizable one confirmed in skilltree_wilson.lua
+// (wilson_torch_lock_1/wilson_beard_lock_1): "unlock after N skills activated in
+// this same branch" via SkillTreeFns.CountTags. Vanilla's other lock types
+// (boss-kill flags, lunar/shadow allegiance) are specific to base-game systems
+// and don't generalize to a modded character.
+export const skillTreeNodeSchema = z.object({
+  id: luaIdentifier,
+  title: z.string().min(1, 'Required'),
+  desc: z.string().min(1, 'Required'),
+  // An untouched <input> submits "" (react-hook-form reads the live DOM value,
+  // not the missing default) — map that back to undefined so "left blank"
+  // reads as "no tag" instead of failing validation. `.optional()` must wrap
+  // the transform (not the other way around) to keep the property itself
+  // optional in the inferred type.
+  addsTag: z
+    .string()
+    .transform((v) => (v === '' ? undefined : v))
+    .optional(),
+  gatedAfterBranchSkills: z.number().int().min(1).optional(),
+})
+
+export const skillTreeBranchSchema = z.object({
+  name: z
+    .string()
+    .min(1, 'Required')
+    .regex(/^[a-z][a-z0-9_]*$/, 'Use only lowercase letters, numbers, and "_", starting with a letter'),
+  nodes: z.array(skillTreeNodeSchema).min(1, 'Add at least one skill'),
+})
+
+export const skillTreeSchema = z.object({
+  branches: z.array(skillTreeBranchSchema).min(1, 'Add at least one branch'),
+})
+
 export const characterDefSchema = z.object({
   id: luaIdentifier,
   gender: z.enum(CHARACTER_GENDERS),
@@ -361,6 +405,7 @@ export const characterDefSchema = z.object({
   hungerRateMultiplier: z.number().min(0).max(5).optional(),
   walkSpeedMultiplier: z.number().min(0.1).max(5).optional(),
   foodTypeAffinities: z.array(foodTypeAffinitySchema),
+  skillTree: skillTreeSchema.optional(),
 })
 
 // Unlike items (where "idle" is near-universal across every inventory build), creature
@@ -450,6 +495,9 @@ export type ItemAnimation = z.infer<typeof itemAnimationSchema>
 export type ContainerWidget = z.infer<typeof containerWidgetSchema>
 export type Container = z.infer<typeof containerSchema>
 export type FoodTypeAffinity = z.infer<typeof foodTypeAffinitySchema>
+export type SkillTreeNode = z.infer<typeof skillTreeNodeSchema>
+export type SkillTreeBranch = z.infer<typeof skillTreeBranchSchema>
+export type SkillTree = z.infer<typeof skillTreeSchema>
 export type CreatureAnimation = z.infer<typeof creatureAnimationSchema>
 export type ModMeta = z.infer<typeof modMetaSchema>
 export type Ingredient = z.infer<typeof ingredientSchema>
