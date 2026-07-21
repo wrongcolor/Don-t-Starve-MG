@@ -69,6 +69,13 @@ export const useModProjectStore = create<ModProjectState>()(
         })),
       resetProject: () => set({ project: createEmptyModProject() }),
     }),
-    { name: 'dst-mod-creator-project' },
+    {
+      name: 'dst-mod-creator-project',
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        ...(persistedState as Partial<ModProjectState> | undefined),
+        project: { ...createEmptyModProject(), ...(persistedState as Partial<ModProjectState> | undefined)?.project },
+      }),
+    },
   ),
 )

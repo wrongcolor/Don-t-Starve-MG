@@ -8,7 +8,13 @@ export function GenerateButton() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const hasContent = project.items.length + project.characters.length + project.creatures.length > 0
+  const hasContent =
+    project.items.length +
+      project.characters.length +
+      project.creatures.length +
+      project.rooms.length +
+      project.tasks.length >
+    0
   const canGenerate = project.meta.name.trim().length > 0 && hasContent
 
   const handleGenerate = async () => {
@@ -26,7 +32,7 @@ export function GenerateButton() {
   }
 
   const title = !canGenerate
-    ? 'Fill in the mod name and add at least 1 item, character, or creature.'
+    ? 'Fill in the mod name and add at least 1 item, character, creature, room, or task.'
     : (error ?? undefined)
 
   return (
