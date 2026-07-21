@@ -64,10 +64,14 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
           <div className="grid-2">
             <Fieldset legend="Identity" step={1}>
               <div className="row-2">
-                <FormField label="Id (room name)" error={errors.id?.message}>
+                <FormField
+                  label="Id (room name)"
+                  error={errors.id?.message}
+                  info="Internal name for this room type. Not shown to players — referenced from Tasks to pick which rooms fill their area."
+                >
                   <input className={inputClass} {...register('id')} disabled={!!initialRoom} placeholder="MyForestRoom" />
                 </FormField>
-                <FormField label="Terrain">
+                <FormField label="Terrain" info="The ground tile covering this whole room.">
                   <select className={inputClass} {...register('terrain')}>
                     {WORLD_TILES.map((t) => (
                       <option key={t.value} value={t.value}>
@@ -79,7 +83,11 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
               </div>
             </Fieldset>
 
-            <Fieldset legend="Tags (optional)" step={2}>
+            <Fieldset
+              legend="Tags (optional)"
+              step={2}
+              info="Free-text labels other systems can match on (e.g. a Task's terrain rules). Doesn't affect the room's own contents."
+            >
               {tags.fields.map((field, index) => (
                 <div key={field.id} className="ingredient-row">
                   <input className={inputClass} placeholder="e.g. Town" {...register(`tags.${index}` as const)} />
@@ -95,7 +103,11 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
           </div>
 
           <div className="grid-2">
-            <Fieldset legend="Required prefabs (optional)" step={3}>
+            <Fieldset
+              legend="Required prefabs (optional)"
+              step={3}
+              info="This room is only valid if it also naturally contains one of these prefabs (e.g. a landmark) — otherwise the game skips it."
+            >
               {requiredPrefabs.fields.map((field, index) => (
                 <div key={field.id} className="ingredient-row">
                   <input className={inputClass} placeholder="e.g. pigking" {...register(`requiredPrefabs.${index}` as const)} />
@@ -109,7 +121,11 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
               </button>
             </Fieldset>
 
-            <Fieldset legend="Fixed prefabs (guaranteed amount)" step={4}>
+            <Fieldset
+              legend="Fixed prefabs (guaranteed amount)"
+              step={4}
+              info="Prefabs that always spawn in this room, in a random amount between min and max — e.g. a guaranteed pig house or two."
+            >
               {fixedPrefabs.fields.map((field, index) => (
                 <div key={field.id} className="ingredient-row">
                   <input className={inputClass} placeholder="prefab id (e.g. pighouse)" {...register(`fixedPrefabs.${index}.prefab` as const)} />
@@ -130,7 +146,11 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
             </Fieldset>
           </div>
 
-          <Fieldset legend="Scattered decoration" step={5}>
+          <Fieldset
+            legend="Scattered decoration"
+            step={5}
+            info="Small non-functional decoration (grass tufts, rocks, flowers) sprinkled randomly across the room's floor tiles — purely visual, doesn't affect gameplay."
+          >
             <div className="checks">
               <label>
                 <input
@@ -146,7 +166,10 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
             </div>
             {enableScatter && (
               <>
-                <FormField label="Density (0 to 1)">
+                <FormField
+                  label="Density (0 to 1)"
+                  info="Chance, per floor tile, that a decoration item is placed there. 0.1 means roughly 1 in 10 tiles gets one."
+                >
                   <input type="number" step="0.01" min="0" max="1" className={inputClass} {...register('scatter.percent', { valueAsNumber: true })} />
                 </FormField>
                 {scatterPrefabs.fields.map((field, index) => (

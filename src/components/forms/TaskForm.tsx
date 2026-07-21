@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { taskDefSchema, WORLD_TILES, LOCKS, KEYS, TASK_LOCATIONS, type TaskDef } from '../../types/worldContent'
-import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
+import { FormField, Fieldset, FormHeader, FormFooter, InfoTip, inputClass, btnDanger } from './FormField'
 import { TaskPreview } from './TaskPreview'
 
 interface TaskFormProps {
@@ -26,12 +26,14 @@ const emptyTask: TaskDef = {
 // so this one component renders either list — see docs/dst-knowledge/patterns.md#16.
 function EnumListEditor({
   label,
+  info,
   options,
   values,
   onAdd,
   onRemove,
 }: {
   label: string
+  info?: string
   options: readonly string[]
   values: string[]
   onAdd: (value: string) => void
@@ -40,7 +42,10 @@ function EnumListEditor({
   const [selected, setSelected] = useState(options[0])
   return (
     <div className="field">
-      <span>{label}</span>
+      <span className="field-label">
+        {label}
+        {info && <InfoTip text={info} />}
+      </span>
       <div style={{ display: 'flex', gap: 8 }}>
         <select className={inputClass} value={selected} onChange={(e) => setSelected(e.target.value)}>
           {options.map((o) => (
@@ -99,15 +104,24 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
 
         <div className="main-scroll">
           <Fieldset legend="Identity" step={1}>
-            <FormField label="Id (task name)" error={errors.id?.message}>
+            <FormField
+              label="Id (task name)"
+              error={errors.id?.message}
+              info="Internal name for this area of the map. Not shown to players — used to reference this Task from other Tasks (locks/keys) and rooms."
+            >
               <input className={inputClass} {...register('id')} disabled={!!initialTask} placeholder="My New Area" />
             </FormField>
           </Fieldset>
 
           <div className="grid-2">
-            <Fieldset legend="Progression (lock &amp; key)" step={2}>
+            <Fieldset
+              legend="Progression (lock &amp; key)"
+              step={2}
+              info="Controls the order players explore the map in. A Task with a Lock only gets generated reachable once some other Task has given the matching Key."
+            >
               <EnumListEditor
                 label="Locks (needs these keys to enter here)"
+                info="This area only becomes accessible after the player has obtained ALL of the selected keys from other Tasks."
                 options={LOCKS}
                 values={locks}
                 onAdd={(v) => {
@@ -123,6 +137,7 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
               />
               <EnumListEditor
                 label="Keys given (what this area unlocks for others)"
+                info="Once the player reaches this Task, these keys become available — any other Task locked behind one of them becomes reachable."
                 options={KEYS}
                 values={keysGiven}
                 onAdd={(v) => {
@@ -138,7 +153,11 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
               />
             </Fieldset>
 
-            <Fieldset legend="Rooms" step={3}>
+            <Fieldset
+              legend="Rooms"
+              step={3}
+              info="The pool of Rooms placed inside this Task's area. Each entry is placed a random number of times between min and max. You can reuse a Room across multiple Tasks."
+            >
               {roomChoices.fields.map((field, index) => (
                 <div key={field.id} className="ingredient-row">
                   <input className={inputClass} placeholder="room id (yours or base game)" {...register(`roomChoices.${index}.roomId` as const)} />
@@ -162,11 +181,11 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
 
           <Fieldset legend="Terrain and map" step={4}>
             <div className="field">
-              <span>Appears in these world locations</span>
-              <div
-                className="tag-grid"
-                title="Confirmed in a real mod (patterns.md#22): without this, the Task is registered but never actually inserted into any generated world."
-              >
+              <span className="field-label">
+                Appears in these world locations
+                <InfoTip text="Where in the overall map this Task can be placed. Without at least one selected, the Task is registered but never actually inserted into any generated world." />
+              </span>
+              <div className="tag-grid">
                 {TASK_LOCATIONS.map((l) => (
                   <label key={l.value} className={`tag-opt ${watched.locations?.includes(l.value) ? 'selected' : ''}`}>
                     <input type="checkbox" value={l.value} className="sr-only" {...register('locations')} />
@@ -178,7 +197,10 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
             </div>
 
             <div className="row-2">
-              <FormField label="Background terrain">
+              <FormField
+                label="Background terrain"
+                info="The default ground tile filling any part of this Task's area not covered by one of its Rooms."
+              >
                 <select className={inputClass} {...register('backgroundTerrain')}>
                   {WORLD_TILES.map((t) => (
                     <option key={t.value} value={t.value}>
@@ -187,7 +209,10 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
                   ))}
                 </select>
               </FormField>
-              <FormField label="Background room (optional)">
+              <FormField
+                label="Background room (optional)"
+                info="An existing Room id used to fill the background instead of a flat terrain — lets the background itself have scattered decoration/prefabs."
+              >
                 <input className={inputClass} {...register('backgroundRoom')} placeholder="e.g. BGGrass" />
               </FormField>
             </div>
@@ -200,6 +225,7 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
                   onChange={(e) => setValue('regionId', e.target.checked ? 'myisland1' : undefined)}
                 />
                 Part of an island separate from the mainland
+                <InfoTip text="Splits this Task off the mainland into its own detached landmass, reachable only by a single crossing — how the Lunar Island works in-game." />
               </label>
             </div>
             {enableRegion && (

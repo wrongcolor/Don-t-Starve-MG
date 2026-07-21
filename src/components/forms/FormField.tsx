@@ -1,16 +1,31 @@
 import type { CSSProperties, ReactNode } from 'react'
 
+// A small "?" button next to a label that reveals an explanation on hover/focus
+// (clicking a button focuses it, so click and hover both work) — added for the
+// World tab (Rooms/Tasks), whose fields are the least self-explanatory in the app.
+export function InfoTip({ text }: { text: string }) {
+  return (
+    <button type="button" className="info-btn" aria-label="Field info" onClick={(e) => e.preventDefault()}>
+      ?<span className="info-tip" role="tooltip">{text}</span>
+    </button>
+  )
+}
+
 interface FormFieldProps {
   label: string
   error?: string
   children: ReactNode
   hint?: string
+  info?: string
 }
 
-export function FormField({ label, error, children, hint }: FormFieldProps) {
+export function FormField({ label, error, children, hint, info }: FormFieldProps) {
   return (
     <label className="field">
-      <span>{label}</span>
+      <span className="field-label">
+        {label}
+        {info && <InfoTip text={info} />}
+      </span>
       {children}
       {hint && <p className="hint">{hint}</p>}
       {error && <p className="error">{error}</p>}
@@ -21,16 +36,18 @@ export function FormField({ label, error, children, hint }: FormFieldProps) {
 interface FieldsetProps {
   legend: string
   step?: number
+  info?: string
   children: ReactNode
   className?: string
 }
 
-export function Fieldset({ legend, step, children, className = '' }: FieldsetProps) {
+export function Fieldset({ legend, step, info, children, className = '' }: FieldsetProps) {
   return (
     <div className={`card panel ${className}`}>
       <div className="section-title">
         {step !== undefined && <span className="step-num">{step}</span>}
         {legend}
+        {info && <InfoTip text={info} />}
       </div>
       {children}
     </div>
