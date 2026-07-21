@@ -87,7 +87,7 @@ export function ModMetaForm() {
         <button type="submit" className={btnPrimary}>
           Save metadata
         </button>
-        {!isDirty && <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>No pending changes</span>}
+        {!isDirty && <span style={{ fontSize: 15, color: 'var(--ink-soft)' }}>No pending changes</span>}
       </div>
     </form>
   )

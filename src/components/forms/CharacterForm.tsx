@@ -308,7 +308,7 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
           </div>
 
           <Fieldset legend="Stat multipliers (optional)" step={6}>
-            <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
               Sourced from a real character mod's master_postinit (see docs/dst-knowledge/patterns.md#21) — a static
               multiplier applied once at spawn, independent of any skill tree.
             </p>
@@ -366,7 +366,7 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
               </div>
             </div>
 
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', margin: '12px 0 8px' }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', margin: '12px 0 8px' }}>
               Food type affinities (extra hunger/health/sanity from a whole food category)
             </span>
             {affinities.fields.map((field, index) => (
@@ -399,7 +399,7 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
           </Fieldset>
 
           <Fieldset legend="Skill tree (optional)" step={7}>
-            <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
               Sourced from the base game's own skilltree_defs.lua and skilltree_wilson.lua (see
               docs/dst-knowledge/patterns.md#28) — skilltreeupdater is already on every character, this just registers
               the tree. Each branch is a chain of skills; a skill can optionally add a tag while active, and can be
@@ -433,7 +433,7 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
             )}
           </Fieldset>
 
-          <p style={{ fontSize: 12, color: 'var(--ink-soft)', padding: '0 4px' }}>
+          <p style={{ fontSize: 15, color: 'var(--ink-soft)', padding: '0 4px' }}>
             Custom speech: by default the character inherits all of Wilson's speech (speech_wilson). You can adjust
             specific lines after generating the mod, by editing <code>speech_{'{id}'}.lua</code>.
           </p>

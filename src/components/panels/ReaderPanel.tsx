@@ -47,7 +47,7 @@ export function ReaderPanel() {
       <FormHeader icon="🔍" title="Read an existing mod" />
 
       <div className="card panel" style={{ marginTop: 12 }}>
-        <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 12 }}>
+        <p style={{ fontSize: 16.2, color: 'var(--ink-soft)', marginBottom: 12 }}>
           Upload the mod's <code>.zip</code> or its <code>.lua</code> files (modinfo.lua, modmain.lua) to see what
           was detected. This is just a reference read — nothing here changes the items, characters, or creatures
           in your current project.
@@ -60,25 +60,25 @@ export function ReaderPanel() {
             multiple
             accept=".lua,.zip"
             onChange={(e) => handleFiles(e.target.files)}
-            style={{ fontSize: 13, color: 'var(--ink-soft)' }}
+            style={{ fontSize: 16.2, color: 'var(--ink-soft)' }}
             className="file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-[var(--gold)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--wood-dark)]"
           />
         </label>
 
-        {busy && <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 8 }}>Reading files...</p>}
+        {busy && <p style={{ fontSize: 16.2, color: 'var(--ink-soft)', marginTop: 8 }}>Reading files...</p>}
         {error && <p className="field error">{error}</p>}
       </div>
 
       {summary && (
         <div className="space-y-6" style={{ marginTop: 12 }}>
-          <p style={{ fontSize: 12, color: 'var(--ink-soft)' }}>
+          <p style={{ fontSize: 15, color: 'var(--ink-soft)' }}>
             {fileCount} file(s) uploaded, {summary.filesParsed} .lua file(s) parsed.
           </p>
 
           {summary.fileErrors.length > 0 && (
             <section className="card panel" style={{ borderColor: 'var(--accent-red)' }}>
-              <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-red)' }}>Files that could not be read</h3>
-              <ul style={{ marginTop: 4, fontSize: 12, color: 'var(--accent-red)' }}>
+              <h3 style={{ fontSize: 16.2, fontWeight: 700, color: 'var(--accent-red)' }}>Files that could not be read</h3>
+              <ul style={{ marginTop: 4, fontSize: 15, color: 'var(--accent-red)' }}>
                 {summary.fileErrors.map((err) => (
                   <li key={err.path}>
                     <code>{err.path}</code>: {err.message}
@@ -90,11 +90,11 @@ export function ReaderPanel() {
 
           {Object.keys(summary.meta).length > 0 && (
             <Section title="Metadata (modinfo.lua)">
-              <table style={{ width: '100%', fontSize: 13 }}>
+              <table style={{ width: '100%', fontSize: 16.2 }}>
                 <tbody>
                   {Object.entries(summary.meta).map(([key, value]) => (
                     <tr key={key} style={{ borderBottom: '1px solid var(--parchment-line)' }}>
-                      <td style={{ padding: '4px 16px 4px 0', fontFamily: 'monospace', fontSize: 11, color: 'var(--ink-soft)' }}>{key}</td>
+                      <td style={{ padding: '4px 16px 4px 0', fontFamily: 'monospace', fontSize: 13.8, color: 'var(--ink-soft)' }}>{key}</td>
                       <td style={{ padding: '4px 0', color: 'var(--ink)' }}>{String(value)}</td>
                     </tr>
                   ))}
@@ -119,12 +119,12 @@ export function ReaderPanel() {
             <Section title={`Recipes (${summary.recipes.length})`}>
               <div className="space-y-2">
                 {summary.recipes.map((recipe) => (
-                  <Card key={recipe.name} className="p-2" style={{ fontSize: 13 }}>
+                  <Card key={recipe.name} className="p-2" style={{ fontSize: 16.2 }}>
                     <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{recipe.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>
+                    <div style={{ fontSize: 13.8, color: 'var(--ink-soft)' }}>
                       Ingredients: {recipe.ingredients.map((i) => `${i.prefab} x${i.amount}`).join(', ') || '—'}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>
+                    <div style={{ fontSize: 13.8, color: 'var(--ink-soft)' }}>
                       Tech: {recipe.tech ?? '—'} · Tabs: {recipe.filters.join(', ') || '—'}
                       {recipe.placer && ` · Placer: ${recipe.placer}`}
                     </div>
@@ -136,7 +136,7 @@ export function ReaderPanel() {
 
           {summary.characters.length > 0 && (
             <Section title={`Characters (${summary.characters.length})`}>
-              <ul style={{ fontSize: 13 }}>
+              <ul style={{ fontSize: 16.2 }}>
                 {summary.characters.map((c) => (
                   <li key={c.id}>
                     <span style={{ fontFamily: 'monospace', color: 'var(--ink)' }}>{c.id}</span>{' '}
@@ -149,11 +149,11 @@ export function ReaderPanel() {
 
           {Object.keys(summary.names).length > 0 && (
             <Section title="Names (STRINGS.NAMES)">
-              <table style={{ width: '100%', fontSize: 13 }}>
+              <table style={{ width: '100%', fontSize: 16.2 }}>
                 <tbody>
                   {Object.entries(summary.names).map(([key, value]) => (
                     <tr key={key} style={{ borderBottom: '1px solid var(--parchment-line)' }}>
-                      <td style={{ padding: '4px 16px 4px 0', fontFamily: 'monospace', fontSize: 11, color: 'var(--ink-soft)' }}>{key}</td>
+                      <td style={{ padding: '4px 16px 4px 0', fontFamily: 'monospace', fontSize: 13.8, color: 'var(--ink-soft)' }}>{key}</td>
                       <td style={{ padding: '4px 0', color: 'var(--ink)' }}>{value}</td>
                     </tr>
                   ))}
@@ -164,11 +164,11 @@ export function ReaderPanel() {
 
           {Object.keys(summary.tuning).length > 0 && (
             <Section title="Tuning">
-              <table style={{ width: '100%', fontSize: 13 }}>
+              <table style={{ width: '100%', fontSize: 16.2 }}>
                 <tbody>
                   {Object.entries(summary.tuning).map(([key, value]) => (
                     <tr key={key} style={{ borderBottom: '1px solid var(--parchment-line)' }}>
-                      <td style={{ padding: '4px 16px 4px 0', fontFamily: 'monospace', fontSize: 11, color: 'var(--ink-soft)' }}>{key}</td>
+                      <td style={{ padding: '4px 16px 4px 0', fontFamily: 'monospace', fontSize: 13.8, color: 'var(--ink-soft)' }}>{key}</td>
                       <td style={{ padding: '4px 0', color: 'var(--ink)' }}>{String(value)}</td>
                     </tr>
                   ))}
@@ -178,7 +178,7 @@ export function ReaderPanel() {
           )}
 
           {summary.filesParsed === 0 && summary.fileErrors.length === 0 && (
-            <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>No .lua file found in what was uploaded.</p>
+            <p style={{ fontSize: 16.2, color: 'var(--ink-soft)' }}>No .lua file found in what was uploaded.</p>
           )}
         </div>
       )}
@@ -189,7 +189,7 @@ export function ReaderPanel() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="card panel">
-      <h3 className="section-title" style={{ fontSize: 14 }}>
+      <h3 className="section-title" style={{ fontSize: 17.5 }}>
         {title}
       </h3>
       {children}

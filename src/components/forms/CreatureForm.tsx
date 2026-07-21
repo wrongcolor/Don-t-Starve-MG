@@ -233,7 +233,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
             </Fieldset>
 
             <Fieldset legend="Loot and tags" step={5}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', marginBottom: 8 }}>Loot</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', marginBottom: 8 }}>Loot</span>
               {loot.fields.map((field, index) => (
                 <div key={field.id} className="ingredient-row">
                   <input className={inputClass} placeholder="prefab id (e.g. monstermeat)" {...register(`loot.${index}.prefab` as const)} />
@@ -247,7 +247,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                 + Add loot
               </button>
 
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', margin: '12px 0 8px' }}>Extra tags</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', margin: '12px 0 8px' }}>Extra tags</span>
               {tags.fields.map((field, index) => (
                 <div key={field.id} className="ingredient-row">
                   <input className={inputClass} placeholder="e.g. prey, largecreature" {...register(`tags.${index}` as const)} />
@@ -263,7 +263,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
           </div>
 
           <Fieldset legend="Herd (optional)" step={6}>
-            <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
               Sourced from a real creature mod (see docs/dst-knowledge/patterns.md#27) — the same mechanism vanilla
               Beefalo/Lightning Goats use. Generates a second, non-networked "manager" prefab that periodically
               spawns new members near existing ones, up to a max size.

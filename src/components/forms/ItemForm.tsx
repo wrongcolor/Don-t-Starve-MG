@@ -184,7 +184,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
             <Fieldset legend="Appearance" step={2}>
               <div className="sprite-row">
                 <div className="sprite-box">{categoryVisual(category)}</div>
-                <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>
+                <div style={{ fontSize: 15, color: 'var(--ink-soft)' }}>
                   Icon generated from the category — the final art (inventoryimages) is supplied separately.
                 </div>
               </div>
@@ -468,7 +468,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
             </Fieldset>
 
             <Fieldset legend="Recipe (Crafting)" step={5}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', marginBottom: 8 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', marginBottom: 8 }}>
                 Ingredients
               </span>
               {fields.map((field, index) => (
@@ -495,7 +495,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                 </select>
               </FormField>
 
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', marginBottom: 8 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', marginBottom: 8 }}>
                 Crafting tabs
               </span>
               <div className="tag-grid">
@@ -770,7 +770,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   </FormField>
                 )}
 
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', margin: '12px 0 8px' }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', margin: '12px 0 8px' }}>
                   Or accept a specific list of prefabs (OR'd with the tag above)
                 </span>
                 {(watched.container?.acceptsPrefabs ?? []).map((prefab, index) => {
@@ -852,7 +852,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                 Player can rename it (like signs/gravestones)
               </label>
             </div>
-            <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 8 }}>
+            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: 8 }}>
               This sets up the item itself (named + writeable). Triggering the rename prompt with the vanilla feather
               pencil needs a manual check in-game — see the generated README.
             </p>
