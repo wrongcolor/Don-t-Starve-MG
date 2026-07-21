@@ -887,6 +887,57 @@ Simplificações deliberadas em relação ao real:
 - Limite real de 32 skills "selecionáveis" por árvore (nós lock não contam,
   confirmado em `CreateSkillTreeFor`) não é validado no formulário.
 
+## 29. `spellbook` — item que abre uma roda de feitiços (spell wheel) — **implementado, simplificado**
+
+Fonte: mirror público dos scripts do jogo
+(`github.com/taichunmin/dont-starve-together-game-scripts`, não uma cópia
+local) — `components/spellbook.lua`, `componentactions.lua`, `actions.lua` e
+os 3 únicos prefabs vanilla que usam o componente: `waxwelljournal.lua`
+(Diário do Maxwell), `willow_ember.lua` (Brasa da Willow) e
+`winona_remote.lua` (Controle da Winona).
+
+Confirmado:
+
+```lua
+inst:AddComponent("spellbook")
+inst.components.spellbook:SetItems(SPELLS)  -- array de {label, onselect, execute, atlas, normal, ...}
+```
+
+A ação de abrir/fechar a roda (`ACTIONS.USESPELLBOOK`/`CLOSESPELLBOOK`) e de
+executar o feitiço selecionado (`ACTIONS.CAST_SPELLBOOK`) já existem prontas
+no jogo base — nenhum código de ação precisa ser escrito pelo mod, só
+`SetItems`. Cada entrada de `SPELLS` tem um `onselect(inst)` (roda
+`spellbook:SetSpellFn(fn)`) e um `execute(inst)`. Confirmado em
+`components/inventory.lua` (`Inventory:CastSpellBookFromInv`) → dispara
+`ACTIONS.CAST_SPELLBOOK` → `spellbook:CastSpell(user)` → chama o `fn` do
+`SetSpellFn`, SEM precisar de mira de área — esse é o caminho usado pelo
+exemplo `TopHatSpellFn` (comentado, mas presente) em `waxwelljournal.lua`.
+
+NÃO modelado (simplificação deliberada, a pedido do usuário): nos 3 exemplos
+reais, o feitiço normalmente NÃO executa direto — abre uma mira de área
+(`aoetargeting` + `aoespell`) antes de lançar, e o item é reabastecido por um
+recurso (`fueled`, ex: nightmare fuel) em vez de ter usos fixos. Os 3
+exemplos também são exclusivos de um personagem específico via
+`spellbook:SetRequiredTag("shadowmagic"/"portableengineer"/etc.)` — este app
+não tem o conceito de "item exclusivo de personagem" (`ItemDef` e
+`CharacterDef` são independentes no schema), então isso também ficou de fora.
+
+Implementado como `ItemDef.spellbook` (`src/types/modProject.ts` +
+`src/generators/item.ts`). Simplificações:
+
+- Cada feitiço só faz uma coisa: `SpawnPrefab` de um prefab existente na
+  posição de quem lançou — a mesma generalização já usada por `spellEffect`/
+  `spellcaster` (seção 7), pelo mesmo motivo (efeito arbitrário exigiria
+  expor Lua livre).
+- Sem mira de área — o feitiço é sempre "em si mesmo", nunca mirado.
+- Sem exclusividade de personagem — qualquer item pode ter `spellbook`.
+- Usos totais reaproveitam o `finiteuses` já modelado (mesmo padrão que o
+  componente real `book` do jogo usa internamente — `Book:ConsumeUse()`
+  chama `finiteuses:Use(1)`) — opcional; sem ele, os feitiços são infinitos.
+- `atlas`/`normal` (ícone de cada feitiço na roda) ficam de fora — sem
+  pipeline de arte, os feitiços funcionam sem ícone. Mesma decisão já tomada
+  pra skill tree (seção 28).
+
 ## O que ainda não temos como confirmar
 
 Esta cópia local do jogo só tem `scripts/prefabs/`. Não temos

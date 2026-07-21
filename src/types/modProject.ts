@@ -139,6 +139,23 @@ export const ON_HIT_EFFECTS = ['none', 'ignite', 'freeze'] as const
 // now — spellcaster in general is too open-ended to generalize (patterns.md#7).
 export const SPELL_EFFECTS = ['createLight'] as const
 
+// Confirmed against the real game scripts (components/spellbook.lua,
+// prefabs/waxwelljournal.lua/willow_ember.lua/winona_remote.lua — see
+// docs/dst-knowledge/patterns.md#29): a "spellbook" opens a radial menu of
+// spells the player picks from — all action wiring (open/close/cast) is
+// built into the base game, a mod only needs to list the spells. Simplified
+// from the real thing (which aims at a point and is character-exclusive) to
+// a self-cast SpawnPrefab, the same generalization already used for
+// spellEffect/spellcaster above.
+export const spellbookSpellSchema = z.object({
+  label: z.string().min(1, 'Required'),
+  summonPrefab: z.string().min(1, 'Enter the prefab to spawn (e.g. a light, creature, or projectile id)'),
+})
+
+export const spellbookSchema = z.object({
+  spells: z.array(spellbookSpellSchema).min(2, 'Add at least 2 spells — with only 1, use the simpler magic effect field instead'),
+})
+
 // Sourced from TWO real published Workshop mods (see docs/dst-knowledge/
 // patterns.md#20). Two different confirmed techniques for reusing a vanilla
 // container's look without shipping UI art:
@@ -254,6 +271,7 @@ export const itemDefSchema = z
       .optional(),
     equipWalkSpeedMult: z.number().min(0.1).max(3).optional(),
     spellEffect: z.enum(SPELL_EFFECTS).optional(),
+    spellbook: spellbookSchema.optional(),
     edible: edibleSchema.optional(),
     onEatBuff: onEatBuffSchema.optional(),
     // Sourced from a real published Workshop mod ("Repair Combine"), not a vanilla
@@ -328,6 +346,10 @@ export const itemDefSchema = z
   .refine((item) => !item.rechargeable || (item.finiteuses === undefined && item.perishable === undefined), {
     message: 'Rechargeable is an alternative durability model — turn off max uses/perishable first',
     path: ['rechargeable'],
+  })
+  .refine((item) => item.spellbook === undefined || item.spellEffect === undefined, {
+    message: 'A spellbook already lets the item cast multiple spells — turn off the single magic effect first',
+    path: ['spellbook'],
   })
 
 // Confirmed in dryad.lua's master_postinit (docs/dst-knowledge/patterns.md#21) —
@@ -492,6 +514,8 @@ export type CharacterPerk = (typeof CHARACTER_PERKS)[number]
 
 export type ConfigOption = z.infer<typeof configOptionSchema>
 export type ItemAnimation = z.infer<typeof itemAnimationSchema>
+export type SpellbookSpell = z.infer<typeof spellbookSpellSchema>
+export type Spellbook = z.infer<typeof spellbookSchema>
 export type ContainerWidget = z.infer<typeof containerWidgetSchema>
 export type Container = z.infer<typeof containerSchema>
 export type FoodTypeAffinity = z.infer<typeof foodTypeAffinitySchema>

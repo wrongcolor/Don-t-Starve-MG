@@ -132,6 +132,24 @@ export const sampleProject: ModProject = {
         placer: false,
       },
     },
+    {
+      id: 'testspellbook',
+      displayName: 'Test Spellbook',
+      description: 'An item with a spell wheel for testing',
+      category: 'generic',
+      spellbook: {
+        spells: [
+          { label: 'Summon Light', summonPrefab: 'stafflight' },
+          { label: 'Summon Fireflies', summonPrefab: 'firefly' },
+        ],
+      },
+      recipe: {
+        ingredients: [{ prefab: 'nightmarefuel', amount: 2 }],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+        placer: false,
+      },
+    },
   ],
   characters: [
     {

@@ -162,6 +162,56 @@ function spellFunctionBlock(item: ItemDef): string[] {
   return lines
 }
 
+// Confirmed against the real game scripts (docs/dst-knowledge/patterns.md#29):
+// SetItems takes an array of {label, onselect, execute}, where onselect wires
+// up the actual spell function and execute triggers the cast — the open/close/
+// cast actions themselves are already built into the base game. Simplified to
+// a self-cast SpawnPrefab (no aoetargeting, no character exclusivity).
+function needsSpellbook(item: ItemDef): boolean {
+  return item.spellbook !== undefined
+}
+
+function spellbookFunctionBlock(item: ItemDef): string[] {
+  const spells = item.spellbook?.spells ?? []
+  const lines: string[] = []
+
+  spells.forEach((spell, index) => {
+    lines.push(`local function spellbook_cast_${index + 1}(inst, user)`)
+    lines.push(`    local fx = SpawnPrefab(${luaString(spell.summonPrefab)})`)
+    lines.push('    if fx ~= nil then')
+    lines.push('        fx.Transform:SetPosition(user.Transform:GetWorldPosition())')
+    lines.push('    end')
+    lines.push('    if inst.components.finiteuses ~= nil then')
+    lines.push('        inst.components.finiteuses:Use(1)')
+    lines.push('    end')
+    lines.push('    return true')
+    lines.push('end')
+    lines.push('')
+  })
+
+  lines.push('local SPELLBOOK_SPELLS =')
+  lines.push('{')
+  spells.forEach((spell, index) => {
+    const label = luaString(spell.label)
+    lines.push('    {')
+    lines.push(`        label = ${label},`)
+    lines.push('        onselect = function(inst)')
+    lines.push(`            inst.components.spellbook:SetSpellName(${label})`)
+    lines.push(`            inst.components.spellbook:SetSpellFn(spellbook_cast_${index + 1})`)
+    lines.push('        end,')
+    lines.push('        execute = function(inst)')
+    lines.push('            local inventory = ThePlayer.replica.inventory')
+    lines.push('            if inventory ~= nil then')
+    lines.push('                inventory:CastSpellBookFromInv(inst)')
+    lines.push('            end')
+    lines.push('        end,')
+    lines.push('    },')
+  })
+  lines.push('}')
+  lines.push('')
+  return lines
+}
+
 function needsOnEaten(item: ItemDef): boolean {
   return item.onEatBuff !== undefined
 }
@@ -382,6 +432,12 @@ function componentBlock(item: ItemDef): string {
     lines.push('    inst.components.spellcaster.canuseonpoint = true')
   }
 
+  if (needsSpellbook(item)) {
+    lines.push('')
+    lines.push('    inst:AddComponent("spellbook")')
+    lines.push('    inst.components.spellbook:SetItems(SPELLBOOK_SPELLS)')
+  }
+
   if (item.perishable) {
     lines.push('')
     lines.push('    inst:AddComponent("perishable")')
@@ -539,6 +595,9 @@ export function generateItemPrefab(item: ItemDef): string {
   }
   if (needsSpellcaster(item)) {
     lines.push(...spellFunctionBlock(item))
+  }
+  if (needsSpellbook(item)) {
+    lines.push(...spellbookFunctionBlock(item))
   }
   if (needsArmorTakeDamage(item)) {
     lines.push(...armorTakeDamageFunctionBlock(item))

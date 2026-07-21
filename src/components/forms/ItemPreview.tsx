@@ -27,6 +27,7 @@ export function ItemPreview({ item }: { item: Partial<ItemDef> }) {
   if (item.weapon?.ranged?.onHitEffect === 'ignite') tags.push('🔥 Burns')
   if (item.weapon?.ranged?.onHitEffect === 'freeze') tags.push('❄️ Freezes')
   if (item.spellEffect) tags.push('✨ Magic')
+  if (item.spellbook) tags.push('📖 Spellbook')
   if (item.stackable) tags.push('📦 Stackable')
   if (item.edible) tags.push('🍖 Edible')
   if (item.onEatBuff) tags.push('💪 Combat buff on eat')

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -12,7 +12,7 @@ import {
   FOOD_TYPES,
   type ItemDef,
 } from '../../types/modProject'
-import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
+import { FormField, Fieldset, FormHeader, FormFooter, InfoTip, inputClass, btnDanger } from './FormField'
 import { categoryVisual } from '../panels/entityVisuals'
 import { ItemPreview } from './ItemPreview'
 
@@ -50,6 +50,20 @@ const ITEM_TEMPLATES: { key: string; label: string; icon: string; patch: Partial
 ]
 
 export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
+  // useFieldArray for spellbook.spells must run unconditionally (rules of hooks), which
+  // makes react-hook-form materialize `spellbook: { spells: [] }` in the form's raw
+  // values even when the "Spellbook" checkbox is off — including in `watch()`, so this
+  // can't be tracked with a value derived from `watched` (that's equally corrupted).
+  // A plain state toggle, driven only by the checkbox itself, is the actual signal;
+  // zodResolver validates RAW values before onSubmit ever runs, so a submit-time fix is
+  // too late — stripping `spellbook` here, inside the resolver, fixes it at the point
+  // that matters (same pattern as RoomForm's `scatter`).
+  const [enableSpellbook, setEnableSpellbook] = useState((initialItem ?? emptyItem).spellbook !== undefined)
+  const enableSpellbookRef = useRef(enableSpellbook)
+  useEffect(() => {
+    enableSpellbookRef.current = enableSpellbook
+  }, [enableSpellbook])
+
   const {
     register,
     control,
@@ -58,11 +72,13 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
     setValue,
     formState: { errors },
   } = useForm<ItemDef>({
-    resolver: zodResolver(itemDefSchema),
+    resolver: (values, context, options) =>
+      zodResolver(itemDefSchema)(enableSpellbookRef.current ? values : { ...values, spellbook: undefined }, context, options),
     defaultValues: initialItem ?? emptyItem,
   })
 
   const { fields, append, remove } = useFieldArray({ control, name: 'recipe.ingredients' })
+  const spellbookSpells = useFieldArray({ control, name: 'spellbook.spells' as never })
 
   const [animationSource, setAnimationSource] = useState<'custom' | 'vanilla'>(
     (initialItem ?? emptyItem).animation?.source ?? 'custom',
@@ -423,12 +439,14 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   <input
                     type="checkbox"
                     checked={enableSpellEffect}
+                    disabled={enableSpellbook}
                     onChange={(e) => {
                       setValue('spellEffect', e.target.checked ? SPELL_EFFECTS[0] : undefined)
                       if (!e.target.checked && !enableWeapon) setValue('rechargeable', undefined)
                     }}
                   />
                   Magic effect (use on a map point)
+                  {enableSpellbook && ' (turn off spellbook first)'}
                 </label>
               </div>
               {enableSpellEffect && (
@@ -437,6 +455,57 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     <option value="createLight">Create light at the point</option>
                   </select>
                 </FormField>
+              )}
+
+              <div className="checks">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={enableSpellbook}
+                    disabled={enableSpellEffect}
+                    onChange={(e) => {
+                      setEnableSpellbook(e.target.checked)
+                      setValue(
+                        'spellbook',
+                        e.target.checked
+                          ? { spells: [{ label: '', summonPrefab: '' }, { label: '', summonPrefab: '' }] }
+                          : undefined,
+                      )
+                    }}
+                  />
+                  Spellbook (menu of spells to pick from)
+                  {enableSpellEffect && ' (turn off magic effect first)'}
+                  <InfoTip text="Opens a wheel of spells when used. Each spell just spawns a prefab at the caster — no map targeting (that would need aoetargeting, not modeled here)." />
+                </label>
+              </div>
+              {enableSpellbook && (
+                <>
+                  {spellbookSpells.fields.map((field, index) => (
+                    <div key={field.id} className="ingredient-row">
+                      <input
+                        className={inputClass}
+                        placeholder="Spell label (e.g. Summon Light)"
+                        {...register(`spellbook.spells.${index}.label` as const)}
+                      />
+                      <input
+                        className={inputClass}
+                        placeholder="prefab to spawn (e.g. stafflight)"
+                        {...register(`spellbook.spells.${index}.summonPrefab` as const)}
+                      />
+                      <button type="button" className={btnDanger} onClick={() => spellbookSpells.remove(index)}>
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="add-ingredient"
+                    onClick={() => spellbookSpells.append({ label: '', summonPrefab: '' })}
+                  >
+                    + Add spell
+                  </button>
+                  {errors.spellbook?.spells?.message && <p className="field error">{errors.spellbook.spells.message}</p>}
+                </>
               )}
 
               {canRecharge && (

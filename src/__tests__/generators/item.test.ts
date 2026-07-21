@@ -129,6 +129,47 @@ describe('generateItemFiles', () => {
     expect(code).toContain('SpawnPrefab("stafflight")')
   })
 
+  it('wires a spellbook item with multiple spells, each spawning its own prefab', () => {
+    const spellbookItem: ItemDef = {
+      ...trinket,
+      id: 'testspellbook',
+      spellbook: {
+        spells: [
+          { label: 'Summon Light', summonPrefab: 'stafflight' },
+          { label: 'Summon Fireflies', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(spellbookItem)
+    expect(code).toContain('inst:AddComponent("spellbook")')
+    expect(code).toContain('inst.components.spellbook:SetItems(SPELLBOOK_SPELLS)')
+    expect(code).toContain('local function spellbook_cast_1(inst, user)')
+    expect(code).toContain('SpawnPrefab("stafflight")')
+    expect(code).toContain('local function spellbook_cast_2(inst, user)')
+    expect(code).toContain('SpawnPrefab("firefly")')
+    expect(code).toContain('label = "Summon Light"')
+    expect(code).toContain('inventory:CastSpellBookFromInv(inst)')
+  })
+
+  it('rejects an item with both spellbook and spellEffect set', () => {
+    const both: ItemDef = {
+      ...trinket,
+      spellEffect: 'createLight',
+      spellbook: {
+        spells: [
+          { label: 'A', summonPrefab: 'x' },
+          { label: 'B', summonPrefab: 'y' },
+        ],
+      },
+    }
+    expect(itemDefSchema.safeParse(both).success).toBe(false)
+  })
+
+  it('rejects a spellbook with fewer than 2 spells', () => {
+    const oneSpell: ItemDef = { ...trinket, spellbook: { spells: [{ label: 'A', summonPrefab: 'x' }] } }
+    expect(itemDefSchema.safeParse(oneSpell).success).toBe(false)
+  })
+
   it('rejects an item with both finiteuses and perishable set as durability', () => {
     const both = { ...sword, perishable: { perishTimeDays: 3 } }
     expect(itemDefSchema.safeParse(both).success).toBe(false)
