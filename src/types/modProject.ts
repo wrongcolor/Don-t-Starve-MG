@@ -262,6 +262,12 @@ export const itemDefSchema = z
       .optional(),
     armor: z
       .object({
+        // Confirmed in armor_grass.lua/armor_wood.lua/armor_marble.lua (docs/dst-knowledge/
+        // patterns.md#11): InitCondition's FIRST argument is a separate "total damage
+        // absorbed before breaking" budget (vanilla values are in the hundreds), not the
+        // small "N uses" count finiteuses models — a durability model of its own, always
+        // required, never borrowed from finiteuses.
+        condition: z.number().int().min(1),
         absorption: z.number().min(0.01).max(1),
         flammable: z.boolean().optional(),
         dapperness: z.number().optional(),

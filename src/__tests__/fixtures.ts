@@ -103,6 +103,7 @@ export const sampleProject: ModProject = {
       description: 'A body armor for testing',
       category: 'armor',
       armor: {
+        condition: 450,
         absorption: 0.8,
         flammable: true,
         dapperness: -0.5,

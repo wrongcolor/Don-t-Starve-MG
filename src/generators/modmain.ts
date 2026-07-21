@@ -39,6 +39,7 @@ function itemTuningBlock(item: ItemDef): string[] {
   }
   if (item.finiteuses) lines.push(`GLOBAL.TUNING.${upper}_USES = ${item.finiteuses.maxUses}`)
   if (item.armor) {
+    lines.push(`GLOBAL.TUNING.${upper}_CONDITION = ${item.armor.condition}`)
     lines.push(`GLOBAL.TUNING.${upper}_ABSORPTION = ${item.armor.absorption}`)
     if (item.armor.sanityLossOnHitPercent !== undefined) {
       lines.push(`GLOBAL.TUNING.${upper}_SANITY_LOSS_PERCENT = ${item.armor.sanityLossOnHitPercent}`)

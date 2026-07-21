@@ -46,6 +46,14 @@ describe('buildModFiles', () => {
     expect(readme).toContain('reaproveita o build "spider" do jogo base')
     expect(readme).toContain('confirme em-jogo')
   })
+
+  it('rejects a project where an item and a character share the same id (they would overwrite the same prefab file)', () => {
+    const colliding = {
+      ...sampleProject,
+      characters: [{ ...sampleProject.characters[0], id: sampleProject.items[0].id }],
+    }
+    expect(() => buildModFiles(colliding)).toThrow(sampleProject.items[0].id)
+  })
 })
 
 describe('buildModZip round-trip', () => {

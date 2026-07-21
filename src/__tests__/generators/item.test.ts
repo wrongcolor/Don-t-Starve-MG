@@ -217,6 +217,17 @@ describe('generateItemFiles', () => {
     expect(code).toContain('inst.components.equippable.dapperness = -0.5')
   })
 
+  it('initializes armor condition from its own TUNING constant, not finiteuses', () => {
+    const code = generateItemPrefab(armor)
+    expect(code).toContain('inst.components.armor:InitCondition(TUNING.TESTARMOR_CONDITION, TUNING.TESTARMOR_ABSORPTION)')
+    expect(code).not.toContain('_USES or 1')
+  })
+
+  it('rejects armor with no condition set', () => {
+    const withoutCondition = { ...armor, armor: { ...armor.armor!, condition: undefined as unknown as number } }
+    expect(itemDefSchema.safeParse(withoutCondition).success).toBe(false)
+  })
+
   it('wires the edible component with foodtype and TUNING-driven hunger/health/sanity values', () => {
     const code = generateItemPrefab(food)
     expect(code).toContain('inst:AddComponent("edible")')

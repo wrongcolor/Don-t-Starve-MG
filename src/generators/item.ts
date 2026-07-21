@@ -388,7 +388,7 @@ function componentBlock(item: ItemDef): string {
   if (item.armor) {
     lines.push('')
     lines.push('    inst:AddComponent("armor")')
-    lines.push(`    inst.components.armor:InitCondition(TUNING.${upper}_USES or 1, TUNING.${upper}_ABSORPTION)`)
+    lines.push(`    inst.components.armor:InitCondition(TUNING.${upper}_CONDITION, TUNING.${upper}_ABSORPTION)`)
     if (item.armor.weakness) {
       lines.push(
         `    inst.components.armor:AddWeakness(${luaString(item.armor.weakness.tag)}, ${item.armor.weakness.extraDamage})`,

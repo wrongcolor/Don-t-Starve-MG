@@ -938,6 +938,29 @@ Implementado como `ItemDef.spellbook` (`src/types/modProject.ts` +
   pipeline de arte, os feitiços funcionam sem ícone. Mesma decisão já tomada
   pra skill tree (seção 28).
 
+## 30. `armor:InitCondition` — **bug real encontrado e corrigido**
+
+Confirmado em `armor_grass.lua`/`armor_wood.lua`/`armor_marble.lua`
+(mesma fonte da seção 11): `InitCondition(condition, absorb_percent)` — o
+PRIMEIRO argumento é o total de dano que a armadura absorve antes de
+quebrar (valores vanilla na casa das centenas, ex. armadura de madeira =
+450), um orçamento de durabilidade próprio, sem relação com
+`finiteuses.maxUses` (contagem de "usos", tipicamente uma dezena/centena
+bem menor, usada por ferramentas/staffs).
+
+**Bug real encontrado:** o gerador chamava
+`InitCondition(TUNING.<ID>_USES or 1, TUNING.<ID>_ABSORPTION)` —
+emprestando `finiteuses.maxUses` como se fosse o `condition`. Como
+`armorSchema` não tinha campo próprio pra isso, e a maioria das armaduras
+não tem `finiteuses` (é opcional e não faz sentido pra elas), o `or 1`
+disparava na prática: toda armadura simples gerada por este app quebrava
+com ~1 ponto de dano absorvido.
+
+**Corrigido:** `ItemDef.armor.condition` (`src/types/modProject.ts`) é
+agora um campo próprio e obrigatório, com sua própria constante
+`TUNING.<ID>_CONDITION` (`src/generators/modmain.ts`), referenciada
+diretamente em `InitCondition` (`src/generators/item.ts`).
+
 ## O que ainda não temos como confirmar
 
 Esta cópia local do jogo só tem `scripts/prefabs/`. Não temos

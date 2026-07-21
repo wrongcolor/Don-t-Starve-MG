@@ -45,7 +45,7 @@ const ITEM_TEMPLATES: { key: string; label: string; icon: string; patch: Partial
     icon: '🏹',
     patch: { category: 'weapon', weapon: { damage: 0, ranged: { minRange: 6, maxRange: 12, projectilePrefab: 'arrow', onHitEffect: 'none' } } },
   },
-  { key: 'armor', label: 'Armor', icon: '🛡️', patch: { category: 'armor', armor: { absorption: 0.8 } } },
+  { key: 'armor', label: 'Armor', icon: '🛡️', patch: { category: 'armor', armor: { condition: 100, absorption: 0.8 } } },
   { key: 'other', label: 'Other', icon: '✨', patch: { category: 'generic' } },
 ]
 
@@ -612,7 +612,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   type="checkbox"
                   checked={enableArmor}
                   onChange={(e) => {
-                    setValue('armor', e.target.checked ? { absorption: 0.8 } : undefined)
+                    setValue('armor', e.target.checked ? { condition: 100, absorption: 0.8 } : undefined)
                     if (!e.target.checked && !enableFiniteuses && !enablePerishable) setValue('combinable', undefined)
                   }}
                 />
@@ -622,6 +622,12 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
             {enableArmor && (
               <>
                 <div className="row-2">
+                  <FormField
+                    label="Condition (total damage it can absorb)"
+                    info="Its own durability budget — separate from 'max uses'. Vanilla armor is in the hundreds (e.g. wood armor: 450)."
+                  >
+                    <input type="number" min="1" className={inputClass} {...register('armor.condition', { valueAsNumber: true })} />
+                  </FormField>
                   <FormField label="Absorption (0 to 1)">
                     <input type="number" step="0.01" min="0.01" max="1" className={inputClass} {...register('armor.absorption', { valueAsNumber: true })} />
                   </FormField>

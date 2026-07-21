@@ -110,7 +110,28 @@ function generateReadme(project: ModProject): string {
   return lines.join('\n')
 }
 
+// Items, characters, and creatures all write their prefab to the SAME
+// scripts/prefabs/<id>.lua path — an id reused across two of those categories
+// silently drops one file from the zip (Object.assign just overwrites it),
+// with no error shown anywhere. Checked up front so it surfaces as a clear
+// message instead of a mysteriously missing prefab in the published mod.
+function findDuplicatePrefabId(project: ModProject): string | undefined {
+  const seen = new Set<string>()
+  for (const id of [...project.items.map((i) => i.id), ...project.characters.map((c) => c.id), ...project.creatures.map((c) => c.id)]) {
+    if (seen.has(id)) return id
+    seen.add(id)
+  }
+  return undefined
+}
+
 export function buildModFiles(project: ModProject): Record<string, string> {
+  const duplicateId = findDuplicatePrefabId(project)
+  if (duplicateId) {
+    throw new Error(
+      `The id "${duplicateId}" is used by more than one item/character/creature — each needs a unique id, since they all generate scripts/prefabs/${duplicateId}.lua.`,
+    )
+  }
+
   const files: Record<string, string> = {
     'modinfo.lua': generateModInfo(project.meta),
     'modmain.lua': generateModMain(project),

@@ -28,6 +28,29 @@ function upsertById<T extends { id: string }>(list: T[], entry: T): T[] {
   return copy
 }
 
+// Bumped whenever a REQUIRED field is added to an entity that previously didn't need
+// it (e.g. armor.condition) — `merge` below only backfills missing TOP-LEVEL project
+// keys (whole arrays like rooms/tasks), not fields inside an already-persisted entity.
+// A project saved before such a field existed would otherwise fail schema validation
+// (or crash a generator reading it as undefined) the moment the user hits "Generate".
+const PROJECT_SCHEMA_VERSION = 1
+
+function migrateProject(persistedState: unknown, version: number): unknown {
+  if (persistedState === null || typeof persistedState !== 'object' || !('project' in persistedState)) {
+    return persistedState
+  }
+  const state = persistedState as { project?: { items?: unknown[] } }
+  if (version < 1 && Array.isArray(state.project?.items)) {
+    state.project.items = state.project.items.map((item) => {
+      if (item === null || typeof item !== 'object' || !('armor' in item)) return item
+      const armor = (item as { armor?: unknown }).armor
+      if (armor === null || typeof armor !== 'object' || 'condition' in armor) return item
+      return { ...item, armor: { ...armor, condition: 100 } }
+    })
+  }
+  return state
+}
+
 export const useModProjectStore = create<ModProjectState>()(
   persist(
     (set) => ({
@@ -71,6 +94,8 @@ export const useModProjectStore = create<ModProjectState>()(
     }),
     {
       name: 'dst-mod-creator-project',
+      version: PROJECT_SCHEMA_VERSION,
+      migrate: migrateProject,
       merge: (persistedState, currentState) => ({
         ...currentState,
         ...(persistedState as Partial<ModProjectState> | undefined),
