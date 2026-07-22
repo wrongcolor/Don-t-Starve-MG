@@ -975,6 +975,48 @@ mutuamente exclusivo com `weapon.ranged` (mesmo `.refine()` que já protege
 outros pares de campos incompatíveis neste arquivo) — só faz sentido pra uma
 arma que não tem projétil.
 
+## 32. `Task.locks`/`keys_given` vazio — investigado, **NÃO é bug** (retratação)
+
+Suspeita inicial, comparando um mod de teste gerado por este app
+(`alchemist_island`) com "Graveyard Island" (a fonte da seção 22): nosso
+gerador produzia `keys_given = {  }` (tabela vazia) quando uma Task não dava
+nenhuma chave, enquanto Graveyard Island usa `keys_given = KEYS.NONE`
+(sentinela explícito). Cheguei a "corrigir" isso (`.min(1)` no schema +
+fallback pro sentinela `NONE` no gerador) usando como confirmação adicional
+`porkland.lua` (mod "Above the Clouds") e `shipwrecked.lua` (mod "Island
+Adventures").
+
+**Erro de metodologia identificado:** esses dois mods de confirmação são
+conversões totais pra outro modo de jogo inteiro (Hamlet/Porkland e
+Shipwrecked — mundos solo, não DST Together), não mods pequenos que só
+adicionam uma Task ao mapa padrão como este app faz e como "Graveyard
+Island" faz. Não são um comparável válido.
+
+**Reconfirmado com um comparável de verdade** ("Uncompromising Mode",
+`dst_compatible = true`, mod real de DST Together que adiciona Tasks novas
+ao mapa padrão — mesmíssimo caso de uso): código ATIVO (não comentado) em
+`scripts/map/tasks/{newswamp,ratacombs,sunkendecid}.lua` mostra
+`locks={}`/`keys_given={}` (tabela vazia) sendo usado normalmente, lado a
+lado com `locks={LOCKS.X}`/`keys_given={KEYS.X}` nas outras Tasks do mesmo
+arquivo. Ou seja: tabela vazia **funciona sim** — minha suspeita inicial
+era baseada numa amostra pequena demais, e a "correção" foi revertida
+(`src/types/worldContent.ts`, `src/generators/worldContent.ts`,
+`src/components/forms/TaskForm.tsx`, `mods/alchemistIsland.ts`).
+
+**O que sobrou de útil desse mergulho:** `Task.room_bg` usando `WORLD_TILES.X`
+(o que este app já gerava) está reconfirmado com evidência bem mais forte —
+o mesmo "Uncompromising Mode" usa `room_bg=WORLD_TILES.HOODEDFOREST` e
+`room_bg=WORLD_TILES.MAGMA_ASH` em código ativo, em vez do `GROUND.IMPASSABLE`
+que só vimos uma vez (em "Graveyard Island"). Nenhuma mudança de código foi
+necessária aqui.
+
+**Lição pra próximas confirmações:** ao usar um mod da coleção local como
+prova, checar antes se ele é um mod "pequeno" (adiciona conteúdo ao DST
+Together padrão, como "Graveyard Island"/"Uncompromising Mode") ou uma
+conversão total pra outro modo/DLC (Hamlet, Shipwrecked, Reign of Giants
+solo) — a segunda categoria pode usar convenções/campos que não se aplicam
+ao caso de uso deste app.
+
 ## O que ainda não temos como confirmar
 
 A cópia local do próprio jogo só tem `scripts/prefabs/` (não
