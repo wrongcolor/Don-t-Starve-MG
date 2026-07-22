@@ -424,12 +424,17 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
             </div>
 
             {enableSkillTree && (
-              <SkillTreeEditor
-                control={control}
-                register={register}
-                setValue={setValue}
-                watchedBranches={watched.skillTree?.branches ?? []}
-              />
+              <>
+                <SkillTreeEditor
+                  control={control}
+                  register={register}
+                  setValue={setValue}
+                  watchedBranches={watched.skillTree?.branches ?? []}
+                />
+                {errors.skillTree?.branches?.message && (
+                  <p className="field error">{errors.skillTree.branches.message}</p>
+                )}
+              </>
             )}
           </Fieldset>
 

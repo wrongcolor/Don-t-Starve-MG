@@ -38,6 +38,7 @@ export function EntityListPanel<T extends { id: string }>({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [search, setSearch] = useState('')
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const resolvedEditingId = editingId && items.some((i) => i.id === editingId) ? editingId : null
   const activeId = resolvedEditingId ?? (adding ? null : (items[0]?.id ?? null))
@@ -45,13 +46,23 @@ export function EntityListPanel<T extends { id: string }>({
 
   const filtered = items.filter((item) => getLabel(item).toLowerCase().includes(search.toLowerCase()))
 
+  // activeItem is undefined only while adding a brand-new entry (see the `adding`
+  // branch above) — upsertById() in the store keys purely off `id`, so saving a new
+  // entry whose id matches an existing one of the same type would otherwise silently
+  // replace it instead of erroring, since the id field is only read-only when editing.
   const handleSave = (item: T) => {
+    if (!activeItem && items.some((i) => i.id === item.id)) {
+      setSaveError(`The id "${item.id}" is already used by another entry — choose a different one.`)
+      return
+    }
+    setSaveError(null)
     onUpsert(item)
     setAdding(false)
     setEditingId(item.id)
   }
 
   const handleCancel = () => {
+    setSaveError(null)
     setAdding(false)
     setEditingId(null)
   }
@@ -64,9 +75,20 @@ export function EntityListPanel<T extends { id: string }>({
   return (
     <div className="layout">
       <div className="sidebar">
-        <button className="btn-new" onClick={() => setAdding(true)}>
+        <button
+          className="btn-new"
+          onClick={() => {
+            setSaveError(null)
+            setAdding(true)
+          }}
+        >
           + {addLabel}
         </button>
+        {saveError && (
+          <p className="field error" style={{ color: 'var(--accent-red)', margin: '0 0 8px' }}>
+            {saveError}
+          </p>
+        )}
         <div className="sidebar-list panel">
           <div className="sidebar-title">{title.toUpperCase()}</div>
           <div className="search-box">
@@ -84,6 +106,7 @@ export function EntityListPanel<T extends { id: string }>({
                 key={item.id}
                 className={`item-row ${item.id === activeId ? 'active' : ''}`}
                 onClick={() => {
+                  setSaveError(null)
                   setEditingId(item.id)
                   setAdding(false)
                 }}

@@ -4,7 +4,7 @@ import { generateSkillTreeFile } from '../../generators/skillTree'
 import { generateCharacterFiles } from '../../generators/character'
 import { generateModMain } from '../../generators/modmain'
 import { sampleProject } from '../fixtures'
-import type { CharacterDef } from '../../types/modProject'
+import { characterDefSchema, type CharacterDef } from '../../types/modProject'
 
 const characterWithSkillTree: CharacterDef = {
   ...sampleProject.characters[0],
@@ -54,6 +54,26 @@ describe('generateSkillTreeFile', () => {
     expect(code).toContain('tags = { "alchemy", "lock" }')
     expect(code).toContain('return SkillTreeFns.CountTags(prefabname, "alchemy", activatedskills) >= 2')
     expect(code).toContain('connects = { "testchar_alchemy_3" }')
+  })
+})
+
+describe('skillTreeSchema uniqueness', () => {
+  // generateSkillTreeFile keys each Lua table entry as `${characterId}_${node.id}`
+  // with no branch component in that key — two nodes sharing an id (even across
+  // different branches) would otherwise collide into one Lua table entry, silently
+  // dropping one skill from the generated mod with no build-time error.
+  it('rejects two skill nodes sharing an id across different branches', () => {
+    const withDuplicateId: CharacterDef = {
+      ...sampleProject.characters[0],
+      skillTree: {
+        branches: [
+          { name: 'alchemy', nodes: [{ id: 'skill_1', title: 'Alchemy I', desc: 'a' }] },
+          { name: 'combat', nodes: [{ id: 'skill_1', title: 'Combat I', desc: 'b' }] },
+        ],
+      },
+    }
+
+    expect(characterDefSchema.safeParse(withDuplicateId).success).toBe(false)
   })
 })
 

@@ -410,9 +410,24 @@ export const skillTreeBranchSchema = z.object({
   nodes: z.array(skillTreeNodeSchema).min(1, 'Add at least one skill'),
 })
 
-export const skillTreeSchema = z.object({
-  branches: z.array(skillTreeBranchSchema).min(1, 'Add at least one branch'),
-})
+// generateSkillTreeFile keys each Lua table entry as `${characterId}_${node.id}`,
+// with no branch component in that key (see skillTree.ts) — two nodes sharing an
+// id, even across different branches, collide into one Lua table entry and the
+// second silently overwrites the first at runtime, with no build-time error.
+export const skillTreeSchema = z
+  .object({
+    branches: z.array(skillTreeBranchSchema).min(1, 'Add at least one branch'),
+  })
+  .refine(
+    (tree) => {
+      const ids = tree.branches.flatMap((branch) => branch.nodes.map((node) => node.id))
+      return new Set(ids).size === ids.length
+    },
+    {
+      message: 'Two skills share the same id — each skill id must be unique across the whole tree, not just within its branch.',
+      path: ['branches'],
+    },
+  )
 
 export const characterDefSchema = z.object({
   id: luaIdentifier,
