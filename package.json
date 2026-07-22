@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "start": "node scripts/start-server.mjs"
+    "start": "node scripts/start-server.mjs",
+    "build-test-mods": "tsx scripts/build-test-mods.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -35,6 +36,7 @@
     "luaparse": "^0.3.1",
     "oxlint": "^1.71.0",
     "tailwindcss": "^4.3.2",
+    "tsx": "^4.23.1",
     "typescript": "~6.0.2",
     "vite": "^8.1.1",
     "vitest": "^4.1.10"

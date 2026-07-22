@@ -395,15 +395,16 @@ tasks/rooms no grupo = ilha fisicamente maior.
 **Forma da ilha:** não controlável — decidida pelo motor nativo (Voronoi +
 `SeparateIslands`), sem acesso via Lua/mod.
 
-## 18. Buff de combate temporário ao comer — **NÃO confirmado, implementado mesmo assim**
+## 18. Buff de combate temporário ao comer — **confirmado e corrigido**
 
-Diferente de todo o resto deste catálogo, este padrão **não** veio de ler um
-prefab real — implementado a pedido (ItemDef.onEatBuff) sem cópia local do
-jogo disponível pra confirmar. Baseado na API pública amplamente documentada
-pela comunidade de modding de DST:
+Implementado a pedido (`ItemDef.onEatBuff`) originalmente sem nenhuma cópia
+local do jogo disponível pra confirmar — a única entrada deste catálogo
+gerada sem leitura de script real. Reconfirmado depois lendo o código de mods
+reais publicados do Workshop (não o jogo em si, mas uso real e consistente da
+mesma API em dezenas de arquivos):
 
 ```lua
-inst.components.edible.oneatenfn = function(inst, eater)
+inst.components.edible:SetOnEatenFn(function(inst, eater)
     if eater == nil or eater.components.combat == nil then return end
     eater.components.combat.externaldamagemultipliers:SetModifier(inst, 1 + TUNING.X_MULT, "x_damage_buff")
     eater:DoTaskInTime(TUNING.X_DURATION, function()
@@ -411,19 +412,18 @@ inst.components.edible.oneatenfn = function(inst, eater)
             eater.components.combat.externaldamagemultipliers:RemoveModifier(inst, "x_damage_buff")
         end
     end)
-end
+end)
 ```
 
-`edible.oneatenfn` e `combat.externaldamagemultipliers` (um `SourceModifierList`)
-moram em `scripts/components/`, que esta cópia local nunca teve (ver seção
-abaixo) — então, ao contrário dos outros itens deste arquivo, **ninguém leu o
-código-fonte real pra confirmar a assinatura exata**. Testar em jogo antes de
-publicar qualquer mod que use isso.
-
-**Prioridade de re-confirmação:** alta — é o único padrão do catálogo gerado
-sem leitura de script real; se algum dia tivermos acesso a
-`scripts/components/edible.lua` e `scripts/components/combat.lua`, confirmar
-aqui e remover este aviso.
+**Bug real encontrado e corrigido:** o gerador escrevia
+`inst.components.edible.oneatenfn = oneaten` (atribuição direta de campo).
+`SetOnEatenFn` é confirmado como o setter real em 31 ocorrências através de
+vários mods (ex.: `giant_blueberry.lua`/`honey_log.lua` do "Uncompromising
+Mode") — nenhum mod real atribui o campo diretamente. `combat.
+externaldamagemultipliers:SetModifier(source, multiplier, key)` /
+`:RemoveModifier(source, key)` (um `SourceModifierList`) foi confirmado
+exatamente com essa assinatura em `pwb_buffs.lua` do mod "Planar Wanda"
+(fonte de um efeito de buff temporário real, do mesmo tipo).
 
 ## 19. Combinar dois itens iguais pra restaurar durabilidade — **implementado (versão simplificada)**
 
@@ -963,11 +963,12 @@ diretamente em `InitCondition` (`src/generators/item.ts`).
 
 ## O que ainda não temos como confirmar
 
-Esta cópia local do jogo só tem `scripts/prefabs/`. Não temos
-`scripts/components/` (implementação interna de cada componente) nem
-`scripts/stategraphs/` (o `SGwilson.lua` que decide qual animação o personagem
-toca). Por isso a pergunta original sobre "golpe vs estocada" continua sem
-confirmação — não achamos nenhum prefab de arma com lógica de seleção de
-animação de ataque; se essa diferença existe, ela mora no stategraph do
-jogador, que não está nesta cópia. O mesmo vale para o buff de dano ao comer
-(seção 18) e para o `eater` component (`components.json`, `modeled_in_app: false`).
+A cópia local do próprio jogo só tem `scripts/prefabs/` (não
+`scripts/components/` nem o `SGwilson.lua` completo). A coleção de mods reais
+(ver README.md) preenche boa parte desse buraco — foi o que confirmou a
+seção 18 — mas só cobre o que algum mod real precisou sobrescrever ou
+inspecionar; os poucos mods que embutem um `postinit/stategraphs/SGwilson.lua`
+são todos patches parciais (`AddStategraphPostInit`), não o arquivo completo, e
+nenhum revela lógica de seleção de animação de ataque por tipo de arma. Por
+isso a pergunta original sobre "golpe vs estocada" continua sem confirmação —
+se essa diferença existe, ainda não achamos onde ela mora.

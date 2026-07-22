@@ -244,11 +244,11 @@ function combineWithFunctionBlock(): string[] {
   ]
 }
 
-// NOT confirmed against a local game script copy (see docs/dst-knowledge/README.md) —
-// based on the publicly documented modding API: edible.oneatenfn runs when the eater
-// finishes eating, and combat.externaldamagemultipliers (a SourceModifierList) lets a
-// named modifier be added and later removed by the same key. SetModifier takes the
-// FINAL multiplier, hence the "1 +" — verify both calls in-game before shipping.
+// Confirmed via real published Workshop mods (docs/dst-knowledge/patterns.md#18):
+// edible:SetOnEatenFn(fn) runs the callback when the eater finishes eating, and
+// combat.externaldamagemultipliers (a SourceModifierList) lets a named modifier be
+// added and later removed by the same key. SetModifier takes the FINAL multiplier,
+// hence the "1 +".
 function onEatenFunctionBlock(item: ItemDef): string[] {
   const upper = toUpperSnake(item.id)
   const buffKey = luaString(`${item.id}_damage_buff`)
@@ -454,7 +454,7 @@ function componentBlock(item: ItemDef): string {
     lines.push(`    inst.components.edible.hungervalue = TUNING.${upper}_HUNGER`)
     lines.push(`    inst.components.edible.sanityvalue = TUNING.${upper}_SANITY`)
     if (needsOnEaten(item)) {
-      lines.push('    inst.components.edible.oneatenfn = oneaten')
+      lines.push('    inst.components.edible:SetOnEatenFn(oneaten)')
     }
   }
 

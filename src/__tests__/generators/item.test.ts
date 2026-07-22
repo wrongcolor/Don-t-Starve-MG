@@ -245,7 +245,7 @@ describe('generateItemFiles', () => {
     expect(withEdible.success).toBe(true)
   })
 
-  it('wires a temporary combat damage buff on eat via oneatenfn + externaldamagemultipliers', () => {
+  it('wires a temporary combat damage buff on eat via SetOnEatenFn + externaldamagemultipliers', () => {
     const code = generateItemPrefab(food)
     expect(code).toContain('local function oneaten(inst, eater)')
     expect(code).toContain('if eater == nil or eater.components.combat == nil then return end')
@@ -256,13 +256,13 @@ describe('generateItemFiles', () => {
     expect(code).toContain(
       'eater.components.combat.externaldamagemultipliers:RemoveModifier(inst, "testfood_damage_buff")',
     )
-    expect(code).toContain('inst.components.edible.oneatenfn = oneaten')
+    expect(code).toContain('inst.components.edible:SetOnEatenFn(oneaten)')
   })
 
-  it('does not generate an oneatenfn when the food has no eat buff configured', () => {
+  it('does not call SetOnEatenFn when the food has no eat buff configured', () => {
     const plainFood = { ...food, onEatBuff: undefined }
     const code = generateItemPrefab(plainFood)
-    expect(code).not.toContain('oneatenfn')
+    expect(code).not.toContain('SetOnEatenFn')
     expect(code).not.toContain('local function oneaten')
   })
 

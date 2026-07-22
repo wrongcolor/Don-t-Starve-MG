@@ -217,10 +217,9 @@ export const edibleSchema = z.object({
   sanityValue: z.number(),
 })
 
-// NOT confirmed against a local copy of the game scripts (see docs/dst-knowledge/README.md —
-// this sandbox has no game install to grep). Based on the publicly documented modding API:
-// edible.oneatenfn as an eat-time callback, and combat.externaldamagemultipliers (a
-// SourceModifierList) for a stacking, removable damage bonus. Verify in-game before shipping.
+// Confirmed via real published Workshop mods (docs/dst-knowledge/patterns.md#18):
+// edible:SetOnEatenFn(fn) as an eat-time callback, and combat.externaldamagemultipliers
+// (a SourceModifierList) for a stacking, removable damage bonus.
 export const onEatBuffSchema = z.object({
   damageMultiplier: z.number().min(0.01).max(5),
   durationSeconds: z.number().min(1),

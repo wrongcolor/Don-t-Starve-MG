@@ -731,10 +731,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
               </div>
               {enableOnEatBuff && (
                 <div className="row-2">
-                  <FormField
-                    label="Damage bonus (0 to 5, e.g. 0.25 = +25%)"
-                    hint="Not verified against the game's own scripts in this environment — test in-game before shipping."
-                  >
+                  <FormField label="Damage bonus (0 to 5, e.g. 0.25 = +25%)">
                     <input
                       type="number"
                       step="0.05"

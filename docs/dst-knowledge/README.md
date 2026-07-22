@@ -21,11 +21,24 @@ pra documentar o formato de uma chamada, no mesmo espírito de documentar uma AP
 
 ## Fonte dos dados
 
-Extraído de uma cópia local de `scripts/prefabs/*.lua` do jogo instalado
-(1488 arquivos), em 2026-07. Não inclui `scripts/components/` nem
-`scripts/stategraphs/` — então qualquer coisa que dependa da implementação
-*interna* de um componente (não só de como ele é chamado no prefab) ou do
-stategraph do jogador ainda não está confirmada aqui.
+Duas fontes, ambas de uso público real (não são chute/memória):
+
+1. Uma cópia local de `scripts/prefabs/*.lua` do jogo instalado (1488
+   arquivos), em 2026-07. Não inclui `scripts/components/` nem
+   `scripts/stategraphs/` — então qualquer coisa que dependa da implementação
+   *interna* de um componente (não só de como ele é chamado no prefab) ou do
+   stategraph do jogador não está confirmada só por essa fonte.
+2. Uma coleção local de ~80 mods reais publicados no Workshop (nomes citados
+   diretamente em `patterns.md` onde usados, ex. "Automation Farm", "Repair
+   Combine", "Seafellow"). Vários desses mods embutem `scripts/components/`
+   e até `scripts/stategraphs/` próprios (novos componentes, ou patches via
+   `AddComponentPostInit`/`AddClassPostConstruct` sobre os componentes reais
+   do jogo) — usados pra confirmar assinaturas de API que a cópia de
+   `scripts/prefabs/` sozinha não revela (ex. seção 18, `edible:SetOnEatenFn`).
+   Um desses mods ("Insight", um mod de tooltips) tem uma pasta
+   `scripts/descriptors/` com um arquivo por componente vanilla, cada um lendo
+   os campos/métodos reais desse componente — próximo de uma referência de API
+   viva pra quase todo componente do jogo.
 
 ## Como estender
 

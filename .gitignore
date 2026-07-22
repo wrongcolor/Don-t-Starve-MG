@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Generated mods used for manual/in-game testing (see scripts/build-test-mods.ts)
+/test-mods
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
