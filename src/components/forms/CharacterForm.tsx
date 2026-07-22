@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { characterDefSchema, CHARACTER_GENDERS, CHARACTER_PERKS, FOOD_TYPES, type CharacterDef } from '../../types/modProject'
 import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
 import { CharacterPreview } from './CharacterPreview'
+import { PrefabPickerButton } from './PrefabPicker'
 
 interface SkillTreeNodeFieldsProps {
   control: Control<CharacterDef>
@@ -296,6 +297,7 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
               {inventory.fields.map((field, index) => (
                 <div key={field.id} className="ingredient-row">
                   <input className={inputClass} placeholder="prefab id (e.g. torch)" {...register(`startingInventory.${index}` as const)} />
+                  <PrefabPickerButton onSelect={(id) => setValue(`startingInventory.${index}` as const, id, { shouldDirty: true })} />
                   <button type="button" className={btnDanger} onClick={() => inventory.remove(index)}>
                     Remove
                   </button>

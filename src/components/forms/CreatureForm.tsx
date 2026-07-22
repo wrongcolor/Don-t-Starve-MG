@@ -9,6 +9,7 @@ import {
 } from '../../types/modProject'
 import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
 import { CreaturePreview } from './CreaturePreview'
+import { PrefabPickerButton } from './PrefabPicker'
 
 interface CreatureFormProps {
   initialCreature?: CreatureDef
@@ -227,7 +228,10 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
               </div>
               {enableCookable && (
                 <FormField label="Becomes this prefab when cooked (e.g. cookedsmallmeat)">
-                  <input className={inputClass} {...register('cookable.product')} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input className={inputClass} {...register('cookable.product')} />
+                    <PrefabPickerButton onSelect={(id) => setValue('cookable.product', id, { shouldDirty: true })} />
+                  </div>
                 </FormField>
               )}
             </Fieldset>
@@ -237,6 +241,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
               {loot.fields.map((field, index) => (
                 <div key={field.id} className="ingredient-row">
                   <input className={inputClass} placeholder="prefab id (e.g. monstermeat)" {...register(`loot.${index}.prefab` as const)} />
+                  <PrefabPickerButton onSelect={(id) => setValue(`loot.${index}.prefab` as const, id, { shouldDirty: true })} />
                   <input type="number" step="0.01" min="0.01" max="1" className="qty-input" {...register(`loot.${index}.chance` as const, { valueAsNumber: true })} />
                   <button type="button" className={btnDanger} onClick={() => loot.remove(index)}>
                     Remove

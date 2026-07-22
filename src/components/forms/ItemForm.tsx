@@ -15,6 +15,7 @@ import {
 import { FormField, Fieldset, FormHeader, FormFooter, InfoTip, inputClass, btnDanger } from './FormField'
 import { categoryVisual } from '../panels/entityVisuals'
 import { ItemPreview } from './ItemPreview'
+import { PrefabPickerButton } from './PrefabPicker'
 
 interface ItemFormProps {
   initialItem?: ItemDef
@@ -384,7 +385,10 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                         <input type="number" className={inputClass} {...register('weapon.ranged.maxRange', { valueAsNumber: true })} />
                       </FormField>
                       <FormField label="Projectile prefab">
-                        <input className={inputClass} {...register('weapon.ranged.projectilePrefab')} />
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <input className={inputClass} {...register('weapon.ranged.projectilePrefab')} />
+                          <PrefabPickerButton onSelect={(id) => setValue('weapon.ranged.projectilePrefab', id, { shouldDirty: true })} />
+                        </div>
                       </FormField>
                       <FormField label="Effect on hit">
                         <select className={inputClass} {...register('weapon.ranged.onHitEffect')}>
@@ -512,6 +516,9 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                         placeholder="prefab to spawn (e.g. stafflight)"
                         {...register(`spellbook.spells.${index}.summonPrefab` as const)}
                       />
+                      <PrefabPickerButton
+                        onSelect={(id) => setValue(`spellbook.spells.${index}.summonPrefab` as const, id, { shouldDirty: true })}
+                      />
                       <button type="button" className={btnDanger} onClick={() => spellbookSpells.remove(index)}>
                         Remove
                       </button>
@@ -563,6 +570,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
               {fields.map((field, index) => (
                 <div key={field.id} className="ingredient-row">
                   <input className={inputClass} placeholder="prefab id (e.g. twigs)" {...register(`recipe.ingredients.${index}.prefab` as const)} />
+                  <PrefabPickerButton onSelect={(id) => setValue(`recipe.ingredients.${index}.prefab` as const, id, { shouldDirty: true })} />
                   <input type="number" className="qty-input" {...register(`recipe.ingredients.${index}.amount` as const, { valueAsNumber: true })} />
                   <button type="button" className={btnDanger} onClick={() => remove(index)}>
                     Remove
@@ -814,7 +822,10 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     label="Reuse this container's widget (prefab id)"
                     hint='Clones its exact skin and slot grid at runtime — no UI art needed. e.g. "sacred_chest", "icebox", "treasurechest". Must be a real container-having prefab.'
                   >
-                    <input className={inputClass} {...register('container.widget.reusePrefab' as const)} placeholder="sacred_chest" />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input className={inputClass} {...register('container.widget.reusePrefab' as const)} placeholder="sacred_chest" />
+                      <PrefabPickerButton onSelect={(id) => setValue('container.widget.reusePrefab' as const, id, { shouldDirty: true })} />
+                    </div>
                   </FormField>
                 ) : (
                   <div className="row-2">
@@ -877,6 +888,13 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                           const next = [...list]
                           next[index] = e.target.value
                           setValue('container.acceptsPrefabs', next)
+                        }}
+                      />
+                      <PrefabPickerButton
+                        onSelect={(id) => {
+                          const next = [...list]
+                          next[index] = id
+                          setValue('container.acceptsPrefabs', next, { shouldDirty: true })
                         }}
                       />
                       <button

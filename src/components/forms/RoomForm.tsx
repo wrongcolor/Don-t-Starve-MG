@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { roomDefSchema, WORLD_TILES, type RoomDef } from '../../types/worldContent'
 import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
 import { RoomPreview } from './RoomPreview'
+import { PrefabPickerButton } from './PrefabPicker'
 
 interface RoomFormProps {
   initialRoom?: RoomDef
@@ -111,6 +112,7 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
               {requiredPrefabs.fields.map((field, index) => (
                 <div key={field.id} className="ingredient-row">
                   <input className={inputClass} placeholder="e.g. pigking" {...register(`requiredPrefabs.${index}` as const)} />
+                  <PrefabPickerButton onSelect={(id) => setValue(`requiredPrefabs.${index}` as const, id, { shouldDirty: true })} />
                   <button type="button" className={btnDanger} onClick={() => requiredPrefabs.remove(index)}>
                     Remove
                   </button>
@@ -129,6 +131,7 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
               {fixedPrefabs.fields.map((field, index) => (
                 <div key={field.id} className="ingredient-row">
                   <input className={inputClass} placeholder="prefab id (e.g. pighouse)" {...register(`fixedPrefabs.${index}.prefab` as const)} />
+                  <PrefabPickerButton onSelect={(id) => setValue(`fixedPrefabs.${index}.prefab` as const, id, { shouldDirty: true })} />
                   <input type="number" className="qty-input" placeholder="min" {...register(`fixedPrefabs.${index}.count.min` as const, { valueAsNumber: true })} />
                   <input type="number" className="qty-input" placeholder="max" {...register(`fixedPrefabs.${index}.count.max` as const, { valueAsNumber: true })} />
                   <button type="button" className={btnDanger} onClick={() => fixedPrefabs.remove(index)}>
@@ -175,6 +178,7 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
                 {scatterPrefabs.fields.map((field, index) => (
                   <div key={field.id} className="ingredient-row">
                     <input className={inputClass} placeholder="prefab id (e.g. grass)" {...register(`scatter.prefabs.${index}.prefab` as const)} />
+                    <PrefabPickerButton onSelect={(id) => setValue(`scatter.prefabs.${index}.prefab` as const, id, { shouldDirty: true })} />
                     <input type="number" step="0.001" className="qty-input" placeholder="weight" {...register(`scatter.prefabs.${index}.weight` as const, { valueAsNumber: true })} />
                     <button type="button" className={btnDanger} onClick={() => scatterPrefabs.remove(index)}>
                       Remove

@@ -969,3 +969,96 @@ body {
     animation: none;
   }
 }
+
+/* ---------- PREFAB PICKER (modal) ---------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+.modal-panel {
+  width: min(560px, 100%);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
+}
+.modal-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.modal-panel-header h2 {
+  font-size: 22.5px;
+  margin: 0;
+  color: var(--ink);
+}
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 19.4px;
+  cursor: pointer;
+  color: var(--ink-soft);
+  padding: 4px;
+}
+.modal-close:hover {
+  color: var(--ink);
+}
+.modal-body {
+  overflow-y: auto;
+  margin-top: 10px;
+}
+.modal-category {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin: 12px 0 6px;
+}
+.modal-category:first-child {
+  margin-top: 0;
+}
+.modal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+}
+.modal-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--parchment-line);
+  background: #f4ecd6;
+  cursor: pointer;
+  font-size: 14.4px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: center;
+}
+.modal-item:hover {
+  border-color: var(--gold-dark);
+  background: #fff;
+}
+.modal-item-icon {
+  font-size: 27px;
+}
+.modal-item-id {
+  font-size: 11.3px;
+  font-weight: 400;
+  color: var(--ink-soft);
+  font-family: monospace;
+}
+.modal-empty {
+  color: var(--ink-soft);
+  font-size: 15px;
+  padding: 16px 4px;
+  text-align: center;
+}
