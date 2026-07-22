@@ -35,6 +35,8 @@ function itemTuningBlock(item: ItemDef): string[] {
     if (item.weapon.ranged) {
       lines.push(`GLOBAL.TUNING.${upper}_MIN_RANGE = ${item.weapon.ranged.minRange}`)
       lines.push(`GLOBAL.TUNING.${upper}_MAX_RANGE = ${item.weapon.ranged.maxRange}`)
+    } else if (item.weapon.meleeRange !== undefined) {
+      lines.push(`GLOBAL.TUNING.${upper}_MELEE_RANGE = ${item.weapon.meleeRange}`)
     }
   }
   if (item.finiteuses) lines.push(`GLOBAL.TUNING.${upper}_USES = ${item.finiteuses.maxUses}`)

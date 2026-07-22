@@ -961,6 +961,20 @@ agora um campo próprio e obrigatório, com sua própria constante
 `TUNING.<ID>_CONDITION` (`src/generators/modmain.ts`), referenciada
 diretamente em `InitCondition` (`src/generators/item.ts`).
 
+## 31. Alcance de ataque corpo a corpo (`weapon:SetRange`) — **implementado**
+
+Confirmado em `dryad_thornspear.lua` (mod de personagem real "Dryad", uma
+lança corpo a corpo — não um staff/arma à distância): `weapon:SetRange(1.5)`
+— **um único argumento**. Essa é a mesma API usada pela arma à distância
+(seção 6, `SetRange(min, max)` — dois argumentos, junto de `SetProjectile`),
+mas numa arma puramente corpo a corpo (sem projétil) o único argumento
+estende o alcance normal (~2 no jogo base) sem torná-la uma arma à distância.
+
+Implementado como `ItemDef.weapon.meleeRange` (`src/types/modProject.ts`),
+mutuamente exclusivo com `weapon.ranged` (mesmo `.refine()` que já protege
+outros pares de campos incompatíveis neste arquivo) — só faz sentido pra uma
+arma que não tem projétil.
+
 ## O que ainda não temos como confirmar
 
 A cópia local do próprio jogo só tem `scripts/prefabs/` (não

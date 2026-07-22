@@ -78,6 +78,12 @@ export function ItemPreview({ item }: { item: Partial<ItemDef> }) {
               </span>
             </div>
           )}
+          {item.weapon?.meleeRange !== undefined && (
+            <div className="preview-stat">
+              <span className="lbl">↗️ Range</span>
+              <span className="val">{item.weapon.meleeRange}</span>
+            </div>
+          )}
           {item.armor && (
             <div className="preview-stat">
               <span className="lbl">🛡️ Absorption</span>

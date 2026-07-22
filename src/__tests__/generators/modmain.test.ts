@@ -54,6 +54,16 @@ describe('generateModMain', () => {
     expect(code).toContain('GLOBAL.TUNING.TESTFOOD_DAMAGE_BUFF_DURATION = 120')
   })
 
+  it('sets TUNING for a melee weapon with a custom range, distinct from a ranged weapon\'s min/max range', () => {
+    const withMeleeRange = {
+      ...sampleProject,
+      items: [{ ...sampleProject.items[0], weapon: { ...sampleProject.items[0].weapon!, meleeRange: 3 } }],
+    }
+    const meleeRangeCode = generateModMain(withMeleeRange)
+    expect(meleeRangeCode).toContain('GLOBAL.TUNING.TESTSWORD_MELEE_RANGE = 3')
+    expect(meleeRangeCode).not.toContain('_MIN_RANGE')
+  })
+
   it('lists the herd manager prefab and sets its TUNING values when a creature has a herd (patterns.md#27)', () => {
     const withHerd = {
       ...sampleProject,

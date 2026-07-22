@@ -354,6 +354,8 @@ function componentBlock(item: ItemDef): string {
     if (item.weapon.ranged) {
       lines.push(`    inst.components.weapon:SetRange(TUNING.${upper}_MIN_RANGE, TUNING.${upper}_MAX_RANGE)`)
       lines.push(`    inst.components.weapon:SetProjectile(${luaString(item.weapon.ranged.projectilePrefab)})`)
+    } else if (item.weapon.meleeRange !== undefined) {
+      lines.push(`    inst.components.weapon:SetRange(TUNING.${upper}_MELEE_RANGE)`)
     }
     if (needsOnAttack(item)) {
       lines.push('    inst.components.weapon:SetOnAttack(onattack)')

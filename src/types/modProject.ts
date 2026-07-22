@@ -239,6 +239,12 @@ export const itemDefSchema = z
       .object({
         damage: z.number().min(0),
         sanityCostOnUse: z.number().min(0).optional(),
+        // Confirmed in dryad_thornspear.lua (a real published character mod's melee
+        // weapon): weapon:SetRange(range) — a single-argument call — is the real API
+        // for extending a MELEE weapon's reach (vanilla default is ~2). Distinct from
+        // the two-argument SetRange(minRange, maxRange) used below for a ranged/
+        // projectile weapon, so the two are mutually exclusive.
+        meleeRange: z.number().min(0.1).max(10).optional(),
         ranged: z
           .object({
             minRange: z.number().min(1),
@@ -251,6 +257,10 @@ export const itemDefSchema = z
             path: ['maxRange'],
           })
           .optional(),
+      })
+      .refine((w) => w.meleeRange === undefined || w.ranged === undefined, {
+        message: 'Melee range only applies to a melee weapon — turn off ranged mode first',
+        path: ['meleeRange'],
       })
       .optional(),
     finiteuses: z

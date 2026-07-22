@@ -99,6 +99,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const enableFiniteuses = watched.finiteuses !== undefined
   const enableArmor = watched.armor !== undefined
   const enableRanged = watched.weapon?.ranged !== undefined
+  const enableMeleeRange = watched.weapon?.meleeRange !== undefined
   const enableSanityCost = watched.weapon?.sanityCostOnUse !== undefined
   const enableWalkSpeedMult = watched.equipWalkSpeedMult !== undefined
   const enableSpellEffect = watched.spellEffect !== undefined
@@ -360,20 +361,21 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     </div>
                     <div
                       className={`icon-toggle ${enableRanged ? 'active' : ''}`}
-                      onClick={() =>
+                      onClick={() => {
+                        setValue('weapon.meleeRange', undefined)
                         setValue('weapon.ranged', {
                           minRange: 6,
                           maxRange: 10,
                           projectilePrefab: 'fire_projectile',
                           onHitEffect: 'none',
                         })
-                      }
+                      }}
                     >
                       🏹 Ranged
                     </div>
                   </div>
 
-                  {enableRanged && (
+                  {enableRanged ? (
                     <div className="row-2">
                       <FormField label="Min range">
                         <input type="number" className={inputClass} {...register('weapon.ranged.minRange', { valueAsNumber: true })} />
@@ -394,6 +396,24 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                         </select>
                       </FormField>
                     </div>
+                  ) : (
+                    <>
+                      <div className="checks">
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={enableMeleeRange}
+                            onChange={(e) => setValue('weapon.meleeRange', e.target.checked ? 3 : undefined)}
+                          />
+                          Custom melee range (default: ~2)
+                        </label>
+                      </div>
+                      {enableMeleeRange && (
+                        <FormField label="Range">
+                          <input type="number" step="0.1" className={inputClass} {...register('weapon.meleeRange', { valueAsNumber: true })} />
+                        </FormField>
+                      )}
+                    </>
                   )}
 
                   <div className="checks">

@@ -102,6 +102,23 @@ describe('generateItemFiles', () => {
     expect(code).toContain('inst.components.weapon:SetProjectile("fire_projectile")')
   })
 
+  it('wires a melee weapon with a custom range via a single-argument SetRange', () => {
+    const longReach = { ...sword, weapon: { ...sword.weapon!, meleeRange: 3 } }
+    const code = generateItemPrefab(longReach)
+    expect(code).toContain('inst.components.weapon:SetRange(TUNING.TESTSWORD_MELEE_RANGE)')
+    expect(code).not.toContain('SetProjectile')
+  })
+
+  it('does not call SetRange for a melee weapon with no custom range set', () => {
+    const code = generateItemPrefab(sword)
+    expect(code).not.toContain('SetRange')
+  })
+
+  it('rejects a weapon with both a melee range and ranged mode set', () => {
+    const both = { ...firestaff, weapon: { ...firestaff.weapon!, meleeRange: 3 } }
+    expect(itemDefSchema.safeParse(both).success).toBe(false)
+  })
+
   it('combines sanity cost and on-hit effect into a single onattack callback', () => {
     const code = generateItemPrefab(firestaff)
     expect(code).toContain('local function onattack(inst, attacker, target)')

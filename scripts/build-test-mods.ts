@@ -11,13 +11,23 @@ import { parse } from 'luaparse'
 import { buildModFiles } from '../src/generators/zipBuilder'
 import { sampleProject } from '../src/__tests__/fixtures'
 import { advancedMechanicsProject } from './fixtures/advancedMechanicsProject'
+import { alchemistIsland } from '../mods/alchemistIsland'
+import { eternalBlade } from '../mods/eternalBlade'
+import { vex } from '../mods/vex'
+import { adventurersToolkit } from '../mods/adventurersToolkit'
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const outputRoot = path.join(projectRoot, 'test-mods')
 
+// Internal coverage fixtures (scripts/fixtures/) alongside the real, meaningful
+// mods tracked in mods/README.md — both go through the same generate+validate pass.
 const TEST_PROJECTS = {
   kitchen_sink: sampleProject,
   advanced_mechanics: advancedMechanicsProject,
+  alchemist_island: alchemistIsland,
+  eternal_blade: eternalBlade,
+  vex,
+  adventurers_toolkit: adventurersToolkit,
 }
 
 async function writeModFiles(slug: string, files: Record<string, string>) {
