@@ -1951,3 +1951,74 @@ evento `"rollattack"`/`CHARGE_RANGE` já identificado na stategraph (#39).
 
 **Confirmações (reforçam #46, não são novidade):** hit-and-run/kiting
 reaparece como "Dodge" no centipede (variante mirada no próprio alvo).
+
+## 48. Mais 9 brains (deer, frog, gnarwail, grassgator, grassgekko, mole, krampus, lavae, lightninggoat)
+
+Continuação das seções 46-47 (27 criaturas cobertas).
+
+**Mecânicas de decisão novas, generalizáveis, não modeladas hoje:**
+
+- **Nó de efeito colateral sempre-falha rodando a cada tick, sem bloquear
+  a prioridade** (deer: `ActionNode(ResetData)` envolto em
+  `FailIfSuccessDecorator` no topo da árvore — um "pump" de sincronização
+  de estado desacoplado da lógica de decisão em si, roda todo tick
+  independente do resto).
+- **Alternância de árvore inteira por filiação a um grupo administrado
+  externamente**, não por dia/noite (deer: `TheWorld.components.
+  deerherding:IsActiveInHerd` troca entre `herdmentality`/`solomentality`
+  completos — mesma "duas sub-árvores" do pig #46, gatilho diferente).
+- **Alerta de rebanho compartilhado pra virar-se em conjunto**, não pra
+  atacar (deer: `GetClosestHerdAlertTarget` — variante do "alvo de grupo"
+  já visto, aqui só orienta `FaceEntity`, sem engajar).
+- **Integridade corporal própria (parte quebrada) rebaixa combate pra
+  fuga** (gnarwail: `HornIsBroken()` evita engajar mesmo com alvo válido)
+  — categoria de gatilho nova, distinta de HP%/tag externa.
+- **Hit-and-run com exceção contextual**: ataca sem esperar cooldown se o
+  alvo está numa plataforma/veículo, senão aplica cooldown normal
+  (gnarwail) — combina padrão já catalogado com override situacional.
+- **Formação de seguimento calculada pela física/velocidade do veículo do
+  líder** (gnarwail: `GetFormationOffsetNormal` deriva offset da
+  velocidade do barco; parado, usa offset estático relativo à borda).
+- **Descarte/doação de item condicionado ao valor dele pro próprio ator**
+  (gnarwail: só entrega ao líder o que NÃO é seu alimento favorito) —
+  "guarda o que quer, dá o que não quer", distinto do roubo do bat (#47).
+- **`Wander` com direção enviesada pra longe de uma entidade próxima, e
+  validador de terreno customizado injetado** (gnarwail: ângulo oposto ao
+  barco mais próximo + `is_valid_turf_at_point` restringindo tiles).
+- **Cooldown de reaquisição de alvo de percepção via `components.timer`**
+  (grassgator: só busca novo alvo se o timer não existir, mantém o atual
+  enquanto existir) — throttle de percepção, variante do cooldown-por-tag
+  do catcoon (#47).
+- **Ordem de sequência flee→face** como variação de design válida
+  (grassgator), frente ao face→flee já catalogado (koalefant #46).
+- **Delay ("luto") antes de reconstruir um recurso/casa perdida**, via
+  timestamp + threshold em vez de rebuild imediato (mole: `ShouldMakeHome`
+  só dispara `GetTime() - needs_home_time > make_home_delay` depois).
+- **Reserva de alvo do lado do ITEM-alvo, com expiração própria**
+  (mole: `target.selectedasmoletarget = true` + `DoTaskInTime(5,
+  SelectedTargetTimeout)`) — variante da ownership cap do buzzard (#47),
+  mas a reserva mora no alvo, não numa tabela do lado do ator.
+- **`EventNode` como nó pontual dentro de árvore majoritariamente por
+  polling**, sem colapsar as demais folhas (mole `"gohome"`) — mais leve
+  que o "reactive brain" total do bird (#47).
+- **Gatilho climático dedicado pra ida-pra-casa** (mole: `isacidraining`)
+  — categoria de risco nova (antes só dia/noite/estação/evento).
+- **Quota de saque randomizada por instância**, decidindo quando a
+  criatura "termina a missão" e transiciona de estado direto pela árvore
+  (krampus: `self.greed = 2 + math.random(4)`, `NumItems() >= greed`
+  dispara `GoToState("exit")` via `ActionNode`).
+- **`MinPeriod` envolvendo uma sub-árvore inteira como throttle de
+  reentrada** (krampus: `MinPeriod(inst, 10, true, stealnode)`) — mecanismo
+  de cooldown por tempo mínimo em vez de tag/timer de nó único.
+- **Confiança assimétrica**: foge de uma categoria inteira (tag
+  `"player"`) mas segue um indivíduo específico dessa mesma categoria
+  (krampus: foge de players em geral, `Follow(mytarget)` do alvo
+  escolhido).
+- **Memória de alvo com auto-invalidação por lifecycle**, independente de
+  `combat.target` (krampus: `mytarget` limpo por listener no `"onremove"`
+  do próprio alvo).
+
+**Confirmações (reforçam #46/#47, sem novidade):** ida pra casa por
+noite/estação (frog, lavae), `SequenceNode{Face, RunAway}` do koalefant
+reaparece idêntico no lightninggoat, fuga por tag específica reaparece no
+grassgekko.
