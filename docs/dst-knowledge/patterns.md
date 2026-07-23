@@ -1711,3 +1711,85 @@ mesmo eixo já catalogado (spat, #43), não mecânica nova.
 **Fora de escopo (bespoke demais):** enxame `core`+`debris` do lunar_grazer
 (visual específico de destroços lunares), sistema de tripulação completo do
 powdermonkey (roubo, comemoração, canhão em si).
+
+## 45. Últimas 4 stategraphs reais (primemate, caveventmite, molebat, pigelitefighter) — fecha a varredura de mob básico
+
+Última leva da série 36-45: 55 criaturas cobertas no total. `SGpigelitefighter.lua`
+é o guarda de combate de verdade que a seção 42 apontou como faltante
+(`SGpigelite.lua` era só o participante do minigame — clipe de idle
+`idle_object_loop` idêntico confirma que compartilham o mesmo build).
+
+**Clipes reais confirmados:**
+
+| Criatura | idle | mover | atacar | hit | death |
+|---|---|---|---|---|---|
+| primemate | `idle_loop` | padrão | padrão ou `atk_weapon` (armado) | padrão | padrão |
+| caveventmite | `idle` (bespoke) | `walk_pre`→`walk_loop` (bespoke) | `atk` ou `blow` (sopro térmico) | `hit` | `death` |
+| molebat | `idle_sit`(+`idle_smell`) | padrão | `attack` | `walk_pst` (!) — reuso do clipe de fim-de-caminhada como hit | padrão |
+| pigelitefighter | `idle_object_loop` | padrão | `atk_combo` (3 hits numa animação só) | `hit` | `death` |
+
+**Mecânicas novas confirmadas, generalizáveis, não modeladas hoje:**
+
+- **Grafo core 100% bespoke coexistindo com estados periféricos via
+  `CommonStates`** (caveventmite: idle/moving/attack/hit/death totalmente
+  escritos à mão, mas sleep/frozen/electrocute/sink vêm do helper
+  compartilhado — primeira criatura da série sem usar `AddWalkStates` nem
+  `AddCombatStates` pro núcleo).
+- **`onupdate` compartilhado entre estados não relacionados, ativado só por
+  uma flag comum** (caveventmite: `DoBlowUpdate` roda em `death`, `attack`,
+  `blow_attack` E `shield_vent`, mas só age se `statemem.blowing` for
+  truthy — efeito de área desacoplado de qual estado o disparou).
+- **Invulnerabilidade disparada por evento externo dedicado, não por dano,
+  com cooldown próprio** (caveventmite: `entershield`/`exitshield` —
+  eventos externos — levam a `shield_vent`, com
+  `components.timer:StartTimer("shield_cooldown", ...)`; diferente do
+  escudo-por-absorção-de-dano do rocky/slurtle, #42, que reage a hit).
+- **Timeline empurra evento customizado direto no alvo da ação em buffer**,
+  em vez de manipular componentes dele (molebat `break_molehill`:
+  `ba.target:PushEvent("suckedup")`).
+- **Física/sombra suspensas durante queda, com restauração garantida no
+  `onexit` via flag de guarda** (molebat `fall`: extensão do padrão de
+  guarda-de-reversão do worm, #44, agora pra ativação de física/sombra em
+  vez de troca de identidade).
+- **Combo de múltiplos hits dentro de uma única animação de ataque**
+  (pigelitefighter `atk_combo`: `combat:DoAttack()` chamado 3x no mesmo
+  timeline, frames 12/18/31, tags removidas só no frame 43).
+- **Velocidade de movimento calculada como distância/duração-fixa-em-frames
+  para aterrissagem exata num destino** (pigelitefighter `spawnin`:
+  `SetMotorVelOverride(sqrt(dist)/(22*FRAMES), 0, 0)`).
+- **Override de símbolo por variante aplicado ao cadáver via loop sobre
+  tabela de variantes** (pigelitefighter `corpseoncreate`: itera
+  `BUILD_VARIATIONS[N]` e `OverrideSymbol` cada símbolo no corpo morto).
+
+### Síntese de fechamento (seções 36-45, 55 criaturas)
+
+Os achados mais recorrentes ou mais diretamente acionáveis em
+`src/generators/creature.ts`/`stategraph.ts`/`brain.ts`:
+
+1. **Eixos de escolha de ataque** — arma equipada, distância, plataforma,
+   tag de locomoção, cooldown próprio — reaparecem o bastante pra virar um
+   campo `attackVariants` condicional, em vez de um único estado `attack`
+   fixo.
+2. **Flag de interrupção pendente checada em múltiplos pontos** (beefalo
+   #37, grassgekko/lightninggoat #40, warg #43) — candidato natural a
+   virar um helper reutilizável no `stategraph.ts` gerado.
+3. **Escudo/invulnerabilidade temporária com cooldown via
+   `components.timer`** (rocky/slurtle #42, caveventmite #45) — maduro o
+   bastante pra virar um bloco opcional no gerador.
+4. **Guarda de reversão no `onexit`** protegendo restaurações contra
+   interrupção (worm #44, molebat #45) — deveria ser sugerido sempre que o
+   gerador emitir um `onenter` que desativa algo (física, sombra,
+   colisão).
+5. **Nomes de arquivo enganosos são comuns** (centipede, moonpig, pigelite,
+   spat, powdermonkey) — lição de processo, não de API: nunca inferir
+   comportamento de um `SG<nome>.lua` pelo nome, sempre ler.
+6. **"Uma stategraph, N variantes"** (warg #43, walrus #43, build-variation
+   do pigelitefighter #45) — recorrente o bastante pra virar um modo de
+   geração suportado (reskin compartilhando uma única stategraph gerada).
+
+Com isso, a varredura sistemática de stategraphs de criatura "básica" (não
+boss, não estrutura, não personagem jogável) está concluída — os
+candidatos restantes em `Original/stategraphs/stategraphs/` são bosses,
+variantes de personagem jogável, estruturas/efeitos, ou NPCs de
+minigame/evento sazonal, todos de valor generalização baixo pelo mesmo
+critério já aplicado nas seções 14/40/42.
