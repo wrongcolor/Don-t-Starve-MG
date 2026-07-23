@@ -256,6 +256,10 @@ conteúdo desses stategraphs mora em `scripts/stategraphs/`, que não temos
 nesta cópia. Ou seja, continua sem confirmação a pergunta original sobre
 nomes de clipe — o que já era esperado, mas bom ter certeza.
 
+**Atualização (ver seção 36):** `scripts/stategraphs/` agora está disponível
+localmente — os nomes reais de clipe para spider/hound (e mais 4 criaturas)
+foram confirmados lendo os stategraphs de verdade.
+
 **Mecânicas novas confirmadas, não modeladas hoje:**
 
 - **Alcance de ataque configurável** — `combat:SetRange(min, max)`. Hoje
@@ -1103,3 +1107,69 @@ mecanismos separados:
 NOVO e não relacionado, não implementado — só valeria a pena se quiséssemos
 gerar itens "deployáveis avulsos" (sem receita), o que está fora do escopo
 atual do gerador.
+
+## 36. Stategraphs reais de criatura (spider, hound, pig, bee, rabbit, tallbird) — fecha a lacuna do #13
+
+A seção 13 já tinha lido `spider.lua`/`hound.lua` (os PREFABS) e confirmado que
+os nomes reais de clipe de animação (idle/walk/atk/hit/death) não estavam
+disponíveis, porque só tínhamos `scripts/prefabs/`. Agora com
+`scripts/stategraphs/` disponível, lemos os 6 stategraphs reais
+correspondentes (`SGspider.lua`, `SGhound.lua`, `SGpig.lua`, `SGbee.lua`,
+`SGrabbit.lua`, `SGtallbird.lua`) direto.
+
+**Clipes reais confirmados (referência, não uma lista fixa — cada build tem os
+seus):**
+
+| Criatura | idle | mover | atacar | hit | death |
+|---|---|---|---|---|---|
+| spider | `idle` | `walk_pre`→`walk_loop` | `atk` (+variantes: `warrior_atk`, `spit`, `hide`, `heal`) | `hit` / `hit_stunlock` | `death` |
+| hound | `idle` | `run_pre`→`run_loop`→`run_pst` | `atk_pre`→`atk` | `hit` | `death` (ou `death_shatter`) |
+| pig | `funnyidle`→(`idle_loop`/`hungry`/`idle_angry`/`idle_scared`/`idle_happy`/`idle_creepy`) | `walk_loop`/`run_loop` | `atk` (reaproveitado por `chop`) | `hit` | `death` |
+| bee | `idle`/`idle_angry` | `walk_pre`→`walk_loop` | `atk` | `hit` | `death` |
+| rabbit | `idle` (+`lookup_*`/`lookdown_*`) | `walk` → `run_pre`→`run` | **não existe** | `hit` | `death` |
+| tallbird | `idle` (teen randomiza `idle_blink`/`hungry`) | `walk_pre`/`walk_loop`/`walk_pst` | adulto `atk_pre`→`atk`; filhote `teenatk_pre`→`teenatk` (estado `peck` separado) | `hit` | `death` |
+
+Confirma que nosso `stategraph.ts` gerar sempre os 5 estados fixos
+(`idle`/`moving`/`attack`/`hit`/`death`) com clipes livres digitados pelo
+usuário continua correto como abordagem — o jogo real também varia bastante
+(pig usa 5 clipes de idle por humor, coelho não tem ataque nenhum) — só reforça
+que não dá pra cravar um clipe "certo" sem builds específicos.
+
+**Mecânicas novas confirmadas, generalizáveis, não modeladas hoje:**
+
+- **Variante de ataque por tag/distância** (spider, tallbird) — a mesma
+  criatura escolhe entre múltiplos estados de ataque (corpo-a-corpo padrão vs.
+  `warrior_atk`/`spit`/`peck`) conforme uma tag própria (`spider_warrior`,
+  `teenbird`) e/ou se o alvo está fora do alcance de melee. Hoje `creature.ts`
+  só gera um único estado `attack`.
+- **Escudo com absorção de dano** (spider, estado `shield`) —
+  `health:SetAbsorptionAmount(TUNING.X)` no `onenter`, resetado pra `0` no
+  `onexit`. Mecanismo limpo e isolado, reaproveitável em qualquer criatura.
+- **Hit com/sem stunlock** (spider: `hit` normal permite continuar atacando,
+  `hit_stunlock` bloqueia com tag `busy`) — dois níveis de reação a dano,
+  distinto do único estado `hit` que geramos hoje.
+- **Convocação de reforços por uivo** (hound, estado `howl` → no frame 10
+  chama `SpawnHound` → `TheWorld.components.hounded:SummonSpawn(pos)`,
+  materializa hounds e os vira seguidores de quem uivou). Padrão "líder de
+  matilha convoca reforços", isolado e reaproveitável.
+- **Idle escolhido por humor/lealdade** (pig, estado `funnyidle` ramifica em 5
+  clipes conforme `follower:GetLoyaltyPercent()`, se tem líder, se é `guard`,
+  se é noite, se tem alvo de combate).
+- **Reuso do clipe de ataque como animação de trabalho** (pig: o estado
+  `chop`, usado quando o porco é mandado cortar árvore, tem timing igual ao
+  `atk` de combate — só troca o que dispara no frame 13).
+- **Ciclo obrigatório voar/pousar antes de agir** (bee: alterna entre "no ar"
+  — `EnableBuzz(true)` — e "pousada" via `land`→`land_idle`→`takeoff`; a ação
+  de polinizar só é aceita com a tag de estado `landed`, senão a criatura pousa
+  primeiro). Padrão limpo pra qualquer criatura voadora futura.
+- **Criatura sem estado de ataque** (rabbit — confirmado: nenhuma ocorrência
+  de `"attack"` nem `combat` em `SGrabbit.lua`). Caso real de presa 100%
+  pacífica: sem componente `combat`, sem estado `attack` nenhum na stategraph.
+  Nosso gerador hoje sempre cria um `combat`+estado `attack` fixo — uma
+  criatura verdadeiramente inofensiva (`behavior` tipo "passive"/"flee") não
+  tem como ser gerada fiel ao padrão real do jogo.
+
+**Fora de escopo (bespoke demais):** mutação de aranha em `mutated_spider`,
+mordida em múltiplas fases + susto + estátua de argila do hound, transformação
+werepig por ciclo lunar, crescimento de `teenbird`→`tallbird` — todos sistemas
+completos de UMA criatura específica, não padrões reutilizáveis.
