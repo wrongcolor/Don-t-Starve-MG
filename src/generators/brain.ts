@@ -2,6 +2,14 @@ import type { CreatureDef } from '../types/modProject'
 
 const DEFAULT_SEE_TARGET_DIST = 10
 
+// Confirmed across dozens of real brains (e.g. beefalobrain.lua, deerbrain.lua,
+// centipedebrain.lua): FindClosestPlayerToInst(inst, dist, isalive) is the standard
+// global helper for "the nearest player within range."
+const FOLLOW_SEARCH_DIST = 30
+const FOLLOW_MIN_DIST = 2
+const CHOP_RADIUS = 12
+const COLLECT_RADIUS = 10
+
 function capitalize(id: string): string {
   return id.charAt(0).toUpperCase() + id.slice(1)
 }
@@ -26,16 +34,65 @@ function panicBehaviorNodes(creature: CreatureDef): string[] {
   return nodes
 }
 
+// Confirmed real APIs, heavily simplified from the real "assist the leader" system
+// (see COMPANION_TASKS in modProject.ts for exactly what's dropped): worker/workable
+// + BufferedAction(ACTIONS.CHOP) for chopping (spooked.lua/wildfires.lua), and
+// inventory + ACTIONS.PICKUP for collecting (batbrain.lua/braincommon.lua). Both work
+// autonomously near the companion itself, not near whatever the player is doing.
+function companionTaskFunctions(creature: CreatureDef): { functions: string[]; nodes: string[] } {
+  const tasks = creature.companion?.tasks ?? []
+  const functions: string[] = []
+  const nodes: string[] = []
+
+  if (tasks.includes('chopTrees')) {
+    functions.push(
+      'local function FindTreeToChop(inst)',
+      '    return FindEntity(inst, CHOP_RADIUS, function(ent)',
+      '        return ent.components.workable ~= nil',
+      '            and ent.components.workable:CanBeWorked()',
+      '            and ent.components.workable:GetWorkAction() == ACTIONS.CHOP',
+      '    end, { "tree" })',
+      'end',
+      '',
+      'local function ChopTreeAction(inst)',
+      '    local tree = FindTreeToChop(inst)',
+      '    return tree ~= nil and BufferedAction(inst, tree, ACTIONS.CHOP) or nil',
+      'end',
+    )
+    nodes.push('        DoAction(self.inst, ChopTreeAction, "ChopTree"),')
+  }
+
+  if (tasks.includes('collectItems')) {
+    if (functions.length > 0) functions.push('')
+    functions.push(
+      'local NO_PICKUP_TAGS = { "FX", "NOCLICK", "DECOR", "INLIMBO", "outofreach" }',
+      '',
+      'local function FindLooseItem(inst)',
+      '    return FindEntity(inst, COLLECT_RADIUS, nil, { "_inventoryitem" }, NO_PICKUP_TAGS)',
+      'end',
+      '',
+      'local function CollectItemAction(inst)',
+      '    local item = FindLooseItem(inst)',
+      '    return item ~= nil and BufferedAction(inst, item, ACTIONS.PICKUP) or nil',
+      'end',
+    )
+    nodes.push('        DoAction(self.inst, CollectItemAction, "CollectItem"),')
+  }
+
+  return { functions, nodes }
+}
+
 // PriorityNode/WhileNode/BT and the behaviour node constructors (Wander, Panic,
-// ChaseAndAttack, RunAway) are engine globals set up by behaviourtree.lua and
-// behaviours/*.lua, which are already loaded by the engine — only the specific
-// behaviour modules used need an explicit require here, matching vanilla brain
-// files (e.g. spiderbrain.lua).
+// ChaseAndAttack, RunAway, Follow, DoAction) are engine globals set up by
+// behaviourtree.lua and behaviours/*.lua, which are already loaded by the engine —
+// only the specific behaviour modules used need an explicit require here, matching
+// vanilla brain files (e.g. spiderbrain.lua).
 export function generateBrain(creature: CreatureDef): string {
   const className = `${capitalize(creature.id)}Brain`
 
   const requires = ['require "behaviours/wander"']
   const localConstants: string[] = []
+  const localFunctions: string[] = []
   const behaviorNodes: string[] = []
 
   if (creature.panicCauses.length > 0) {
@@ -68,10 +125,31 @@ export function generateBrain(creature: CreatureDef): string {
     }
   }
 
+  if (creature.companion) {
+    const tasks = creature.companion.tasks
+    requires.push('require "behaviours/follow"')
+    if (tasks.length > 0) requires.push('require "behaviours/doaction"')
+    if (tasks.includes('chopTrees')) localConstants.push(`local CHOP_RADIUS = ${CHOP_RADIUS}`)
+    if (tasks.includes('collectItems')) localConstants.push(`local COLLECT_RADIUS = ${COLLECT_RADIUS}`)
+    localConstants.push(
+      `local FOLLOW_MIN_DIST = ${FOLLOW_MIN_DIST}`,
+      `local FOLLOW_TARGET_DIST = ${creature.companion.followDistance}`,
+      `local FOLLOW_MAX_DIST = ${creature.companion.followDistance + 4}`,
+    )
+
+    const { functions, nodes } = companionTaskFunctions(creature)
+    localFunctions.push(...functions)
+    behaviorNodes.push(...nodes)
+    behaviorNodes.push(
+      `        Follow(self.inst, function() return FindClosestPlayerToInst(self.inst, ${FOLLOW_SEARCH_DIST}, true) end, FOLLOW_MIN_DIST, FOLLOW_TARGET_DIST, FOLLOW_MAX_DIST),`,
+    )
+  }
+
   behaviorNodes.push('        Wander(self.inst),')
 
   const lines = [...requires, '', 'local BrainClass = require "brain"']
   if (localConstants.length > 0) lines.push('', ...localConstants)
+  if (localFunctions.length > 0) lines.push('', ...localFunctions)
   lines.push(
     '',
     `local ${className} = Class(BrainClass, function(self, inst)`,

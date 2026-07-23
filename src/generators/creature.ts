@@ -164,6 +164,17 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
     lines.push('    inst:AddComponent("hauntable")')
   }
 
+  if (creature.companion?.tasks.includes('collectItems')) {
+    lines.push('')
+    lines.push('    inst:AddComponent("inventory")')
+  }
+
+  if (creature.companion?.tasks.includes('chopTrees')) {
+    lines.push('')
+    lines.push('    inst:AddComponent("worker")')
+    lines.push('    inst.components.worker:SetAction(ACTIONS.CHOP, 1)')
+  }
+
   lines.push('')
   lines.push('    inst:AddComponent("inspectable")')
   lines.push('')

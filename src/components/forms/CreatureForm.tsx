@@ -6,8 +6,10 @@ import {
   CREATURE_BEHAVIORS,
   VANILLA_CREATURE_BUILDS,
   PANIC_CAUSES,
+  COMPANION_TASKS,
   type CreatureDef,
   type PanicCause,
+  type CompanionTask,
 } from '../../types/modProject'
 import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
 import { CreaturePreview } from './CreaturePreview'
@@ -25,7 +27,7 @@ const emptyCreature: CreatureDef = {
   id: '',
   displayName: '',
   description: '',
-  animation: { source: 'custom' },
+  animation: { source: 'vanilla', build: VANILLA_CREATURE_BUILDS[0].build, clips: DEFAULT_CLIPS },
   stats: { health: 100, damage: 20, attackPeriod: 2, walkSpeed: 4 },
   loot: [{ prefab: 'monstermeat', chance: 1 }],
   behavior: 'neutral',
@@ -36,6 +38,11 @@ const emptyCreature: CreatureDef = {
 const PANIC_CAUSE_LABELS: Record<PanicCause, string> = {
   onFire: 'Panics while on fire',
   haunted: 'Panics when haunted by a ghost',
+}
+
+const COMPANION_TASK_LABELS: Record<CompanionTask, string> = {
+  chopTrees: 'Chops nearby trees',
+  collectItems: 'Collects nearby loose items',
 }
 
 export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureFormProps) {
@@ -55,7 +62,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   const tags = useFieldArray({ control, name: 'tags' as never })
 
   const [animationSource, setAnimationSource] = useState<'custom' | 'vanilla'>(
-    (initialCreature ?? emptyCreature).animation?.source ?? 'custom',
+    (initialCreature ?? emptyCreature).animation?.source ?? 'vanilla',
   )
   const watched = watch()
   const enableAttackRange = watched.stats?.attackRange !== undefined
@@ -66,15 +73,26 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   const enableKiting = watched.kiting !== undefined
   const canFight = watched.behavior !== 'passive'
   const panicCauses = watched.panicCauses ?? []
+  const enableCompanion = watched.companion !== undefined
+  const canBeFriendly = watched.behavior !== 'hostile'
+  const companionTasks = watched.companion?.tasks ?? []
 
   const togglePanicCause = (cause: PanicCause, checked: boolean) => {
     const next = checked ? [...panicCauses, cause] : panicCauses.filter((c) => c !== cause)
     setValue('panicCauses', next, { shouldDirty: true, shouldValidate: true })
   }
 
+  const toggleCompanionTask = (task: CompanionTask, checked: boolean) => {
+    const next = checked ? [...companionTasks, task] : companionTasks.filter((t) => t !== task)
+    setValue('companion.tasks', next, { shouldDirty: true, shouldValidate: true })
+  }
+
   const onBehaviorChange = (nextBehavior: CreatureDef['behavior']) => {
     if (nextBehavior === 'passive' && watched.kiting) {
       setValue('kiting', undefined, { shouldValidate: true })
+    }
+    if (nextBehavior === 'hostile' && watched.companion) {
+      setValue('companion', undefined, { shouldValidate: true })
     }
   }
 
@@ -404,6 +422,45 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                   <input type="number" min="1" className={inputClass} {...register('kiting.safeDistance', { valueAsNumber: true })} />
                 </FormField>
               </div>
+            )}
+          </Fieldset>
+
+          <Fieldset legend="Companion (optional)" step={8}>
+            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+              Always follows the nearest player (Follow + FindClosestPlayerToInst, confirmed across dozens of real
+              brains) and can optionally chop nearby trees or collect loose items — simplified from the real
+              leader-assist system (pig/merm): it works autonomously near itself, keeps what it collects/chops in
+              its own inventory, and needs no taming/feeding step.
+            </p>
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableCompanion}
+                  disabled={!canBeFriendly}
+                  onChange={(e) => setValue('companion', e.target.checked ? { followDistance: 5, tasks: [] } : undefined)}
+                />
+                Follows the player{!canBeFriendly ? ' — turn off hostile behavior first' : ''}
+              </label>
+            </div>
+            {enableCompanion && (
+              <>
+                <FormField label="Follow distance">
+                  <input type="number" min="2" max="20" className={inputClass} {...register('companion.followDistance', { valueAsNumber: true })} />
+                </FormField>
+                <div className="checks">
+                  {COMPANION_TASKS.map((task) => (
+                    <label key={task}>
+                      <input
+                        type="checkbox"
+                        checked={companionTasks.includes(task)}
+                        onChange={(e) => toggleCompanionTask(task, e.target.checked)}
+                      />
+                      {COMPANION_TASK_LABELS[task]}
+                    </label>
+                  ))}
+                </div>
+              </>
             )}
           </Fieldset>
         </div>

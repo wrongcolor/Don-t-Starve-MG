@@ -86,4 +86,62 @@ describe('generateBrain', () => {
     expect(panicIdx).toBeLessThan(attackIdx)
     expect(attackIdx).toBeLessThan(wanderIdx)
   })
+
+  it('follows the nearest player when companion is set, with no tasks by default', () => {
+    const companion: CreatureDef = { ...hostileMob, behavior: 'passive', companion: { followDistance: 5, tasks: [] } }
+    const code = generateBrain(companion)
+    expect(code).toContain('require "behaviours/follow"')
+    expect(code).not.toContain('require "behaviours/doaction"')
+    expect(code).toContain('local FOLLOW_MIN_DIST = 2')
+    expect(code).toContain('local FOLLOW_TARGET_DIST = 5')
+    expect(code).toContain('local FOLLOW_MAX_DIST = 9')
+    expect(code).toContain(
+      'Follow(self.inst, function() return FindClosestPlayerToInst(self.inst, 30, true) end, FOLLOW_MIN_DIST, FOLLOW_TARGET_DIST, FOLLOW_MAX_DIST),',
+    )
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('adds a ChopTree DoAction node wired to worker/workable when chopTrees is a companion task', () => {
+    const chopper: CreatureDef = {
+      ...hostileMob,
+      behavior: 'passive',
+      companion: { followDistance: 5, tasks: ['chopTrees'] },
+    }
+    const code = generateBrain(chopper)
+    expect(code).toContain('require "behaviours/doaction"')
+    expect(code).toContain('local CHOP_RADIUS = 12')
+    expect(code).toContain('ent.components.workable:GetWorkAction() == ACTIONS.CHOP')
+    expect(code).toContain('DoAction(self.inst, ChopTreeAction, "ChopTree"),')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('adds a CollectItem DoAction node wired to ACTIONS.PICKUP when collectItems is a companion task', () => {
+    const collector: CreatureDef = {
+      ...hostileMob,
+      behavior: 'passive',
+      companion: { followDistance: 5, tasks: ['collectItems'] },
+    }
+    const code = generateBrain(collector)
+    expect(code).toContain('local COLLECT_RADIUS = 10')
+    expect(code).toContain('FindEntity(inst, COLLECT_RADIUS, nil, { "_inventoryitem" }, NO_PICKUP_TAGS)')
+    expect(code).toContain('DoAction(self.inst, CollectItemAction, "CollectItem"),')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('places companion task nodes ahead of Follow, which comes ahead of Wander', () => {
+    const both: CreatureDef = {
+      ...hostileMob,
+      behavior: 'passive',
+      companion: { followDistance: 5, tasks: ['chopTrees', 'collectItems'] },
+    }
+    const code = generateBrain(both)
+    const chopIdx = code.indexOf('DoAction(self.inst, ChopTreeAction')
+    const collectIdx = code.indexOf('DoAction(self.inst, CollectItemAction')
+    const followIdx = code.indexOf('Follow(self.inst,')
+    const wanderIdx = code.indexOf('Wander(self.inst),')
+    expect(chopIdx).toBeGreaterThan(-1)
+    expect(chopIdx).toBeLessThan(collectIdx)
+    expect(collectIdx).toBeLessThan(followIdx)
+    expect(followIdx).toBeLessThan(wanderIdx)
+  })
 })

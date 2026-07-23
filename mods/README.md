@@ -13,4 +13,4 @@ Cada entrada é um `ModProject` real em `mods/<nome>.ts`, gerado e validado via
 | 5 | `castawaysCove` | Ilha pequena de naufrágio, separada do continente, piso de praia de seixos, com pedras, baú e ouro/gemas espalhados | Gerado |
 | 6 | `uShapeCourtyard` | Ilha pequena separada do continente, com uma praça em formato de U desenhada à mão (static layout) — fogueira no meio, luminárias nas pontas | Gerado |
 | 7 | `bogLurker` | Criatura hostil completa: build "hound" reaproveitado, aggroRange customizado, hit-and-run (kiting) e cadeia de pânico (fogo/assombração) | Gerado |
-| 8 | `meadowHopper` | Criatura amigável (passiva): forma manadas (herd), aura de sanidade positiva e foge se pegar fogo — sem dano, sem kiting | Gerado |
+| 8 | `meadowHopper` | Criatura amigável (companion): build "pigman" padrão (sem arte própria), segue o jogador, corta árvores e coleta itens perto de si, além de manada e aura de sanidade positiva | Gerado |

@@ -18,6 +18,9 @@ export function CreaturePreview({ creature }: { creature: Partial<CreatureDef> }
   if (creature.kiting) tags.push('🏃 Hit-and-run')
   if (creature.panicCauses?.includes('onFire')) tags.push('🔥 Panics on fire')
   if (creature.panicCauses?.includes('haunted')) tags.push('👻 Panics when haunted')
+  if (creature.companion) tags.push('🐾 Follows the player')
+  if (creature.companion?.tasks.includes('chopTrees')) tags.push('🪓 Chops trees')
+  if (creature.companion?.tasks.includes('collectItems')) tags.push('📦 Collects items')
 
   return (
     <div className="preview">

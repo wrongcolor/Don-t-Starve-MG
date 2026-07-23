@@ -49,12 +49,20 @@ describe('generateCreatureFiles', () => {
     expect(code).not.toContain('inst:AddTag("a" ) end -- ")')
   })
 
-  it('defaults to a custom build named after the creature id when no animation is chosen', () => {
+  it('builds a custom build named after the creature id when animation is explicitly custom', () => {
     const code = generateCreaturePrefab(creature)
     expect(code).toContain('Asset("ANIM", "anim/testmob.zip")')
     expect(code).toContain('inst.AnimState:SetBank("testmob")')
     expect(code).toContain('inst.AnimState:SetBuild("testmob")')
     expect(code).toContain('inst.AnimState:PlayAnimation("idle")')
+  })
+
+  it('defaults to the vanilla pigman build (no Asset needed) when no animation is chosen at all', () => {
+    const noAnimation: CreatureDef = { ...creature, animation: undefined }
+    const code = generateCreaturePrefab(noAnimation)
+    expect(code).not.toContain('Asset("ANIM"')
+    expect(code).toContain('inst.AnimState:SetBank("pigman")')
+    expect(code).toContain('inst.AnimState:SetBuild("pigman")')
   })
 
   it('reuses a vanilla build without declaring an ANIM asset when animation.source is vanilla', () => {
@@ -162,5 +170,21 @@ describe('generateCreatureFiles', () => {
 
     const hauntableCreature: CreatureDef = { ...creature, panicCauses: ['haunted'] }
     expect(generateCreaturePrefab(hauntableCreature)).toContain('inst:AddComponent("hauntable")')
+  })
+
+  it('wires worker/inventory components for a companion creature\'s chopTrees/collectItems tasks', () => {
+    expect(generateCreaturePrefab(creature)).not.toContain('worker')
+    expect(generateCreaturePrefab(creature)).not.toContain('inventory')
+
+    const chopper: CreatureDef = { ...creature, companion: { followDistance: 5, tasks: ['chopTrees'] } }
+    const chopCode = generateCreaturePrefab(chopper)
+    expect(chopCode).toContain('inst:AddComponent("worker")')
+    expect(chopCode).toContain('inst.components.worker:SetAction(ACTIONS.CHOP, 1)')
+    expect(chopCode).not.toContain('inst:AddComponent("inventory")')
+
+    const collector: CreatureDef = { ...creature, companion: { followDistance: 5, tasks: ['collectItems'] } }
+    const collectCode = generateCreaturePrefab(collector)
+    expect(collectCode).toContain('inst:AddComponent("inventory")')
+    expect(collectCode).not.toContain('inst:AddComponent("worker")')
   })
 })

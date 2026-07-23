@@ -61,6 +61,18 @@ export const CREATURE_BEHAVIORS = ['passive', 'neutral', 'hostile'] as const
 // system drives hauntable.panic with no extra wiring needed.
 export const PANIC_CAUSES = ['onFire', 'haunted'] as const
 
+// Real, confirmed APIs (Follow behaviour + FindClosestPlayerToInst, both used across
+// dozens of vanilla brains; worker/workable + BufferedAction(ACTIONS.CHOP), confirmed
+// in spooked.lua/wildfires.lua; ACTIONS.PICKUP + inventory, confirmed in
+// batbrain.lua/braincommon.lua's NodeAssistLeaderPickUps). Heavily simplified from the
+// real "assist the leader" system (patterns.md#46), which is leader-context-aware
+// (only helps if the leader itself is chopping/fighting nearby) and gives picked-up
+// items to the leader's inventory — both dropped here in favor of the companion
+// working autonomously near itself and keeping what it collects/chops in its own
+// inventory. No taming/feeding step either: it always treats the nearest player as
+// the one to follow.
+export const COMPANION_TASKS = ['chopTrees', 'collectItems'] as const
+
 // Simple pickup-item builds bundled with the base game — safe to reuse via SetBank/SetBuild
 // without shipping an anim/*.zip, since the game already has this animation data loaded.
 export const VANILLA_ITEM_BUILDS = [
@@ -491,9 +503,13 @@ export const creatureAnimationSchema = z.discriminatedUnion('source', [
 ])
 
 // Builds commonly cited in the DST modding community as safe to reuse for a simple
-// custom hostile mob (idle/walk/atk/hit/death). Not verified against the live game
-// files — always confirm each clip plays correctly in-game before publishing.
+// custom mob (idle/walk/atk/hit/death). Not verified against the live game files —
+// always confirm each clip plays correctly in-game before publishing. "pigman" is
+// first and is the tool's default reused build (see creatureAnimation.ts) — unlike
+// spider/hound it isn't monster-shaped, so it doesn't look out of place on a
+// passive/neutral creature either.
 export const VANILLA_CREATURE_BUILDS = [
+  { build: 'pigman', label: 'Pigman (default)' },
   { build: 'spider', label: 'Spider' },
   { build: 'hound', label: 'Hound' },
 ] as const
@@ -553,6 +569,15 @@ export const creatureDefSchema = z
       })
       .optional(),
     panicCauses: z.array(z.enum(PANIC_CAUSES)),
+    // Always follows the nearest player once added (see COMPANION_TASKS above for
+    // what's simplified from the real leader-assist system); tasks are optional
+    // extra chores on top of that baseline following behavior.
+    companion: z
+      .object({
+        followDistance: z.number().min(2).max(20),
+        tasks: z.array(z.enum(COMPANION_TASKS)),
+      })
+      .optional(),
   })
   .refine((creature) => creature.kiting === undefined || creature.behavior !== 'passive', {
     message: 'Kiting requires neutral or hostile behavior — a passive creature never fights',
@@ -561,6 +586,10 @@ export const creatureDefSchema = z
   .refine((creature) => !creature.panicCauses.includes('onFire') || creature.flammable === true, {
     message: 'The "catches fire" panic cause requires the creature to be flammable — enable that trait first',
     path: ['panicCauses'],
+  })
+  .refine((creature) => creature.companion === undefined || creature.behavior !== 'hostile', {
+    message: 'A companion follows and helps the player — turn off hostile behavior first',
+    path: ['companion'],
   })
 
 export const modProjectSchema = z.object({
@@ -580,6 +609,7 @@ export type OnEatBuff = z.infer<typeof onEatBuffSchema>
 export type CharacterGender = (typeof CHARACTER_GENDERS)[number]
 export type CreatureBehavior = (typeof CREATURE_BEHAVIORS)[number]
 export type PanicCause = (typeof PANIC_CAUSES)[number]
+export type CompanionTask = (typeof COMPANION_TASKS)[number]
 export type CharacterPerk = (typeof CHARACTER_PERKS)[number]
 
 export type ConfigOption = z.infer<typeof configOptionSchema>

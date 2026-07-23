@@ -7,16 +7,23 @@ export interface ResolvedCreatureAnimation {
 
 const DEFAULT_CLIPS = { idle: 'idle', walk: 'walk', atk: 'atk', hit: 'hit', death: 'death' }
 
-// Creatures with no animation choice keep the previous default: a custom build named
-// after the creature's own id, which the user must supply as anim/<id>.zip (see README).
+// The default reused build for any creature with no animation choice at all — no
+// custom art required to get a working, visible creature. Only an explicit "custom"
+// choice (source: 'custom') still falls back to a per-id placeholder build, which the
+// user must supply as anim/<id>.zip (see README).
+const DEFAULT_BUILD = 'pigman'
+
 export function resolveCreatureAnimation(creature: CreatureDef): ResolvedCreatureAnimation {
   const anim = creature.animation
   if (anim?.source === 'vanilla') {
     return { build: anim.build, clips: anim.clips }
   }
-  return { build: creature.id, clips: DEFAULT_CLIPS }
+  if (anim?.source === 'custom') {
+    return { build: creature.id, clips: DEFAULT_CLIPS }
+  }
+  return { build: DEFAULT_BUILD, clips: DEFAULT_CLIPS }
 }
 
 export function isVanillaCreatureAnimation(creature: CreatureDef): boolean {
-  return creature.animation?.source === 'vanilla'
+  return creature.animation?.source !== 'custom'
 }

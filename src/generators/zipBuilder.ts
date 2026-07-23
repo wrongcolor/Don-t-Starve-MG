@@ -6,6 +6,7 @@ import { generateItemFiles, isHandheld } from './item'
 import { generateCharacterFiles } from './character'
 import { generateSpeechFile } from './speech'
 import { generateCreatureFiles } from './creature'
+import { resolveCreatureAnimation, isVanillaCreatureAnimation } from './creatureAnimation'
 import { generateWorldContentFiles } from './worldContent'
 
 function generateReadme(project: ModProject): string {
@@ -54,10 +55,10 @@ function generateReadme(project: ModProject): string {
     }
   }
   if (project.creatures.length > 0) {
-    lines.push('- **Criaturas**: build próprio em `anim/<id>.zip`, a menos que a criatura reaproveite um build do jogo base.')
+    lines.push('- **Criaturas**: por padrão reaproveitam o build "pigman" do jogo base — só precisam de `anim/<id>.zip` próprio se a animação for explicitamente marcada como personalizada.')
     for (const creature of project.creatures) {
-      if (creature.animation?.source === 'vanilla') {
-        const { build, clips } = creature.animation
+      if (isVanillaCreatureAnimation(creature)) {
+        const { build, clips } = resolveCreatureAnimation(creature)
         lines.push(
           `  - \`${creature.id}\`: reaproveita o build "${build}" do jogo base — confirme em-jogo que as animações "${clips.idle}"/"${clips.walk}"/"${clips.atk}"/"${clips.hit}"/"${clips.death}" existem nesse build antes de publicar (não verificado por esta ferramenta).`,
         )

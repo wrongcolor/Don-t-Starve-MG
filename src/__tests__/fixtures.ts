@@ -175,6 +175,7 @@ export const sampleProject: ModProject = {
       id: 'testmob',
       displayName: 'Test Mob',
       description: 'A mob for testing',
+      animation: { source: 'custom' },
       stats: { health: 100, damage: 20, attackPeriod: 2, walkSpeed: 4 },
       loot: [{ prefab: 'monstermeat', chance: 1 }],
       behavior: 'hostile',
