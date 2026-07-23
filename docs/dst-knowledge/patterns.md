@@ -1589,3 +1589,64 @@ absorção de dano (rocky, slurtle — mesmo padrão do spider, #37).
 não na stategraph); drop de ouro em `dive` e sistema de props/pontuação do
 minigame do pigelite; `gobble` do shark (`action.target:Remove()` direto,
 sem passar por inventário/eat).
+
+## 43. Mais 6 stategraphs reais (smallbird, spat, squid, warg, walrus, wobster)
+
+Continuação das seções 36-42 (agora 46 criaturas cobertas). **Duas correções
+de premissa** (mesmo padrão de nome-enganoso já visto no centipede/moonpig/
+pigelite): `SGspat.lua` NÃO é filhote de gnarwail/criatura oceânica — usa
+banco de som de beefalo, reaproveita `mating_taunt1` do beefalo, dropa
+`meat`/`poop`/`phlegm`, come `FOODTYPE.VEGGIE` e está no sistema `HUNT_ACTIONS`
+(igual ao koalefant) — é terrestre. E `SGwalrus.lua` é compartilhado por DUAS
+entidades diferentes (`walrus` adulto e `little_walrus`/wee MacTusk), sem
+arquivos separados — a distinção é só `inst.prefab`/tag dentro dos estados.
+
+**Clipes reais confirmados:**
+
+| Criatura | idle | mover | atacar | hit | death |
+|---|---|---|---|---|---|
+| smallbird | `idle` | padrão | `atk` | `hit` | `death` (+`hatch`/`grow`) |
+| spat | `idle_loop` | padrão | `strike`/`strike_pst` (melee) ou `snot_*` (arremesso) | default | `death` |
+| squid | `idle`/`idle2`/`idle3` | hop anfíbio + `run_*` | `attack` (melee) / `flee` (tinta) | `hit` | `dead`→`dead_loop` (água) |
+| warg | `idle_loop` | só run | `atk` / `attack_icing` / `atk_breath_*` (mutante) | `hit` | `death` |
+| walrus (+little_walrus) | `idle`+`funny_idle` por prefab | `walk`/`run` | `atk`/`atk_dart` (adulto) ou `taunt_attack`/`abandon` (minion) | `hit` | `death` |
+| wobster | `idle` | só run | **não existe** | **não existe** | **não existe** |
+
+**Mecânicas novas confirmadas, generalizáveis, não modeladas hoje:**
+
+- **Flag de interrupção pendente checada em ~10 pontos espalhados pelo
+  grafo inteiro** (warg: `inst.sg.mem.dostagger`/`dohowl`, testados via
+  helpers `TryStagger`/`TryHowl` dentro de `idle`, timelines de `hit`/
+  `attack`/`howl`/`chomp_*`/`stagger_pst`/`flamethrower_pre` e no
+  `pst_onenter` do electrocute). Versão mais distribuída do padrão de flag
+  pendente já visto (beefalo #37, grassgekko/lightninggoat #40).
+- **Arma em cone/varredura angular com deduplicação de dano por tick e por
+  alvo** (warg `flamethrower_loop`: ângulo varia -45°→+45° por
+  `FrameEvent`, `DoFlamethrowerAOE` usa `GetTick()` + tabela
+  `targets[v].hit_tick` com `MULTIHIT_FRAMES` pra não bater no mesmo alvo
+  duas vezes no mesmo tick).
+- **Uma stategraph só servindo várias variantes narrativas de uma
+  criatura** — maior exemplo encontrado: warg (normal/clay/gingerbread/
+  mutante-lança-chamas, ramificado por tag/build/flag dentro dos mesmos
+  estados) e walrus (adulto/minion, por `inst.prefab`/tag).
+- **Faceamento temporariamente trocado pra mais direções durante um ataque
+  especial** (warg: `SwitchToEightFaced()` no início de `flamethrower_pre`,
+  revertido pra `SwitchToSixFaced()` no `onexit`).
+- **Estados genéricos de luta-no-anzol como template de pesca oceânica
+  compartilhado entre criaturas não aparentadas** (`bitehook_pre/_loop/
+  _jump/_escape`, confirmados idênticos em squid e wobster — funcionam
+  mesmo sem `components.combat`/`health`, caso do wobster).
+- **Task periódico autogovernado pelo `onenter`/`onexit` dos próprios
+  estados de idle, não pelo brain** (smallbird: `DoPeriodicTask(1,
+  CheckForNewLeader)` ativo só durante `idle`/`idle_blink`/`idle_peep` sem
+  líder, cancelado ao sair desses estados).
+- **Escolha de modo de ataque pela tag do item/arma equipada** (spat:
+  `weapon:HasTag("snotbomb")` decide arremesso vs. melee) — mais um eixo de
+  seleção de ataque, além de distância (monkey, #41), plataforma (gnarwail,
+  #39) e tag de locomoção (penguin, #41).
+
+**Fora de escopo (bespoke demais):** crescimento/`SpawnTeen` do smallbird
+(sistema de mascote único), `heardhorn`/`loseloyalty`/`matingcall` do spat
+(montaria), roubo de peixe fisgado do squid (`gobble`/`oceanfishable`,
+específico de pesca), variantes clay/gingerbread do warg em si (fora o
+padrão "1 SG pra N variantes" já catalogado acima).
