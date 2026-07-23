@@ -1793,3 +1793,95 @@ candidatos restantes em `Original/stategraphs/stategraphs/` são bosses,
 variantes de personagem jogável, estruturas/efeitos, ou NPCs de
 minigame/evento sazonal, todos de valor generalização baixo pelo mesmo
 critério já aplicado nas seções 14/40/42.
+
+## 46. Início da varredura de brains (spider, hound, pig, bee, rabbit, tallbird, beefalo, merm, koalefant)
+
+Nova série paralela à 36-45: em vez das stategraphs (animação), agora os
+`brains/*.lua` reais (árvore de decisão de IA) das mesmas criaturas.
+Contexto: `src/generators/brain.ts` hoje só tem 3 perfis fixos
+(hostile/neutral/passive), cada um virando uma `PriorityNode` mínima —
+`WhileNode(HasTarget, ChaseAndAttack)` + `Wander`, com `SEE_TARGET_DIST`
+fixo em 10. Todo brain real usa a MESMA primitiva (`PriorityNode` avaliada
+de cima pra baixo a cada tick — a ordem dos nós já É a lógica de decisão,
+sem precisar de `if` fora da árvore), só que com muito mais nós e
+condições. `braincommon.lua` (661 linhas, compartilhado por 7 dos 9 brains
+desta leva) concentra os padrões mais reutilizados: `PanicTrigger`/
+`ElectricFencePanicTrigger`/`IpecacsyrupPanicTrigger` (pânico por causa
+específica), `PanicWhenScared` (pânico acumulável + chance de perder
+lealdade do seguidor), `AnchorToSaltlick`, e `NodeAssistLeaderDoAction`/
+`NodeAssistLeaderPickUps` (framework de "ajudar o líder" reusado por porco
+e merm).
+
+**Prioridades reais (resumo por criatura):**
+
+- **spider**: pânico → escudo reativo (`spider_hider`) → ataca parede sem
+  líder / foge se cuspidora em cooldown / `ChaseAndAttack` → segue líder
+  (raio por `defensive`) → investiga/vai pra casa/comercia → `Wander`.
+- **hound**: pânico → ataca parede sem líder → come cadáver (com cooldown
+  pós-ataque) → `ChaseAndAttack` (alcance por posse: pet=10, com casa=20,
+  solto=100) → `Leash` em casa sem líder → come → segue líder → `Wander`.
+- **pig**: cadeia de pânicos (susto/fogo/choque/ipeca) → hit-and-run →
+  resgata líder preso → foge de porco hostil → comercia → dá presente ao
+  líder (lealdade máxima) → minigame → **sub-árvore de dia** (come, ajuda
+  líder a cortar lenha, segue, `Leash`, foge/encara jogador, `Wander`) OU
+  **sub-árvore de noite** (foge de aranha, come, foge de jogador, vai pra
+  casa/luz, `FindLight`, `Panic`).
+- **bee**: pânico → hit-and-run → pânico se casa pegando fogo → vai pra
+  casa (noite OU cheia de pólen OU inverno) → beacon → `FindFlower` →
+  `Wander`.
+- **rabbit**: pânico → foge em 2 camadas do mesmo predador (raio íntimo
+  3/6, raio longo 5/10) → vai pra casa (evento OU noite OU primavera) →
+  come isca → `Wander`.
+- **tallbird**: pânico → `ChaseAndAttack` → **defende o ninho** (busca
+  ameaça num raio, mesmo antes de checar dia/noite) → vai pra casa à noite
+  → bota ovo se pronto → constrói ninho → `Wander`.
+- **beefalo**: pânico → `ChaseAndAttack` → parado se sendo nomeado/arreado
+  → vai pro local de arreio → segue dono do sino/líder → cumprimenta
+  (fase temporizada) → `AnchorToSaltlick` → vadia esperando ser alimentado
+  (fase temporizada) → `Wander` perto do rebanho.
+- **merm**: cadeia de pânicos → encara curador → busca ferramenta faltante
+  → hit-and-run → come → vai ao trono do rei → ajuda líder (cavar/plantar/
+  cortar/minerar, por prioridade de ferramenta) → responde chamado de
+  panela de oferenda → comercia → segue líder (distância por lealdade +
+  se em barco) → vai pra casa (nunca todos ao mesmo tempo) → `Wander`.
+- **koalefant**: pânico → `ChaseAndAttack` → `SequenceNode{FaceEntity,
+  RunAway}` (encara o caçador, DEPOIS foge — sequência, não escolha) →
+  `AnchorToSaltlick` → `Wander`.
+
+**Mecânicas de decisão novas, generalizáveis, não modeladas hoje:**
+
+- **Hit-and-run (kiting)**: `WhileNode(not combat:InCooldown, Attack)` +
+  `WhileNode(combat:InCooldown, RunAway)` — ataca só quando pode bater,
+  foge enquanto recarrega. Confirmado em bee, pig E merm (3 criaturas
+  independentes), forte candidato a virar opção de comportamento.
+- **Escudo reativo por dano acumulado** (spider: `UseShield(inst, dano_até_ativar,
+  duração, evita_projétil, esconde_se_assustado)`, com cooldown próprio).
+- **Fuga em duas camadas de distância** do mesmo predador — reação em
+  estágios (raio íntimo de pânico + raio de fuga de longo alcance), em vez
+  de um único threshold (rabbit).
+- **Perfil dia/noite como duas sub-árvores completas**, não um nó isolado
+  — comportamento inteiro muda de "sociável/produtivo" pra "foge de tudo,
+  busca luz" (pig). Gatilho por estação também confirmado (`isspring` no
+  rabbit).
+- **Alcance de perseguição/comportamento condicional a posse/vínculo** —
+  pet vs. tem casa vs. totalmente selvagem mudam o raio de `ChaseAndAttack`
+  na mesma criatura (hound).
+- **IA territorial**: busca ativa por ameaça perto de um ponto fixo
+  (casa/ninho) e vai defendê-lo, com prioridade ALTA (antes até do ciclo
+  dia/noite) — tallbird.
+- **Distância de `Follow` escalada por lealdade/afinidade**, também
+  modulada por contexto (em barco ou não) — merm; spider já mostrava uma
+  versão mais simples (flag `defensive` muda o raio).
+- **Equipamento/recurso como pré-requisito de comportamento** — merm só
+  habilita tarefas de cavar/plantar depois de ir buscar uma ferramenta.
+- **`SequenceNode` como primitiva de composição** (faz A, depois B, na
+  ordem — diferente de `PriorityNode`, que escolhe UM entre vários) —
+  koalefant, único uso confirmado nesta leva.
+- **Regra de "não esvaziar o grupo"**: só um membro vai pra casa por vez,
+  checado via contagem de filhos fora (merm `CountChildrenOutside() > 1`).
+
+**Fora de escopo (bespoke demais):** minigame do rei porco/rei merm, trono,
+panela de oferenda, `AnchorToSaltlick` (mecânica de sal específica),
+máquina de 3 fases temporizadas de saudação do beefalo (interessante mas
+alta complexidade pra generalizar), `ChattyNode` (diálogo ambiente por
+ação — generalizável como flag simples, mas não é decisão de IA em si).
