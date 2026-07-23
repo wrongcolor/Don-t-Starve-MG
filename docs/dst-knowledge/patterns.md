@@ -1650,3 +1650,64 @@ arquivos separados — a distinção é só `inst.prefab`/tag dentro dos estados
 (montaria), roubo de peixe fisgado do squid (`gobble`/`oceanfishable`,
 específico de pesca), variantes clay/gingerbread do warg em si (fora o
 padrão "1 SG pra N variantes" já catalogado acima).
+
+## 44. Mais 5 stategraphs reais (worm, gelblob, dustmoth, lunar_grazer, powdermonkey)
+
+Continuação das seções 36-43 (agora 51 criaturas cobertas). **Mais uma
+correção de premissa**: `SGpowdermonkey.lua` NÃO é um macaco com bomba —
+zero menção a explosão/pólvora/bomba no arquivo. É o NPC tripulante de
+barco do Monkey Island (`components.crewmember`), com remar (`ACTIONS.ROW`
+→ `"row"`), carregar canhão (`boatcannon:LoadAmmo`), mergulhar, dormir a
+bordo e roubar — "powder monkey" é o termo histórico pro menino da pólvora
+em navios, não uma arma da criatura.
+
+**Clipes reais confirmados:**
+
+| Criatura | idle | mover | atacar | hit | death |
+|---|---|---|---|---|---|
+| worm | `mound_idle` (+`mound`/`mound_out`) | `walk_pre/_loop/_pst` | `atk_pre`→`atk` | `hit` | `death` |
+| gelblob | `idle`+tamanho | **não existe** (estacionário) | **não existe** | `hit`+tamanho | `death` (sempre `_small`) |
+| dustmoth | `idle` | `walk` | existe estruturalmente mas **inalcançável** (sem handler que a dispare) | `hit` | `death` |
+| lunar_grazer | `idle` | `walk_pre/_loop/_pst` | `devour` (único ataque) | `hit` | **não existe morte tradicional** — `splat`/`melt`/`captured_despawn` convergem pra `dissipated` |
+| powdermonkey | `idle` | padrão | `atk` (armado) / `unequipped_atk` (desarmado) | `hit` | `death` |
+
+**Mecânicas novas confirmadas, generalizáveis, não modeladas hoje:**
+
+- **Ataque adiado até um frame seguro dentro do próprio ciclo de
+  movimento** (lunar_grazer: um `FrameEvent` no meio de `walk_start`/`walk`
+  seta a tag `"queueattack"` + `statemem.doattack`; só um `FrameEvent`
+  posterior, num ponto fixo e seguro da mesma animação, chama
+  `ChooseAttack` de fato — o ataque não interrompe a caminhada, espera o
+  momento certo dela). Eixo novo: é sobre *quando* atacar, não *qual*
+  ataque escolher (os eixos já catalogados eram todos sobre "qual").
+- **`ActionHandler` reaproveitado puramente como roteador de estado, sem
+  executar a ação de verdade** (dustmoth: `PET`/`REPAIR` mapeados pra
+  `dustoff_pre`/`repair_den_pre`, com comentário real do jogo confirmando o
+  "hack": "these two are a hack, the actions are never actually performed
+  but the handlers are used to bring the moth to certain sg states").
+- **Guarda de reversão por flag de sucesso no `onexit` de uma troca de
+  identidade temporária** (worm: `statemem.islure` decide se
+  `ChangeToWorm`/`ChangeToLure` deve rodar no `onexit`, protegendo contra
+  interrupção no meio da transição isca↔minhoca).
+- **Helper de animação que sufixa o clipe por estágio de tamanho E espelha
+  a mesma animação num segundo corpo** (gelblob: `_PlayAnimation`/
+  `_PushAnimation` tocam `idle`+`inst.size` E replicam em `inst.back.AnimState`
+  — uma criatura, duas AnimStates sincronizadas).
+- **Bypass do teto de dano por hit pra aplicar dano scripted exato, com
+  restauração logo depois** (gelblob: `SetMaxDamageTakenPerHit(nil)` só
+  durante um `DoDelta` exato até `maxhealth/9`, restaurado em seguida).
+- **Coordenação indivíduo↔veículo/grupo via componente compartilhado**
+  (powdermonkey: `crewmember`/`boatcrew`/`boatcannon` — animação
+  individual sincronizada a um sistema de nível de barco/tripulação).
+- **Pipeline de despawn por erosão com reorientação pro chão, acumulado em
+  `onupdate`** (lunar_grazer: `SetOrientation(ANIM_ORIENTATION.OnGround)` +
+  `SetErosionParams(t*t, ...)` até dissolver).
+
+**Confirmação (não novidade):** seleção de ataque por arma equipada
+(powdermonkey) reaparece, mas implementada via o hook `attackanimfn` do
+próprio `CommonStates.AddCombatStates` — uma via de implementação nova pro
+mesmo eixo já catalogado (spat, #43), não mecânica nova.
+
+**Fora de escopo (bespoke demais):** enxame `core`+`debris` do lunar_grazer
+(visual específico de destroços lunares), sistema de tripulação completo do
+powdermonkey (roubo, comemoração, canhão em si).
