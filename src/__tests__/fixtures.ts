@@ -228,6 +228,7 @@ export const sampleProject: ModProject = {
       backgroundRoom: undefined,
       regionId: 'testisland1',
       locations: ['forest'],
+      colour: { r: 0, g: 1, b: 0, a: 1 },
     },
   ],
 }

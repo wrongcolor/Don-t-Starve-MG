@@ -57,6 +57,7 @@ function generateTaskLua(task: TaskDef): string {
   }
   lines.push('    },')
   lines.push(`    room_bg = WORLD_TILES.${task.backgroundTerrain},`)
+  lines.push(`    colour = { r = ${task.colour.r}, g = ${task.colour.g}, b = ${task.colour.b}, a = ${task.colour.a} },`)
   if (task.backgroundRoom) {
     lines.push(`    background_room = ${luaString(task.backgroundRoom)},`)
   }

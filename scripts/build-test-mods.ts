@@ -12,6 +12,7 @@ import { buildModFiles } from '../src/generators/zipBuilder'
 import { sampleProject } from '../src/__tests__/fixtures'
 import { advancedMechanicsProject } from './fixtures/advancedMechanicsProject'
 import { alchemistIsland } from '../mods/alchemistIsland'
+import { castawaysCove } from '../mods/castawaysCove'
 import { eternalBlade } from '../mods/eternalBlade'
 import { vex } from '../mods/vex'
 import { adventurersToolkit } from '../mods/adventurersToolkit'
@@ -25,6 +26,7 @@ const TEST_PROJECTS = {
   kitchen_sink: sampleProject,
   advanced_mechanics: advancedMechanicsProject,
   alchemist_island: alchemistIsland,
+  castaways_cove: castawaysCove,
   eternal_blade: eternalBlade,
   vex,
   adventurers_toolkit: adventurersToolkit,

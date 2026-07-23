@@ -10,3 +10,4 @@ Cada entrada é um `ModProject` real em `mods/<nome>.ts`, gerado e validado via
 | 2 | `eternalBlade` | Arma corpo a corpo sem durabilidade, alcance 3, 45 de dano | Gerado |
 | 3 | `vex` | Personagem jogável completo: skill tree, multiplicadores, perks, fala customizada | Gerado |
 | 4 | `adventurersToolkit` | 2 itens combináveis + 2 contêineres (vanilla e custom) no mesmo mod | Gerado |
+| 5 | `castawaysCove` | Ilha pequena de naufrágio, separada do continente, piso de praia de seixos, com pedras, baú e ouro/gemas espalhados | Gerado |

@@ -86,12 +86,26 @@ export const TASK_LOCATIONS = [
   { value: 'cave', label: 'Caves' },
 ] as const
 
+// Confirmed in every real AddTask call across scripts/map/tasks/*.lua (e.g.
+// forest.lua: colour={r=0,g=1,b=0,a=1}) — storygen.lua:GenerateNodesFromTask
+// unconditionally reads task.colour.r/g/b/a with no nil check, so a Task
+// without this field crashes world generation outright (attempt to index
+// field 'colour' (a nil value)) rather than just missing a debug color.
+// Values are 0-1 floats, not 0-255.
+export const taskColourSchema = z.object({
+  r: z.number().min(0).max(1),
+  g: z.number().min(0).max(1),
+  b: z.number().min(0).max(1),
+  a: z.number().min(0).max(1),
+})
+
 export const taskDefSchema = z.object({
   id: worldContentId,
   locks: z.array(z.enum(LOCKS.map((l) => l) as [string, ...string[]])),
   keysGiven: z.array(z.enum(KEYS.map((k) => k) as [string, ...string[]])),
   roomChoices: z.array(z.object({ roomId: z.string().min(1), count: countRangeSchema })).min(1, 'Add at least 1 room'),
   backgroundTerrain: z.enum(WORLD_TILES.map((t) => t.value) as [string, ...string[]]),
+  colour: taskColourSchema,
   locations: z
     .array(z.enum(TASK_LOCATIONS.map((l) => l.value) as [string, ...string[]]))
     .min(1, 'Select at least one location, or this Task will never appear in a generated world'),
@@ -107,6 +121,7 @@ export const taskDefSchema = z.object({
 })
 
 export type RoomDef = z.infer<typeof roomDefSchema>
+export type TaskColour = z.infer<typeof taskColourSchema>
 export type TaskDef = z.infer<typeof taskDefSchema>
 
 export function createEmptyRoom(): RoomDef {
@@ -128,5 +143,6 @@ export function createEmptyTask(): TaskDef {
     backgroundTerrain: 'GRASS',
     backgroundRoom: undefined,
     locations: ['forest'],
+    colour: { r: 0, g: 1, b: 0, a: 1 },
   }
 }

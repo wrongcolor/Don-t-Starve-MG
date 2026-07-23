@@ -19,6 +19,21 @@ const emptyTask: TaskDef = {
   backgroundTerrain: 'GRASS',
   backgroundRoom: undefined,
   locations: ['forest'],
+  colour: { r: 0, g: 1, b: 0, a: 1 },
+}
+
+// The game only ever reads task.colour for its own internal debug map preview
+// image — never seen in-game — so a plain RGB picker (alpha left at 1, matching
+// nearly every real AddTask call) is enough; see the schema comment for why the
+// field can't just be omitted.
+function rgbToHex({ r, g, b }: { r: number; g: number; b: number }): string {
+  const channel = (v: number) => Math.round(v * 255).toString(16).padStart(2, '0')
+  return `#${channel(r)}${channel(g)}${channel(b)}`
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const n = parseInt(hex.slice(1), 16)
+  return { r: ((n >> 16) & 255) / 255, g: ((n >> 8) & 255) / 255, b: (n & 255) / 255 }
 }
 
 // Locks gate this Task behind keys given by other tasks; keysGiven are what THIS
@@ -214,6 +229,18 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
                 info="An existing Room id used to fill the background instead of a flat terrain — lets the background itself have scattered decoration/prefabs."
               >
                 <input className={inputClass} {...register('backgroundRoom')} placeholder="e.g. BGGrass" />
+              </FormField>
+              <FormField
+                label="Map colour"
+                info="Required by the game itself for every Task (used in its internal debug map preview) — never shown to players in-game. Any colour works."
+              >
+                <input
+                  type="color"
+                  className={inputClass}
+                  style={{ height: 40, padding: 4 }}
+                  value={rgbToHex(watched.colour ?? emptyTask.colour)}
+                  onChange={(e) => setValue('colour', { ...hexToRgb(e.target.value), a: 1 })}
+                />
               </FormField>
             </div>
 

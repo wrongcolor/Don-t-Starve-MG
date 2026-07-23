@@ -38,6 +38,7 @@ export const alchemistIsland: ModProject = {
       backgroundRoom: undefined,
       regionId: 'alchemistisland1',
       locations: ['forest'],
+      colour: { r: 0, g: 1, b: 0, a: 1 },
     },
   ],
 }
