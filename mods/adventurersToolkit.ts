@@ -84,4 +84,5 @@ export const adventurersToolkit: ModProject = {
   creatures: [],
   rooms: [],
   tasks: [],
+  staticLayouts: [],
 }

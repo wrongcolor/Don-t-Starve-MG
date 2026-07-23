@@ -35,6 +35,7 @@ export const castawaysCove: ModProject = {
           { prefab: 'bluegem', weight: 0.3 },
         ],
       },
+      staticLayouts: [],
     },
   ],
   tasks: [
@@ -50,4 +51,5 @@ export const castawaysCove: ModProject = {
       colour: { r: 0, g: 0.6, b: 1, a: 1 },
     },
   ],
+  staticLayouts: [],
 }

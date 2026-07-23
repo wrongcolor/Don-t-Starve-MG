@@ -26,6 +26,7 @@ export const alchemistIsland: ModProject = {
         { prefab: 'prestihatitator', count: { min: 1, max: 1 } },
         { prefab: 'treasurechest', count: { min: 1, max: 1 } },
       ],
+      staticLayouts: [],
     },
   ],
   tasks: [
@@ -41,4 +42,5 @@ export const alchemistIsland: ModProject = {
       colour: { r: 0, g: 1, b: 0, a: 1 },
     },
   ],
+  staticLayouts: [],
 }

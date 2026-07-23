@@ -31,4 +31,5 @@ export const eternalBlade: ModProject = {
   creatures: [],
   rooms: [],
   tasks: [],
+  staticLayouts: [],
 }

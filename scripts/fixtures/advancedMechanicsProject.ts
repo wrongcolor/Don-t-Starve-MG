@@ -131,4 +131,5 @@ export const advancedMechanicsProject: ModProject = {
   ],
   rooms: [],
   tasks: [],
+  staticLayouts: [],
 }

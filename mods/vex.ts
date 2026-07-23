@@ -54,4 +54,5 @@ export const vex: ModProject = {
   creatures: [],
   rooms: [],
   tasks: [],
+  staticLayouts: [],
 }
