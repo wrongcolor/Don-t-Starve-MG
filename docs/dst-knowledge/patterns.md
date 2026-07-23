@@ -1017,14 +1017,35 @@ conversão total pra outro modo/DLC (Hamlet, Shipwrecked, Reign of Giants
 solo) — a segunda categoria pode usar convenções/campos que não se aplicam
 ao caso de uso deste app.
 
+## 33. `speechOverrides` não configura o componente `talker` — confirmado
+
+Suspeita a checar: o recurso de "fala customizada" do gerador de personagem
+(`speechOverrides` em `src/generators/speech.ts`, usado por `mods/vex.ts`)
+poderia estar mexendo no componente `talker` (cor/fonte/offset do balão de
+fala). Lendo `components/talker.lua` (316 linhas) real: o método de falar é
+`Say(script, time, noanim, force, nobroadcast, colour, ...)`, que cria um
+`FollowText` acima da entidade, com campos próprios `colour`/`font`/`fontsize`/
+`offset`. Nada disso é tocado pelo nosso recurso.
+
+O que `speechOverrides` realmente faz é sobrescrever entradas de
+`STRINGS.CHARACTERS.<NOME>.ANNOUNCE_*` (ex: `ANNOUNCE_COLD`, `ANNOUNCE_HOT`) —
+o jogo lê essa string table internamente e a repassa pra `Talker:Say` quando o
+evento correspondente dispara (ex: o personagem sente frio). Ou seja:
+funciona, mas por um caminho indireto (string table, não configuração do
+componente) — e por isso cor/fonte/offset do balão nunca são expostos pelo
+gerador, só o texto.
+
+**Status:** implementado (via string table), correto pro que faz — só a
+descrição mental de "como funciona" estava incompleta antes desta leitura.
+
 ## O que ainda não temos como confirmar
 
-A cópia local do próprio jogo só tem `scripts/prefabs/` (não
-`scripts/components/` nem o `SGwilson.lua` completo). A coleção de mods reais
-(ver README.md) preenche boa parte desse buraco — foi o que confirmou a
-seção 18 — mas só cobre o que algum mod real precisou sobrescrever ou
-inspecionar; os poucos mods que embutem um `postinit/stategraphs/SGwilson.lua`
-são todos patches parciais (`AddStategraphPostInit`), não o arquivo completo, e
-nenhum revela lógica de seleção de animação de ataque por tipo de arma. Por
-isso a pergunta original sobre "golpe vs estocada" continua sem confirmação —
-se essa diferença existe, ainda não achamos onde ela mora.
+Desde 2026-07-23 temos acesso local completo a `scripts/components/*.lua`
+(821 arquivos) e `scripts/stategraphs/*.lua` (261 arquivos, incluindo
+`SGwilson.lua` completo) — o buraco que existia antes (só `scripts/prefabs/`)
+está fechado para leitura sob demanda. O que falta agora é tempo de leitura,
+não acesso: a maior parte de `scripts/components/` e todo `scripts/stategraphs/`
+ainda não foi lido seção por seção — só os componentes específicos listados
+acima. Em particular, a pergunta original sobre "golpe vs estocada" (se existe
+lógica de seleção de animação de ataque por tipo de arma) pode agora ser
+respondida lendo `SGwilson.lua` diretamente, mas isso ainda não foi feito.

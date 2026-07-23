@@ -21,14 +21,18 @@ pra documentar o formato de uma chamada, no mesmo espírito de documentar uma AP
 
 ## Fonte dos dados
 
-Duas fontes, ambas de uso público real (não são chute/memória):
+Três fontes, todas de uso público real (não são chute/memória):
 
 1. Uma cópia local de `scripts/prefabs/*.lua` do jogo instalado (1488
-   arquivos), em 2026-07. Não inclui `scripts/components/` nem
-   `scripts/stategraphs/` — então qualquer coisa que dependa da implementação
-   *interna* de um componente (não só de como ele é chamado no prefab) ou do
-   stategraph do jogador não está confirmada só por essa fonte.
-2. Uma coleção local de ~80 mods reais publicados no Workshop (nomes citados
+   arquivos), em 2026-07.
+2. Desde 2026-07-23, uma cópia local completa de `scripts/components/*.lua`
+   (821 arquivos), `scripts/stategraphs/*.lua` (261 arquivos, incluindo
+   `SGwilson.lua`), e o restante da pasta `scripts/` do jogo (brains, widgets,
+   map, etc. — pasta local `Original/`, nunca versionada, ver `.gitignore`).
+   Fecha o buraco que a fonte 1 sozinha deixava (implementação *interna* de
+   componentes e do stategraph do jogador) — mas só o que já foi lido sob
+   demanda está de fato confirmado em `components.json`/`patterns.md`.
+3. Uma coleção local de ~80 mods reais publicados no Workshop (nomes citados
    diretamente em `patterns.md` onde usados, ex. "Automation Farm", "Repair
    Combine", "Seafellow"). Vários desses mods embutem `scripts/components/`
    e até `scripts/stategraphs/` próprios (novos componentes, ou patches via
