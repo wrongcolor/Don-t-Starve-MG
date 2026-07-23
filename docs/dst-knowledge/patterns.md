@@ -2432,3 +2432,92 @@ maioria das seções anteriores (que documentam mecânica não modelada), este
   independente — e campos de `Location.overrides` (`layout_mode`,
   `wormhole_prefab`, `roads`, etc.) que ficam fora de escopo pela mesma
   razão que `AddTaskSet` (redefine o modo de jogo inteiro).
+
+## 54. O algoritmo de geração em si (storygen.lua, graphnode.lua, graphedge.lua, terrain.lua, lockandkey.lua, level.lua) — **corrige o modelo mental de locks/keys**
+
+Continuação das seções 52-53, agora no algoritmo que efetivamente
+transforma Room/Task em mundo (não só a API de definição).
+
+**Achado mais importante — corrige a seção 16/32: `locks`/`keys_given`
+NUNCA impedem uma Task de ser gerada, são só uma heurística de ordem.**
+Lido `storygen.lua` (`Story:RestrictNodesByKey`/`Story:LinkNodesByKeys`,
+escolhidas por `Task.layout_mode`, seção 52): cada `LOCKS.X` mapeia pra um
+conjunto FIXO de `KEYS.Y` válidas via `LOCKS_KEYS` (tabela do motor em
+`lockandkey.lua`, não configurável pelo usuário/mod). Uma lock destrava se
+QUALQUER UMA de suas keys válidas já foi dada por alguma Task já colocada;
+uma Task só é candidata se TODAS as suas locks estiverem destravadas
+(comentário literal do jogo: *"Locks are unlocked if ANY key is provided.
+However, ALL locks must be opened for a task to be unlocked."*). **Mas se
+nenhuma Task não-usada estiver destravável, o algoritmo não falha nem
+trava** — cai para `GetRandomNodeFromTasks(unusedTasks)`, uma conexão
+aleatória forçada (`"We aint found nothin'!! Making a random connection
+:("`, linha 474). Ou seja: toda Task acaba aparecendo no mundo gerado mais
+cedo ou mais tarde — locks/keys só influenciam a ORDEM provável, nunca são
+um requisito rígido. Isso é consistente com a retratação da seção 32
+(tabela vazia funciona), mas vai além: mesmo uma Task com locks
+impossíveis de satisfazer ainda aparece.
+
+**`room_choices` é consumido de forma literal, sem seleção nem peso**
+(pergunta em aberto até agora): `Story:GenerateNodesFromTask` empilha
+`count` cópias de CADA `roomId` listado — todas, não uma amostra — e
+desempilha todas, encadeando um node de grafo por instância. A topologia
+final (linear vs. estrela vs. loop) depende de `task.hub_room`
+(`MakeHub`), `task.make_loop` (`MakeLoop`) e `task.crosslink_factor`
+(`CrosslinkRandom`) — todos campos já catalogados na seção 52 como "sem
+uso confirmado fora do construtor". **Correção: têm uso ativo real,
+confirmado aqui.** Também: `entrance_room`/`entrance_room_chance`
+(sorteia inserir uma room de entrada fixa antes das `room_choices`
+normais) e `cove_room_name`/`cove_room_chance`/`cove_room_max_edges`
+(pendura uma room extra decorativa em nodes de beco-sem-saída,
+`#edges <= max_edges`, com probabilidade `cove_room_chance`, padrão 0.35)
+também confirmados em uso ativo. **Sem retry/fallback por room
+inexistente**: se `Story:GetRoom(room)` não achar o id, é `assert` — crash
+de geração, não erro silencioso.
+
+**Mecanismo real de `countprefabs`/`distributeprefabs` DENTRO de uma
+Room** (fecha o gap que a seção 53 deixou aberto): confirmado em
+`graphnode.lua` (`Node:PopulateVoronoi`, populado a partir dos pontos
+Voronoi do site via `WorldSim:GetPointsForSite`). `countprefabs` é
+processado primeiro e é um **requisito rígido silencioso**: se não há
+pontos Voronoi suficientes pra colocar todos os prefabs fixos pedidos, a
+função retorna **sem popular NADA da room** (nem o que caberia), só
+imprime um aviso — falha silenciosa de conteúdo, não erro visível ao
+usuário do gerador. `distributepercent`/`distributeprefabs` (nosso
+`scatter`) é resolvido ponto a ponto: pra cada ponto Voronoi restante,
+`math.random() < distributepercent` decide SE spawna, só então
+`pickspawnprefab` escolhe QUAL prefab pelo peso — bate exatamente com o
+modelo `percent` + `prefabs[].weight` já implementado.
+
+**`graphedge.lua` confirmado como dado passivo**: `Edge:Populate(map,
+spawnFn)` é um stub vazio — o tipo/largura do caminho entre duas Tasks
+(trilha normal vs. o gap de água que separa uma ilha) não é decidido em
+Lua acessível a mods, reforça a seção 17 (motor nativo).
+
+**Gap de cobertura real e concreto, corrigido nesta sessão:** `CENTIPEDE`
+existe em `LOCKS_ARRAY`/`KEYS_ARRAY`/`LOCKS_KEYS` reais
+(`lockandkey.lua`), mas estava ausente de `LOCKS`/`KEYS` em
+`src/types/worldContent.ts` — adicionado (commit desta sessão). Também
+confirmado: em builds de desenvolvimento do jogo, um `LOCKS.X`/`KEYS.X`
+desconhecido crasha via metatable `__index` (`error("Lock 'X' is not
+declared")`), com uma curta lista de exceções legadas mantidas só por
+compatibilidade (`SILK`, `ROCKS` como key, `TALLBIRDS`, `SWAMP`,
+`SPIDERDEN` como lock, `ROCKY`) — não usáveis por mods novos.
+
+**`WORLD_TILES` do schema é um subconjunto bem menor que o real usado em
+código ativo** — `terrain.lua` sozinho usa ~28 valores extras em
+`TERRAIN_FILTER` (regra nativa de "onde este prefab não pode crescer",
+não relacionada a `AddRoom`): `ROAD`, `WOODFLOOR`, `SCALE`, `CARPET`,
+`CHECKER`, `MARSH`, `DIRT`, `DESERT_DIRT`, `MONKEY_DOCK`, `MUD`,
+`CAVE_NOISE`, `TILES`, `TILES_GLOW`, `TRIM`, `TRIM_GLOW`, `CAVE`,
+`UNDERROCK`, `FUNGUSMOON`, `FUNGUSRED`, `FUNGUSGREEN`, `ARCHIVE`,
+`VAULT`, `VAULT_CLEAN`, `QUAGMIRE_GATEWAY/PEATFOREST/PARKFIELD/
+PARKSTONE/CITYSTONE/SOIL`. Candidato de expansão futura do
+`WORLD_TILES` curado — não uma correção urgente (o comentário do próprio
+`worldContent.ts` já avisa que é um subset).
+
+**Catálogo confirmado da família completa de hooks `*PreInit`** (`level.lua`,
+via `ModManager:GetPostInitFns`): `RoomPreInit`, `TaskPreInit`,
+`TaskSetPreInit`, `TaskSetPreInitAny` (já usado, seção 22),
+`LevelPreInit`, `LevelPreInitAny`. `Level:EnqueueATask` também crasha via
+`assert` se o id não bater com um `AddTask` real — mais um ponto de
+falha reforçando a exigência já documentada na seção 22.
