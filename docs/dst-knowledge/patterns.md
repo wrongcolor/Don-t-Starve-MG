@@ -1377,3 +1377,69 @@ não a lagarta de caverna comum — sem burrow/hide nenhum, confirmado via
 veados-gema/magia do deer (`deercast_cd`), arremesso de item n'água do
 gnarwail (`toss`). Frog não trouxe mecânica nova — confirma só o padrão
 "hop" já visto em bird/buzzard (seção 38) aplicado a anfíbio pequeno.
+
+## 40. Mais 6 stategraphs reais (grassgator, grassgekko, mole, krampus, lavae, lightninggoat)
+
+Continuação das seções 36-39 (agora 28 criaturas cobertas — `SGhermitcrab.lua`
+pulado de propósito: 5261 linhas, sistema de loja/NPC bespoke demais).
+
+**Clipes reais confirmados:**
+
+| Criatura | idle | mover | atacar | hit | death |
+|---|---|---|---|---|---|
+| grassgator | `idle_loop` | `walk_*`/`run_*` padrão | `atk_pre`→`atk` | `hit` | `death` (+`death_idle` em água) |
+| grassgekko | `idle_loop` | `walk_*`/`run_loop`→`run_pst` | default | `hit` (custom: força `run` no frame 5) | default |
+| mole | `idle`/`idle_under` (mesmo estado, clipe por `isunder`) | `walk_pre/_loop/_pst` custom | **não existe** | `hit` | `death` |
+| krampus | `idle` | só `run` (sem walk) | `atk_pre`→`atk` | `hit` | `death` |
+| lavae | `idle`(+`idle2/3/4`) | `walk_pre`→`walk_loop`→`walk_pst` | `atk_pre`→`atk`→`atk_pst` | `hit` | `death` (ou `frozen`→`thaw`→`shatter`) |
+| lightninggoat | `idle_loop` | `walk_pre`/`walk` (auto-trote) | default (dano ramifica por `charged`) | default | `death`/`death_2` |
+
+**Mecânicas novas confirmadas, generalizáveis, não modeladas hoje:**
+
+- **Submersão móvel com busca espacial de raio crescente** (grassgator:
+  `dive`→`dive_loop`→`surface`, tags `invisible`/`noattack`/`noelectrocute`
+  aplicadas em frames escalonados; durante `dive_loop` o `onupdate` procura
+  novo local raso com `searchrange += 8` a cada timeout até achar, só então
+  reemerge). Terceira variante de "esconder" catalogada — timer puro
+  (carrat, #39), estacionário (tentacle, #37), agora móvel-com-busca.
+- **Tail-drop via flag pendente + timeline forçando transição antes do fim
+  da animação** (grassgekko: `scare`→`tail_off`, dropa loot no frame 4 se
+  `inst.hasTail`, força `GoToState("run")` no frame 15 via timeline em vez
+  de esperar `animover`; regrow consultado no `idle` via
+  `inst.tailGrowthPending`, mesmo padrão de flag pendente da seção 37).
+- **Burrow real por troca de física, não só tag** (mole:
+  `inst:SetAbovePhysics()`/`SetUnderPhysics()` alternado por estado, com o
+  MESMO `idle` mudando de clipe/tags conforme `inst.isunder`, em vez de dois
+  estados idle separados). Primeiro burrow genuíno confirmado nesta série —
+  contraponto ao esquema baseado só em tag `invisible` do bat/grassgator.
+- **Parar/reiniciar a brain por nome de razão durante autoextinção
+  scriptada, com `onexit` como salvaguarda** (krampus: `exit` desliga
+  `StopBrain("SGkrampus_exit")`, remove física, fica invencível, e
+  `inst:Remove()` no fim; o `onexit` do próprio estado desfaz tudo isso caso
+  o `Remove()` não tenha disparado — rede de segurança).
+- **Reação a dano desacoplada da seleção de alvo** (lavae — comentário real
+  no arquivo: "Lavae doesn't want to change his target to attackers";
+  `onattackedfn` só toca `hit`, nunca mexe em `combat:SetTarget`).
+- **Evento `death` interceptado e ramificado pra estado terminal alternativo
+  por status ativo** (lavae: `EventHandler("death", ...)` redireciona pra
+  `thaw_break` se `frozen`/`thawing`, em vez do `death` padrão — desvio de
+  ESTADO inteiro, não só de clipe/loot dentro do mesmo estado).
+- **Flag de carga persistente lida por várias animações sem estado
+  dedicado** (lightninggoat: `inst.charged` consultado em idle/walk/bleet/
+  taunt/attack/death/sleep só pra som e pra escolher o tipo de dano do MESMO
+  ataque via `combat:DoAttack(target, nil, nil, "electric")` — sem estado de
+  "carregando" separado).
+- **Troca de build num frame de timeline como transformação visual leve**
+  (lightninggoat `discharge`: `AnimState:SetBuild(...)` no frame 18, no meio
+  da própria animação `trans`, sem trocar de prefab).
+- **Estado-forwarder pra preservar nome renomeado** (lightninggoat:
+  `electrocute` só encaminha pra `GoToState("shocked")`, com comentário real
+  "New electrocute mechanics depend on this state name existing. Forward to
+  old state for backward compatibility" — jeito real do próprio jogo lidar
+  com rename sem quebrar quem ainda referencia o nome antigo).
+
+**Fora de escopo (bespoke demais):** furto-e-fuga do krampus é generalizável
+(item acima), mas os detalhes de quando/quanto ele pune o jogador (sistema de
+"naughtiness") ficam fora da stategraph. Gatilho de transformação
+lavae→mímico/mariposa: zero menção no arquivo, confirmado que fica em outro
+lugar (componente/brain), não na stategraph.
