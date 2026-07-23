@@ -5,7 +5,9 @@ import {
   creatureDefSchema,
   CREATURE_BEHAVIORS,
   VANILLA_CREATURE_BUILDS,
+  PANIC_CAUSES,
   type CreatureDef,
+  type PanicCause,
 } from '../../types/modProject'
 import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
 import { CreaturePreview } from './CreaturePreview'
@@ -28,6 +30,12 @@ const emptyCreature: CreatureDef = {
   loot: [{ prefab: 'monstermeat', chance: 1 }],
   behavior: 'neutral',
   tags: [],
+  panicCauses: [],
+}
+
+const PANIC_CAUSE_LABELS: Record<PanicCause, string> = {
+  onFire: 'Panics while on fire',
+  haunted: 'Panics when haunted by a ghost',
 }
 
 export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureFormProps) {
@@ -51,9 +59,24 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   )
   const watched = watch()
   const enableAttackRange = watched.stats?.attackRange !== undefined
+  const enableAggroRange = watched.stats?.aggroRange !== undefined
   const enableSanityAura = watched.sanityAura !== undefined
   const enableCookable = watched.cookable !== undefined
   const enableHerd = watched.herd !== undefined
+  const enableKiting = watched.kiting !== undefined
+  const canFight = watched.behavior !== 'passive'
+  const panicCauses = watched.panicCauses ?? []
+
+  const togglePanicCause = (cause: PanicCause, checked: boolean) => {
+    const next = checked ? [...panicCauses, cause] : panicCauses.filter((c) => c !== cause)
+    setValue('panicCauses', next, { shouldDirty: true, shouldValidate: true })
+  }
+
+  const onBehaviorChange = (nextBehavior: CreatureDef['behavior']) => {
+    if (nextBehavior === 'passive' && watched.kiting) {
+      setValue('kiting', undefined, { shouldValidate: true })
+    }
+  }
 
   const onSubmit = (data: CreatureDef) => onSave(data)
 
@@ -70,7 +93,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                   <input className={inputClass} {...register('id')} disabled={!!initialCreature} placeholder="my_creature" />
                 </FormField>
                 <FormField label="Behavior">
-                  <select className={inputClass} {...register('behavior')}>
+                  <select className={inputClass} {...register('behavior', { onChange: (e) => onBehaviorChange(e.target.value) })}>
                     {CREATURE_BEHAVIORS.map((b) => (
                       <option key={b} value={b}>
                         {b === 'passive' ? 'Passive (flees/wanders)' : b === 'neutral' ? 'Neutral (fights back if attacked)' : 'Hostile (attacks on its own)'}
@@ -189,6 +212,22 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                   <input type="number" step="0.1" className={inputClass} {...register('stats.attackRange', { valueAsNumber: true })} />
                 </FormField>
               )}
+
+              <div className="checks">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={enableAggroRange}
+                    onChange={(e) => setValue('stats.aggroRange', e.target.checked ? 10 : undefined)}
+                  />
+                  Custom aggro/perception range (default: 10)
+                </label>
+              </div>
+              {enableAggroRange && (
+                <FormField label="Aggro range">
+                  <input type="number" step="1" className={inputClass} {...register('stats.aggroRange', { valueAsNumber: true })} />
+                </FormField>
+              )}
             </Fieldset>
 
             <Fieldset legend="Traits" step={4}>
@@ -234,6 +273,25 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                   </div>
                 </FormField>
               )}
+
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', margin: '12px 0 8px' }}>
+                Panics when
+              </span>
+              <div className="checks">
+                {PANIC_CAUSES.map((cause) => (
+                  <label key={cause}>
+                    <input
+                      type="checkbox"
+                      checked={panicCauses.includes(cause)}
+                      disabled={cause === 'onFire' && !watched.flammable}
+                      onChange={(e) => togglePanicCause(cause, e.target.checked)}
+                    />
+                    {PANIC_CAUSE_LABELS[cause]}
+                    {cause === 'onFire' && !watched.flammable ? ' (enable "Can catch fire" first)' : ''}
+                  </label>
+                ))}
+              </div>
+              {errors.panicCauses?.message && <p className="error">{errors.panicCauses.message}</p>}
             </Fieldset>
 
             <Fieldset legend="Loot and tags" step={5}>
@@ -315,6 +373,35 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                     className={inputClass}
                     {...register('herd.spawnIntervalDays.max', { valueAsNumber: true })}
                   />
+                </FormField>
+              </div>
+            )}
+          </Fieldset>
+
+          <Fieldset legend="Combat AI (optional)" step={7}>
+            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+              Sourced from 3 independent real brains — bee, pig, merm (see docs/dst-knowledge/patterns.md#46) — the
+              #1 transversal finding of the whole brain research sweep. Instead of standing and trading hits, the
+              creature attacks only while off cooldown and retreats to a safe distance in between.
+            </p>
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableKiting}
+                  disabled={!canFight}
+                  onChange={(e) => setValue('kiting', e.target.checked ? { runDistance: 6, safeDistance: 10 } : undefined)}
+                />
+                Hit-and-run (kiting){!canFight ? ' — requires neutral or hostile behavior' : ''}
+              </label>
+            </div>
+            {enableKiting && (
+              <div className="row-2">
+                <FormField label="Run distance (while retreating)">
+                  <input type="number" min="1" className={inputClass} {...register('kiting.runDistance', { valueAsNumber: true })} />
+                </FormField>
+                <FormField label="Safe distance (stop retreating)" error={errors.kiting?.safeDistance?.message}>
+                  <input type="number" min="1" className={inputClass} {...register('kiting.safeDistance', { valueAsNumber: true })} />
                 </FormField>
               </div>
             )}

@@ -15,6 +15,9 @@ export function CreaturePreview({ creature }: { creature: Partial<CreatureDef> }
   if (creature.cookable) tags.push('🍖 Cookable')
   if (creature.sanityAura) tags.push(creature.sanityAura < 0 ? '👻 Scares' : '🌸 Soothes')
   if (creature.herd) tags.push(`🐄 Herd (up to ${creature.herd.maxSize})`)
+  if (creature.kiting) tags.push('🏃 Hit-and-run')
+  if (creature.panicCauses?.includes('onFire')) tags.push('🔥 Panics on fire')
+  if (creature.panicCauses?.includes('haunted')) tags.push('👻 Panics when haunted')
 
   return (
     <div className="preview">

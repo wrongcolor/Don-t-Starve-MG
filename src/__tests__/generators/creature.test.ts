@@ -156,4 +156,11 @@ describe('generateCreatureFiles', () => {
 
     expect(() => parse(herdCode, { luaVersion: '5.1' })).not.toThrow()
   })
+
+  it('wires the hauntable component when "haunted" is a panic cause (patterns.md#46-51)', () => {
+    expect(generateCreaturePrefab(creature)).not.toContain('hauntable')
+
+    const hauntableCreature: CreatureDef = { ...creature, panicCauses: ['haunted'] }
+    expect(generateCreaturePrefab(hauntableCreature)).toContain('inst:AddComponent("hauntable")')
+  })
 })

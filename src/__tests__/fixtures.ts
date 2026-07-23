@@ -179,6 +179,7 @@ export const sampleProject: ModProject = {
       loot: [{ prefab: 'monstermeat', chance: 1 }],
       behavior: 'hostile',
       tags: ['largecreature'],
+      panicCauses: [],
     },
     {
       id: 'testspidermob',
@@ -193,6 +194,7 @@ export const sampleProject: ModProject = {
       loot: [{ prefab: 'silk', chance: 1 }],
       behavior: 'hostile',
       tags: [],
+      panicCauses: [],
     },
     {
       id: 'testhound',
@@ -206,6 +208,7 @@ export const sampleProject: ModProject = {
       flammable: true,
       freezable: true,
       cookable: { product: 'cookedsmallmeat' },
+      panicCauses: [],
     },
   ],
   rooms: [

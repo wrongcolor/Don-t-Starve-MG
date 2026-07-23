@@ -159,6 +159,11 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
     lines.push(`    inst.components.herdmember:SetHerdPrefab(${luaString(creature.id + 'herd')})`)
   }
 
+  if (creature.panicCauses.includes('haunted')) {
+    lines.push('')
+    lines.push('    inst:AddComponent("hauntable")')
+  }
+
   lines.push('')
   lines.push('    inst:AddComponent("inspectable")')
   lines.push('')

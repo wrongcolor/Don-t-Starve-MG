@@ -1,7 +1,8 @@
 import type { ModProject } from '../../src/types/modProject'
 
 // Exercises the mechanics sampleProject (src/__tests__/fixtures.ts) doesn't cover:
-// rechargeable, container, teleportPair, nameable, combinable, skill tree, herd.
+// rechargeable, container, teleportPair, nameable, combinable, skill tree, herd,
+// kiting, panic causes.
 export const advancedMechanicsProject: ModProject = {
   meta: {
     name: 'Advanced Mechanics Test Mod',
@@ -126,7 +127,20 @@ export const advancedMechanicsProject: ModProject = {
       loot: [{ prefab: 'monstermeat', chance: 1 }],
       behavior: 'hostile',
       tags: [],
+      panicCauses: [],
       herd: { maxSize: 6, gatherRange: 30, spawnIntervalDays: { min: 2, max: 4 } },
+    },
+    {
+      id: 'skitterling',
+      displayName: 'Skitterling',
+      description: 'A creature that kites and panics — covers patterns.md#46-51',
+      stats: { health: 80, damage: 15, attackPeriod: 2, walkSpeed: 6, aggroRange: 20 },
+      loot: [{ prefab: 'silk', chance: 1 }],
+      behavior: 'hostile',
+      tags: [],
+      flammable: true,
+      panicCauses: ['onFire', 'haunted'],
+      kiting: { runDistance: 6, safeDistance: 10 },
     },
   ],
   rooms: [],

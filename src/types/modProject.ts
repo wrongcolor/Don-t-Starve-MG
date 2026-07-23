@@ -52,6 +52,15 @@ export const TOOL_ACTIONS = ['CHOP', 'MINE', 'DIG'] as const
 
 export const CREATURE_BEHAVIORS = ['passive', 'neutral', 'hostile'] as const
 
+// Confirmed across 3 independent real brains (bee/pig/merm — docs/dst-knowledge/
+// patterns.md#46, #49) and named as the top transversal finding of the whole brain
+// sweep (patterns.md#51): "onFire" panic ties directly to health.takingfiredamage,
+// which only ever becomes true while the burnable component (added when
+// creature.flammable is set) is actively ticking fire damage. "haunted" panic is
+// self-contained — AddComponent("hauntable") is enough, the base game's own ghost
+// system drives hauntable.panic with no extra wiring needed.
+export const PANIC_CAUSES = ['onFire', 'haunted'] as const
+
 // Simple pickup-item builds bundled with the base game — safe to reuse via SetBank/SetBuild
 // without shipping an anim/*.zip, since the game already has this animation data loaded.
 export const VANILLA_ITEM_BUILDS = [
@@ -489,41 +498,70 @@ export const VANILLA_CREATURE_BUILDS = [
   { build: 'hound', label: 'Hound' },
 ] as const
 
-export const creatureDefSchema = z.object({
-  id: luaIdentifier,
-  displayName: z.string().min(1, 'Required'),
-  description: z.string().min(1, 'Required'),
-  animation: creatureAnimationSchema.optional(),
-  stats: z.object({
-    health: z.number().int().min(1),
-    damage: z.number().min(0),
-    attackPeriod: z.number().min(0.1),
-    walkSpeed: z.number().min(0.1),
-    attackRange: z.number().min(0.5).max(20).optional(),
-  }),
-  loot: z.array(z.object({ prefab: z.string().min(1), chance: z.number().min(0.01).max(1) })),
-  behavior: z.enum(CREATURE_BEHAVIORS),
-  tags: z.array(z.string().min(1)),
-  sanityAura: z.number().optional(),
-  flammable: z.boolean().optional(),
-  freezable: z.boolean().optional(),
-  cookable: z.object({ product: z.string().min(1, 'Enter the resulting prefab (e.g. cookedsmallmeat)') }).optional(),
-  // Adapted from a real published Workshop mod ("Seafellow", see
-  // docs/dst-knowledge/patterns.md#27) — confirmed real API: herdmember (on
-  // the creature) + a companion, non-networked "herd" manager prefab that
-  // periodically spawns new members up to a max size (the same pattern
-  // vanilla Beefalo/Lightning Goats use). Dropped the mating-season-specific
-  // tuning from the source mod — just a plain min/max spawn interval.
-  herd: z
-    .object({
-      maxSize: z.number().int().min(2).max(30),
-      gatherRange: z.number().min(1).max(100),
-      spawnIntervalDays: z
-        .object({ min: z.number().min(0.05), max: z.number().min(0.05) })
-        .refine((r) => r.max >= r.min, { message: 'Max must be greater than or equal to the min', path: ['max'] }),
-    })
-    .optional(),
-})
+export const creatureDefSchema = z
+  .object({
+    id: luaIdentifier,
+    displayName: z.string().min(1, 'Required'),
+    description: z.string().min(1, 'Required'),
+    animation: creatureAnimationSchema.optional(),
+    stats: z.object({
+      health: z.number().int().min(1),
+      damage: z.number().min(0),
+      attackPeriod: z.number().min(0.1),
+      walkSpeed: z.number().min(0.1),
+      attackRange: z.number().min(0.5).max(20).optional(),
+      // Real brains (docs/dst-knowledge/patterns.md#46, #51) never use the vanilla
+      // default's fixed 10 — every one varies this by possession/bond. Left optional
+      // (falls back to the same 10 this tool always generated) since most creatures
+      // don't need it tuned.
+      aggroRange: z.number().min(1).max(100).optional(),
+    }),
+    loot: z.array(z.object({ prefab: z.string().min(1), chance: z.number().min(0.01).max(1) })),
+    behavior: z.enum(CREATURE_BEHAVIORS),
+    tags: z.array(z.string().min(1)),
+    sanityAura: z.number().optional(),
+    flammable: z.boolean().optional(),
+    freezable: z.boolean().optional(),
+    cookable: z.object({ product: z.string().min(1, 'Enter the resulting prefab (e.g. cookedsmallmeat)') }).optional(),
+    // Adapted from a real published Workshop mod ("Seafellow", see
+    // docs/dst-knowledge/patterns.md#27) — confirmed real API: herdmember (on
+    // the creature) + a companion, non-networked "herd" manager prefab that
+    // periodically spawns new members up to a max size (the same pattern
+    // vanilla Beefalo/Lightning Goats use). Dropped the mating-season-specific
+    // tuning from the source mod — just a plain min/max spawn interval.
+    herd: z
+      .object({
+        maxSize: z.number().int().min(2).max(30),
+        gatherRange: z.number().min(1).max(100),
+        spawnIntervalDays: z
+          .object({ min: z.number().min(0.05), max: z.number().min(0.05) })
+          .refine((r) => r.max >= r.min, { message: 'Max must be greater than or equal to the min', path: ['max'] }),
+      })
+      .optional(),
+    // Confirmed independently in 3 real brains — bee/pig/merm (docs/dst-knowledge/
+    // patterns.md#46) — and named the #1 transversal finding of the brain sweep
+    // (patterns.md#51): "hit-and-run" attacks only while off combat cooldown,
+    // retreating to a safe distance in between, instead of standing and trading hits.
+    kiting: z
+      .object({
+        runDistance: z.number().min(1).max(50),
+        safeDistance: z.number().min(1).max(50),
+      })
+      .refine((k) => k.safeDistance >= k.runDistance, {
+        message: 'Safe distance must be greater than or equal to the run distance',
+        path: ['safeDistance'],
+      })
+      .optional(),
+    panicCauses: z.array(z.enum(PANIC_CAUSES)),
+  })
+  .refine((creature) => creature.kiting === undefined || creature.behavior !== 'passive', {
+    message: 'Kiting requires neutral or hostile behavior — a passive creature never fights',
+    path: ['kiting'],
+  })
+  .refine((creature) => !creature.panicCauses.includes('onFire') || creature.flammable === true, {
+    message: 'The "catches fire" panic cause requires the creature to be flammable — enable that trait first',
+    path: ['panicCauses'],
+  })
 
 export const modProjectSchema = z.object({
   meta: modMetaSchema,
@@ -541,6 +579,7 @@ export type FoodType = (typeof FOOD_TYPES)[number]
 export type OnEatBuff = z.infer<typeof onEatBuffSchema>
 export type CharacterGender = (typeof CHARACTER_GENDERS)[number]
 export type CreatureBehavior = (typeof CREATURE_BEHAVIORS)[number]
+export type PanicCause = (typeof PANIC_CAUSES)[number]
 export type CharacterPerk = (typeof CHARACTER_PERKS)[number]
 
 export type ConfigOption = z.infer<typeof configOptionSchema>
