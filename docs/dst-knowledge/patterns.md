@@ -1515,3 +1515,77 @@ roteado pro estado genérico `action`, já é padrão comum, não novo);
 `AddAmphibiousCreatureHopStates`/`AddLunarPreRiftMutationStates` do
 otter/penguin são helpers de framework já existentes, não mecânica nova
 dessas criaturas especificamente.
+
+## 42. Mais 6 stategraphs reais (perd, pigelite, rocky, shark, slurper, slurtle)
+
+Continuação das seções 36-41 (agora 40 criaturas cobertas). **Correção de
+premissa:** `SGpigelite.lua` NÃO é um guarda-elite de combate — é o
+participante do minigame do Rei Porco (`minigame_participator`, confirmado
+via `Original/prefabs/prefabs/pigelite.lua`), sem `EventHandler("death"...)`
+nem estado `death`/`corpse` nenhum (a entidade só some via `inst:Remove()`
+ao fim da pose). O guarda de combate de verdade é `pigelitefighter` (arquivo
+separado, não lido nesta leva).
+
+**Clipes reais confirmados:**
+
+| Criatura | idle | mover | atacar | hit | death |
+|---|---|---|---|---|---|
+| perd | `idle_loop` | `walk_*`/`run_*` padrão | `atk` | `hit` | `death` |
+| pigelite (minigame) | `idle_object_loop` | `walk_*` padrão + `run_object_*` próprio | `atk_object` | `hit` | **não existe** |
+| rocky | `idle_tendrils` | `walk_*` (sem run) | `atk` | `hit`/`hide_hit` (por tag `hiding`) | `death` |
+| shark | `idle` | hop anfíbio + `walk`/`run` | `attack` (reaproveitado em `bite`, loop repetido por chance) | `hit` | `dead`→`dead_loop` |
+| slurper | `idle_loop` | sem walk/run padrão — `roll_pre/_loop/_pst` próprio | `atk` (melee) ou `headslurp`/`headslurpmiss` (especial) | `hit` | `death` |
+| slurtle | `idle` | `walk_*` custom | `atk` | `hit_shield`/`hit_out` (por tag `shield`) | `death`/`death_2` ou pipeline `salt_death_*` |
+
+**Mecânicas novas confirmadas, generalizáveis, não modeladas hoje:**
+
+- **Trava física temporária por troca de massa** (pigelite:
+  `Physics:SetMass(POSING_MASS)` durante estados de pose de minigame,
+  restaurada pra `DEFAULT_MASS` depois — imobiliza sem remover locomotor).
+- **Tag de movimento emprestada só pra desligar o brain** (pigelite: tag
+  `"jumping"` reaproveitada com o comentário real "jumping tag to disable
+  brain activity", sem nenhum estado de pulo de verdade por trás).
+- **Coordenação cross-instância lendo a memória de outras entidades da
+  mesma tag** (pigelite: `endpose_pre.ontimeout` varre `TheSim:FindEntities`
+  por tag `"pigelite"` e lê `v.sg.mem.postchatter` de OUTRAS instâncias pra
+  não duplicar a fala de fim de partida — vai além da busca espacial de
+  coordenação já vista no buzzard, #38, porque também compartilha memória).
+- **Som com pitch/volume escalado pelo tamanho atual da criatura** (rocky:
+  `PlaySoundWithParams(sound, {size=GetScalePercent(inst)})`, lido do
+  componente `scaler`).
+- **Desistência de alvo por falhas consecutivas** (shark: `missedtargets`
+  incrementa a cada tentativa sem sucesso; acima de 2, `combat:DropTarget()`
+  + `timer:StartTimer("calmtime", 2)` — para de perseguir e "esfria" por um
+  tempo, não é retry infinito).
+- **Troca de banco de animação inteiro sincronizada com estado ambiental,
+  restaurada corretamente após interrupção** (shark: `AnimState:SetBank`
+  alterna `"shark"`/`"shark_water"` conforme `amphibiouscreature.in_water`,
+  inclusive guardando o banco certo numa tag temporária durante
+  eletrocussão pra restaurar no `onexit`). Mais forte que a troca de build
+  do lightninggoat (#40): aqui é o banco inteiro, e depende do ambiente, não
+  de um frame fixo.
+- **Ataque especial que transforma a própria criatura em item equipável no
+  alvo** (slurper: `headslurp` chama `target.components.inventory:
+  Equip(inst)` direto no timeline, revalidando alvo/distância na hora —
+  padrão inédito nesta série).
+- **Efeito de morte disparado com atraso configurável, dissociado do fim da
+  animação** (slurper: som + `lootdropper:DropLoot` só no frame 60, bem
+  depois da animação de morte terminar — cadáver fica parado antes do
+  "estouro" final).
+- **Sub-pipeline de morte elementar com dano contínuo self-inflicted
+  embutido no próprio `onupdate`** (slurtle: `salt_death_loop` aplica
+  `health:DoDelta(-200*dt, nil, "salt", ...)` nela mesma enquanto toca a
+  animação de dissolução; o `EventHandler("death"...)` no nível de eventos
+  já decide entre `corpse`/`salt_death_pst`/`death` normal ANTES de entrar
+  em qualquer coisa parecida com morte comum). Extensão mais forte do
+  "death interceptado por status" do lavae (#40) — aqui a causa dispara um
+  sub-pipeline com dano próprio embutido, não só troca de clipe/loot.
+
+**Confirmações (não novidade, reforçam padrão já catalogado):** escudo por
+absorção de dano (rocky, slurtle — mesmo padrão do spider, #37).
+
+**Fora de escopo (bespoke demais):** roubo de item brilhante do perd (ação
+`STEAL` nem aparece nos `actionhandlers` — deve estar em componente/brain,
+não na stategraph); drop de ouro em `dive` e sistema de props/pontuação do
+minigame do pigelite; `gobble` do shark (`action.target:Remove()` direto,
+sem passar por inventário/eat).
