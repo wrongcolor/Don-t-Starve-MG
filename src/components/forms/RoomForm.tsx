@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { roomDefSchema, WORLD_TILES, type RoomDef } from '../../types/worldContent'
+import { roomDefSchema, WORLD_TILES, ROOM_TAGS, type RoomDef } from '../../types/worldContent'
 import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
 import { RoomPreview } from './RoomPreview'
 import { PrefabPickerButton } from './PrefabPicker'
@@ -48,7 +48,6 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
     defaultValues: initialRoom ?? emptyRoom,
   })
 
-  const tags = useFieldArray({ control, name: 'tags' as never })
   const requiredPrefabs = useFieldArray({ control, name: 'requiredPrefabs' as never })
   const fixedPrefabs = useFieldArray({ control, name: 'fixedPrefabs' })
   const scatterPrefabs = useFieldArray({ control, name: 'scatter.prefabs' as never })
@@ -87,19 +86,16 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
             <Fieldset
               legend="Tags (optional)"
               step={2}
-              info="Free-text labels other systems can match on (e.g. a Task's terrain rules). Doesn't affect the room's own contents."
+              info="Labels the game's own world-gen engine reacts to (e.g. blocking roads, marking a maze). Not free text — the game crashes world generation on an unrecognized tag, so only real, confirmed tags are selectable."
             >
-              {tags.fields.map((field, index) => (
-                <div key={field.id} className="ingredient-row">
-                  <input className={inputClass} placeholder="e.g. Town" {...register(`tags.${index}` as const)} />
-                  <button type="button" className={btnDanger} onClick={() => tags.remove(index)}>
-                    Remove
-                  </button>
-                </div>
-              ))}
-              <button type="button" className="add-ingredient" onClick={() => tags.append('')}>
-                + Add tag
-              </button>
+              <div className="tag-grid">
+                {ROOM_TAGS.map((t) => (
+                  <label key={t.value} className={`tag-opt ${watched.tags?.includes(t.value) ? 'selected' : ''}`}>
+                    <input type="checkbox" value={t.value} className="sr-only" {...register('tags')} />
+                    {t.label}
+                  </label>
+                ))}
+              </div>
             </Fieldset>
           </div>
 

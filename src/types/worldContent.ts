@@ -61,10 +61,42 @@ const countRangeSchema = z
   .object({ min: z.number().int().min(0), max: z.number().int().min(0) })
   .refine((r) => r.max >= r.min, { message: 'Max must be greater than or equal to the min', path: ['max'] })
 
+// Closed enum, not free text: storygen.lua indexes each Room tag directly into
+// maptags.lua's Tag dictionary and calls the result as a function with no nil
+// check — a tag outside this real list crashes world generation entirely
+// (attempt to call a nil value), not just silently no-ops. See
+// docs/dst-knowledge/patterns.md#53. Excludes ~9 maptags.lua keys tied to
+// unique base-game spawns (Chester_Eyebone, Astral_1/2, etc.) that don't make
+// sense as a generic form option.
+export const ROOM_TAGS = [
+  { value: 'Maze', label: 'Maze' },
+  { value: 'MazeEntrance', label: 'Maze entrance' },
+  { value: 'Labyrinth', label: 'Labyrinth' },
+  { value: 'LabyrinthEntrance', label: 'Labyrinth entrance' },
+  { value: 'OverrideCentroid', label: 'Override centroid' },
+  { value: 'RoadPoison', label: 'Road poison (no roads through here)' },
+  { value: 'ForceConnected', label: 'Force connected' },
+  { value: 'ForceDisconnected', label: 'Force disconnected' },
+  { value: 'OneshotWormhole', label: 'One-shot wormhole' },
+  { value: 'ExitPiece', label: 'Exit piece' },
+  { value: 'Town', label: 'Town' },
+  { value: 'Nightmare', label: 'Nightmare' },
+  { value: 'Atrium', label: 'Atrium' },
+  { value: 'Mist', label: 'Mist' },
+  { value: 'sandstorm', label: 'Sandstorm' },
+  { value: 'nohunt', label: 'No hunt' },
+  { value: 'moonhunt', label: 'Moon hunt' },
+  { value: 'nohasslers', label: 'No hasslers' },
+  { value: 'not_mainland', label: 'Not mainland' },
+  { value: 'lunacyarea', label: 'Lunacy area' },
+  { value: 'GrottoWarEntrance', label: 'Grotto war entrance' },
+  { value: 'fumarolearea', label: 'Fumarole area' },
+] as const
+
 export const roomDefSchema = z.object({
   id: worldContentId,
   terrain: z.enum(WORLD_TILES.map((t) => t.value) as [string, ...string[]]),
-  tags: z.array(z.string().min(1)),
+  tags: z.array(z.enum(ROOM_TAGS.map((t) => t.value) as [string, ...string[]])),
   requiredPrefabs: z.array(z.string().min(1)),
   fixedPrefabs: z.array(z.object({ prefab: z.string().min(1), count: countRangeSchema })),
   scatter: z
