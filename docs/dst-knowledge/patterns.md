@@ -2299,3 +2299,62 @@ Com isso, a varredura sistemática dos brains de criatura "básica" também
 está concluída — mesmo critério de escopo aplicado às stategraphs
 (seção 45): ficaram de fora bosses, personagens jogáveis, e sistemas de
 minigame/evento sazonal muito específicos.
+
+## 52. Aprofundando Room/Task com o `scripts/map/` completo — confirma e estende a seção 16
+
+Nova frente: em vez de criaturas, `Original/map/map/*.lua` (444 arquivos,
+antes só uma cópia parcial dava acesso a `rooms.lua`/`task.lua`/
+`lockandkey.lua`/`storygen.lua`, ver seção 16). Lidos os arquivos-núcleo da
+API de Room/Task que faltavam: `task.lua`, `tasks.lua`, `rooms.lua`,
+`room_functions.lua`, `tasksets.lua`, `object_layout.lua`,
+`static_layout.lua`.
+
+**Campos novos confirmados em `Task` (task.lua), nenhum modelado em
+`taskDefSchema` hoje, todos opcionais:** `entrance_room`/
+`entrance_room_chance`, `room_choices_special`, `cove_room_name`/
+`cove_room_chance`/`cove_room_max_edges`, `maze_tiles`/`maze_tile_size`,
+`crosslink_factor`, `make_loop`, `room_tags`, `required_prefabs` (nível
+Task — diferente do `required_prefabs` de Room), `hub_room`,
+`level_set_piece_blocker` (comentário real no arquivo: "prevents the task
+from getting any of the random_set_pieces and required_setpieces defined
+in the level"). Nenhum tem uso confirmado fora do próprio construtor —
+ficam catalogados aqui como possível expansão futura do schema, não como
+gap urgente.
+
+**Confirmação reforçada da retratação #32:** o próprio `Task()` normaliza
+`locks`/`keys_given` — `if type(self.locks) ~= "table" then self.locks =
+{self.locks} end` — ou seja, tanto um valor solto quanto uma tabela vazia
+são formas válidas de entrada; os 3 `AddTask` de teste ativos no próprio
+jogo (`TEST_TASK`/`TEST_TASK1`/`TEST_EMPTY`) usam a forma solta
+(`locks=LOCKS.NONE`).
+
+**Trava real, nunca documentada:** `AddTask`/`AddRoom` (`tasks.lua`/
+`rooms.lua`) travam com `assert` em id duplicado —
+`assert(GetTaskByName(name) == nil, "Tried adding a task '"..name.."'
+but it already exists!")`, idem pra `AddRoom`. **O gerador nunca pode
+emitir dois Rooms/Tasks com o mesmo id** — mundo inteiro falha ao carregar
+o mod, não é um erro silencioso.
+
+**Campos novos confirmados em `Room` (rooms.lua)**, vistos nas rooms
+especiais reais `"Exit"`/`"Blank"`: `colour = {r,g,b,a}` própria (campo
+separado do `Task.colour`, mesma forma) e `type = NODE_TYPE.Blank`/
+`NODE_TYPE.Room` (`Roomify()` em `room_functions.lua` confirma
+`NODE_TYPE.Room` é o tipo implícito de toda room de conteúdo comum — não
+precisa ser setado à mão pro caso normal).
+
+**`AddTaskSet` (tasksets.lua) confirmado simples, mas o veredito de fora
+de escopo se mantém:** `data.location = data.location or "forest"` (sem
+classe, sem validação de `data.tasks` no registro) — reforça que
+`"forest"`/`"cave"` são os únicos valores reais de `TASK_LOCATIONS`. O
+mecanismo é simples, mas `AddTaskSet` ainda substitui a lista INTEIRA de
+tasks de uma location — continua sendo o mesmo problema "redefine o mundo
+todo" já identificado, não um caso de reconsiderar o escopo.
+
+**`object_layout.lua`/`static_layout.lua` confirmam ser um subsistema de
+placement totalmente separado** de `countprefabs`/`distributeprefabs` —
+4 geradores procedurais (`LAYOUT.STATIC/CIRCLE_EDGE/CIRCLE_RANDOM/GRID/
+RECTANGLE_EDGE`) mais o loader de mapas Tiled exportados
+(`ConvertStaticLayoutToLayout`, lê `objectgroup`/`tilelayer` com
+propriedades customizadas por objeto). Reconfirma (não muda) a decisão da
+seção 16: `static_layouts`/`countstaticlayouts` seguem fora de escopo —
+são blueprints artesanais, não generalizáveis por formulário.
