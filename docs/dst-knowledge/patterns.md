@@ -2022,3 +2022,84 @@ Continuação das seções 46-47 (27 criaturas cobertas).
 noite/estação (frog, lavae), `SequenceNode{Face, RunAway}` do koalefant
 reaparece idêntico no lightninggoat, fuga por tag específica reaparece no
 grassgekko.
+
+## 49. Mais 9 brains (monkey, mosquito, mossling, werepig, otter, penguin, perd, pigelite, rocky)
+
+Continuação das seções 46-48 (36 criaturas cobertas). Confirmado:
+`pigelitebrain.lua` reforça a identidade de #42 — usa
+`entitytracker:GetEntity("king")`, `IsMinigameActive()`, `propweapon`/
+`minigameitem` — é mesmo o participante do minigame do Pig King, não um
+combatente comum.
+
+**Mecânicas de decisão novas, generalizáveis, não modeladas hoje:**
+
+- **Recurso como pré-requisito do próprio ATAQUE**, não só de uma tarefa
+  de trabalho (monkey: só engaja o jogador se `HasAmmo`; sem munição, a
+  árvore desvia pra buscar recurso em vez de atacar — mais forte que o
+  gate de ferramenta do merm, #46, porque afeta combate direto).
+- **`Wander` parametrizável por tabela de timing** (mosquito:
+  `minwalktime`/`randwalktime`/`minwaittime`/`randwaittime` — controla o
+  "ritmo" do movimento, não só a distância).
+- **Flip permanente e irreversível de modo por flag narrativa** (mossling:
+  `mother_dead` vira hostil pra sempre) — categoria de gatilho distinta do
+  ciclo dia/noite/estação já catalogado.
+- **Invoca um protetor externo sob ameaça, e usa a posição AO VIVO desse
+  protetor como âncora de `Leash`** (mossling: `SummonGuardian` com
+  checagem de limite `SummonsAtMax`).
+- **Gate de alimentação pela agressividade do alvo atual em combate**
+  (werepig: só come se o oponente em combate não estiver mirando dano
+  nele) — categoria distinta do forrageamento-com-risco do carrat (#47).
+- **Cooldown único compartilhado entre MÚLTIPLAS funções de ação
+  distintas** (otter: `INTERACT_COOLDOWN_NAME`, iniciado no callback de
+  sucesso de qualquer `BufferedAction`) — throttle de classe inteira de
+  ações, não de um tipo específico.
+- **Zona de exclusão espacial ao redor de casa pra evitar repescar o
+  próprio estoque já entregue** (otter) — anti-loop de acumulação.
+- **Handoff de movimento brain→stategraph via `locomotor:GoToEntity`
+  direto + listener de `"onreachdestination"`**, sem `BufferedAction`
+  (otter `TryToFish`).
+- **Rouba comida do inventário AO VIVO de outro personagem**, formando
+  escada explícita de fontes (inventário próprio → chão → container →
+  personagem) (otter).
+- **Ordens de esquadrão suprimindo o próprio instinto de fuga** (penguin:
+  `ShouldRunAway` ignora o predador se `teamattacker.orders` = ATTACK/
+  HOLD) — versão mais forte da ordem de líder do bat (#47).
+- **Decisão em dois tempos**: agenda a ação via `DoTaskInTime`, mas
+  RE-VALIDA as condições (clima/predador/local) dentro do próprio
+  callback antes de executar de fato (penguin).
+- **Permanência de objeto único possuído, com efeitos em cascata ao
+  perdê-lo** (penguin: `myEgg`/`CheckMyEgg` — esquece se roubado, podre ou
+  fora do chão).
+- **Foge levando o bem, não a si mesmo** (penguin: relocaliza o ovo pro
+  inventário em vez de lutar/fugir com ele exposto).
+- **Raio de contenção dinâmico que encolhe perto de um objeto possuído
+  rastreado** (penguin `GetWanderDistFn`).
+- **"Chegada" decidida por comparação entre duas `knownlocations`
+  independentes** (penguin `HerdAtRookery`).
+- **Alvo-referência ("casa") recomputado ao vivo a cada chamada**, sem
+  memória fixa — busca sempre o arbusto mais próximo, com fallback pro
+  `homeseeker.home` (perd).
+- **Sub-árvore de evento especial ligada por flag booleana de instância**,
+  checada dinamicamente (não montada só no `OnStart` como o bird_mutant,
+  #47) (perd: `inst.seekshrine`).
+- **Loiter probabilístico com janela decrescente** — só elegível após um
+  tempo mínimo, chance por tick que decai e se auto-reseta (perd
+  `ShouldLoiter`).
+- **Wrapper uniforme "…AndAvoid" compondo uma zona de exclusão em toda a
+  árvore** (pigelite: toda primitiva — chase/leash/panic — ganha uma zona
+  de exclusão fixa ao redor do rei, aplicada consistentemente).
+- **Histerese de reivindicação de alvo em esquadrão com threshold de
+  troca** (pigelite `GetSeekObj`: mantém o alvo se perto, só troca se o
+  novo for significativamente mais perto por uma margem) — mais rica que
+  o cap de posse do buzzard (#47) ou a reserva do mole (#48).
+- **Histerese de dois limiares numa condição booleana em si**, não só na
+  distância de fuga (pigelite `ShouldPanic`).
+- **Sincronização de grupo via polling do stategraph de OUTRAS
+  instâncias** (pigelite `ShouldMatchOverPose` — varre tags de todos os
+  elites antes de posar).
+- **Sistema de sorte nomeado gateando uma decisão de IA** (rocky:
+  `TryLuckRoll(..., LuckFormulas.LoseFollowerOnPanic)`) — primeiro caso de
+  luck-system controlando IA, distinto de `math.random` cru.
+- **Comportamento sempre-ativo em `ParallelNode` sob a árvore inteira**,
+  não competindo por prioridade (rocky: `UseShield` roda em paralelo à
+  `PriorityNode` de combate/wander, garantido incondicional).
