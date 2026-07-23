@@ -1173,3 +1173,71 @@ que não dá pra cravar um clipe "certo" sem builds específicos.
 mordida em múltiplas fases + susto + estátua de argila do hound, transformação
 werepig por ciclo lunar, crescimento de `teenbird`→`tallbird` — todos sistemas
 completos de UMA criatura específica, não padrões reutilizáveis.
+
+## 37. Mais 4 stategraphs reais (beefalo, merm, tentacle, koalefant)
+
+Continuação da seção 36. `SGBeefalo.lua`, `SGmerm.lua`, `SGtentacle.lua`,
+`SGkoalefant.lua` lidos completos.
+
+**Clipes reais confirmados:**
+
+| Criatura | idle | mover | atacar | hit | death |
+|---|---|---|---|---|---|
+| beefalo | `idle_loop` | `walk_pre/_loop/_pst`; `run_pre/_loop/_pst` (perseguindo) vs `run2_*` (fugindo/viajando) | `atk_pre`→`atk` | `hit` | `death` |
+| merm | `funnyidle`→`idle_loop` | `walk_*`/`run_*` padrão | `atk` (ou `atk_triplepunch`) | `hit` (ou `disappear` se `shadowminion`) | `death` |
+| tentacle | `idle` / `ground_pre_loop_pst` (`rumble`) | **não existe — sem `locomotor`** | `atk_pre`→`atk_loop`+`atk_idle`→`atk_pst` | `hit` | `death` |
+| koalefant | `idle_loop` (+ `graze`/`bellow`/`shake`) | `walk_*`/`run_*` padrão | `atk_pre`→`atk` (existe, ao contrário do coelho) | `hit` | `death` |
+
+**Mecânicas novas confirmadas, generalizáveis, não modeladas hoje:**
+
+- **Flags "pending" checadas no `onenter` do `idle`** (beefalo:
+  `hairGrowthPending`/`growUpPending`/`domesticationPending`) — em vez de
+  reagir a um evento na hora, o estado `idle` confere flags pendentes assim
+  que a criatura fica ociosa e só então entra na transição correspondente.
+  Jeito limpo de adiar uma transformação one-shot pro primeiro momento seguro
+  (sem interromper combate/movimento).
+- **Sela caindo por obediência insuficiente** (beefalo: `shake_off_saddle`
+  disparado quando `domesticatable:GetObedience() < TUNING.BEEFALO_KEEP_SADDLE_OBEDIENCE`).
+- **Camada "job" (guard/worker) sobre o esqueleto padrão** (merm) — reforça o
+  achado do pig na seção 36 (reuso do clipe de ataque como animação de
+  trabalho: `chop`/`mine`/`hammer`/`use_tool` disparam `PerformBufferedAction`
+  no mesmo frame do `atk`), mais um estado extra `use_building` (abastecer
+  construções) e um idle "cansado" (`debuff`, clipe por chance/intervalo)
+  quando `ShouldWaitForHelp()`.
+- **Buff/debuff em massa via evento mundial** (merm: `onmermkingcreated_anywhere`/
+  `onmermkingdestroyed_anywhere` disparam `"buff"`/`"debuff"` em TODOS os merms
+  do mundo simultaneamente — broadcast, não um evento por instância).
+- **Esquiva física como alternativa ao hit reativo** (merm, estado
+  `dodge_attack` via `SetMotorVelOverride`, disparado por `attackdodged` em vez
+  de ir pro `hit` normal).
+- **Emboscada em 3 fases pra criatura estacionária** (tentacle, sem
+  `locomotor` nenhum): `newcombattarget`→`taunt` (emerge parcial,
+  `breach_pre`→`breach_loop`); só depois de `timeinstate > .75` E
+  `combat:TryAttack()` bem-sucedido é que compromete o `attack_pre` (emerge
+  total); se o alvo sumir antes, recua por `breach_pst`. Padrão reaproveitável
+  pra qualquer criatura escondida/estacionária.
+- **Ataque em loop reentrante em vez de combo fixo** (tentacle: o estado
+  `attack` chama `GoToState("attack")` nele mesmo enquanto `combat.target`
+  existir, só sai por `attack_post` quando o alvo some — tamanho de combo
+  aberto, e o `hit` não volta pro `idle`, volta direto pro `attack`, ou seja a
+  criatura não recua ao ser atingida, só retoma).
+- **Carcaça com múltiplas porções colhíveis** (koalefant:
+  `CommonStates.AddCorpseStates` recebe `corpse = function(inst) return "carcass"..tostring(inst.meat_level) end`
+  — o clipe do cadáver muda conforme quanto de carne já foi extraída, diferente
+  de "loot único ao morrer" que já geramos).
+- **Fuga e capacidade de combate são traços independentes** — koalefant é
+  presa grande que foge E tem um estado `attack` completo (ao contrário do
+  coelho da seção 36, que é pacifista E foge). Confirma que "foge de
+  ameaças" e "não tem ataque" não são a mesma coisa no jogo real.
+- **Nem todo estado declarado é alcançado pela própria stategraph**
+  (koalefant/beefalo: o estado `alert` existe mas nenhum `events`/timeline
+  deste arquivo o chama — o comentário real do Beefalo confirma:
+  `"The alert state name is hardcoded into the FaceEntity behaviour"`, ou
+  seja é convencionado por um comportamento de brain compartilhado, não pela
+  stategraph local).
+
+**Fora de escopo (bespoke demais):** ciclo completo de domesticação do
+beefalo (growable + hair_growth + achievements), skins/YOTB, revive; merm
+virando mermking, mutação lunar, spawn de shadow minion; som ambiente
+desacoplado da animação sobrevivendo a sleep/wake do tentacle (`rumblesound`,
+efeito bem específico) — todos sistemas de UMA criatura, não padrão geral.
