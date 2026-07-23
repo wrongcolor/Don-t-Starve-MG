@@ -2103,3 +2103,74 @@ combatente comum.
 - **Comportamento sempre-ativo em `ParallelNode` sob a árvore inteira**,
   não competindo por prioridade (rocky: `UseShield` roda em paralelo à
   `PriorityNode` de combate/wander, garantido incondicional).
+
+## 50. Mais 9 brains (shark, slurper, slurtle, smallbird, spat, squid, warg, walrus, wobster)
+
+Continuação das seções 46-49 (45 criaturas cobertas). Confirmado: assim
+como `SGwalrus.lua` (#43), `walrusbrain.lua` também não tem arquivo
+próprio pro minion `little_walrus` — um único brain serve os dois.
+
+**Mecânicas de decisão novas, generalizáveis, não modeladas hoje:**
+
+- **Modo ambiental binário que colapsa a árvore inteira numa única ação
+  forçada** (shark: fora d'água → só `Attack`, mais nada é avaliado) —
+  categoria de gate distinta de dia/noite/estação já catalogada.
+- **Fuga habilitada pela EXISTÊNCIA de um timer/flag externo**, não por
+  proximidade de predador nem HP — quem liga/desliga a fuga é código de
+  fora da brain (shark: `GetRunAwayTarget` só retorna algo se
+  `timer:TimerExists("getdistance")`).
+- **Latência de reação escalada pela severidade da necessidade** — a
+  MESMA sub-árvore duplicada com janelas de espera diferentes conforme a
+  urgência (`IsStarving` reage quase instantâneo e é avaliada ANTES do
+  combate; `IsHungry` tem atraso maior e vem depois) (smallbird) —
+  primeiro caso confirmado de "urgência muda a latência de reação".
+- **Fome medida por tempo decorrido desde a última refeição**, não por
+  `hunger:GetPercent()` (slurtle: `GetTime() - inst.lastmeal >
+  HUNGER_TOLERANCE`) — categoria de gatilho distinta.
+- **Roubo de comida em cascata de 4 fontes**, com exclusão por debuff e
+  por parentesco de tag (slurtle `StealFoodAction`: mochila equipada →
+  slots → container do alvo → pickable; ignora alvos com
+  `"healingsalve_acidbuff"` ou da própria tag `"slurtle"`) — estende o
+  roubo-de-inventário-ao-vivo do otter (#49).
+- **Seleção dinâmica de ARMA equipada conforme estado/tag do alvo**, não
+  gate de posse (spat: `CanPhlegmNow`/`CanMeleeNow` escolhem entre
+  snotbomb e arma corpo-a-corpo conforme o alvo ainda estar `pinnable`)
+  — distinto do gate de munição do monkey (#49): aqui há ESCOLHA entre
+  duas armas, não liga/desliga de uma só.
+- **Retaliação automática contra quem capturou a própria criatura**
+  (squid `TargetFisherman`: se a distância ao pescador do anzol for menor
+  que `FISHING_COMBAT_DIST`, seta `combat:SetTarget` direto).
+- **Broadcast ativo de alvo de recurso descoberto pra todo o rebanho**
+  (squid `EatFishAction`: ao achar peixe, varre
+  `herd.components.herd.members` e atribui `foodtarget` a membros sem
+  alvo ainda) — PUSH pro grupo inteiro, mais forte que os "alvo
+  compartilhado sob demanda" já catalogados (#47/#48).
+- **Gate de ação por presença sustentada** — contador de 3 estados
+  (nil→timestamp→true) exige o alvo ficar dentro de um raio por N
+  segundos CONTÍNUOS, resetando se sair (warg `TryReanimate`), distinto
+  de checagem pontual de distância.
+- **Imunidade TOTAL ao sistema de pânico por tag de variante** (warg:
+  `ismutated` desliga as duas chamadas de panic via `IfNode(not
+  ismutated)`) — mais forte que a imunidade pontual a UM predador do
+  butterfly (#47), aqui desliga o sistema inteiro.
+- **Validação de sucesso de ação consultando feedback da própria
+  stategraph**, em vez de assumir sucesso (warg: `ActionNode` dispara
+  `"dohowl"` e só retorna `SUCCESS` se `sg:HasStateTag("howling")` ou
+  `sg.mem.dohowl` mudou de fato).
+- **Kiting por `Follow` a distância durante o cooldown, alternativa ao
+  `RunAway`** (walrus: depois de `ChaseAndAttack`, um `Follow(target,
+  MIN..MAX_DIST)` incondicional mantém a criatura "sombreando" o alvo em
+  vez de recuar) — variante de design pro hit-and-run clássico (#46).
+- **Sistema de interesse/isca com compromisso escalonado e limite de
+  tentativas** (wobster `nibble_lure`: interesse ≤0 abandona; excedeu
+  `MAX_NIBBLES_PER_LURE` força perda de interesse; senão rola dado
+  ponderado pelo histórico de mordiscadas pra decidir morder de vez ou só
+  se aproximar) — primeiro caso de "atrair com risco de perder interesse"
+  confirmado na série.
+
+**Confirmações (reforçam padrões já catalogados, sem novidade):** struggle/
+tiredout de anzol idêntico entre squid e wobster (2ª ocorrência
+independente do template de pesca, #43); ida pra casa por ciclo dia/noite
+reaparece com polaridade invertida no wobster (`should_go_home =
+isday or iscaveday` — criatura noturna, casa de dia); slurperbrain e
+spatbrain(panic/chase/wander base) não trazem novidade além do já listado.
