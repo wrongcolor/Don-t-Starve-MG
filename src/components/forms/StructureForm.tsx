@@ -1,7 +1,14 @@
 import { useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { structureDefSchema, TECH_LEVELS, RECIPE_FILTERS, VANILLA_ITEM_BUILDS, type StructureDef } from '../../types/modProject'
+import {
+  structureDefSchema,
+  TECH_LEVELS,
+  RECIPE_FILTERS,
+  VANILLA_ITEM_BUILDS,
+  PROTOTYPER_CATEGORIES,
+  type StructureDef,
+} from '../../types/modProject'
 import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
 import { StructurePreview } from './StructurePreview'
 import { PrefabPickerButton } from './PrefabPicker'
@@ -47,6 +54,8 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
   const enablePreservation = watched.container?.preservation !== undefined
   const enableTeleportPair = watched.teleportPair === true
   const enableDaySpawner = watched.daySpawner !== undefined
+  const enableResident = watched.resident !== undefined
+  const enablePrototyper = watched.prototyper !== undefined
 
   const onSubmit = (data: StructureDef) => onSave(data)
 
@@ -334,6 +343,61 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
                 </FormField>
                 <FormField label="Spawn range (distance from the structure)">
                   <input type="number" min="1" max="100" className={inputClass} {...register('daySpawner.range', { valueAsNumber: true })} />
+                </FormField>
+              </div>
+            )}
+
+            <div className="checks" style={{ marginTop: 12 }}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableResident}
+                  onChange={(e) =>
+                    setValue('resident', e.target.checked ? { prefab: 'pigman', respawnDelayDays: 2 } : undefined)
+                  }
+                />
+                Houses a single persistent resident (like a pig house)
+              </label>
+            </div>
+            {enableResident && (
+              <div className="row-2">
+                <FormField label="Resident prefab (e.g. pigman)">
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input className={inputClass} {...register('resident.prefab')} />
+                    <PrefabPickerButton onSelect={(id) => setValue('resident.prefab', id, { shouldDirty: true })} />
+                  </div>
+                </FormField>
+                <FormField label="Days to respawn a new resident after it dies">
+                  <input type="number" step="0.5" min="0.01" className={inputClass} {...register('resident.respawnDelayDays', { valueAsNumber: true })} />
+                </FormField>
+              </div>
+            )}
+
+            <div className="checks" style={{ marginTop: 12 }}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enablePrototyper}
+                  onChange={(e) =>
+                    setValue('prototyper', e.target.checked ? { category: PROTOTYPER_CATEGORIES[0], tier: 1 } : undefined)
+                  }
+                />
+                Crafting station (unlocks recipes for nearby players)
+              </label>
+            </div>
+            {enablePrototyper && (
+              <div className="row-2">
+                <FormField label="Tech category">
+                  <select className={inputClass} {...register('prototyper.category')}>
+                    {PROTOTYPER_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+                <FormField label="Tier (1 to 4)">
+                  <input type="number" min="1" max="4" className={inputClass} {...register('prototyper.tier', { valueAsNumber: true })} />
                 </FormField>
               </div>
             )}

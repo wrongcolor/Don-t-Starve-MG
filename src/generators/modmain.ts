@@ -50,6 +50,9 @@ function structureTuningBlock(structure: StructureDef): string[] {
     lines.push(`GLOBAL.TUNING.${upper}_SPAWN_CHANCE = ${structure.daySpawner.chance}`)
     lines.push(`GLOBAL.TUNING.${upper}_SPAWN_RANGE = ${structure.daySpawner.range}`)
   }
+  if (structure.resident) {
+    lines.push(`GLOBAL.TUNING.${upper}_RESPAWN_DELAY = TUNING.TOTAL_DAY_TIME * ${structure.resident.respawnDelayDays}`)
+  }
   return lines
 }
 

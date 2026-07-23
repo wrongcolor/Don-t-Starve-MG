@@ -237,9 +237,12 @@ export const containerSchema = z.object({
   // shared tag among the allowed items. OR'd together with acceptsTag if both are set.
   acceptsPrefabs: z.array(z.string().min(1)).optional(),
   // Confirmed in a THIRD real mod ("Automation Farm", see patterns.md#20) —
-  // icebox/icepack both use exactly this component to slow decay of whatever
-  // is stored inside them. Self-contained: no modmain.lua wiring needed,
-  // just AddComponent("preserver") on the same prefab as the container itself.
+  // AddComponent("preserver") + SetPerishRateMultiplier is a real, self-contained
+  // component (no modmain.lua wiring needed) used by several vanilla containers
+  // (fish_box, saltbox, sisturn, seedpouch, pirate_stash, beargerfur_sack). NOT
+  // icebox/icepack, though - checked directly against Original/prefabs/prefabs/
+  // icebox.lua and icepack.lua: those just get AddTag("fridge"), which
+  // perishable.lua special-cases with a fixed TUNING.PERISH_FRIDGE_MULT instead.
   preservation: z
     .object({
       perishRateMultiplier: z.number().min(0).max(1),
@@ -412,6 +415,25 @@ export const structureAnimationSchema = z.discriminatedUnion('source', [
   z.object({ source: z.literal('vanilla'), build: z.string().min(1, 'Choose an animation') }),
 ])
 
+// Confirmed in TUNING.PROTOTYPER_TREES (tuning.lua) across ~10 real crafting
+// stations (Science Machine, Prestihatitator, Shadow Manipulator, Ancient Altar,
+// Moon Altar, Waxwell's Journal, Cartography Desk, Seafaring Station, Sculpting
+// Table) — every one is TechTree.Create({ CATEGORY = tier }). Most set only ONE
+// category (a couple, like the Science Machine, set two — simplified down to one
+// here, same "drop the rare multi- case" call as daySpawner/kiting elsewhere).
+// Excludes the offering-shrine categories (PERDOFFERING, WARGOFFERING, etc.) —
+// seasonal event content, not a general crafting-tier mechanic.
+export const PROTOTYPER_CATEGORIES = [
+  'SCIENCE',
+  'MAGIC',
+  'ANCIENT',
+  'CELESTIAL',
+  'SHADOW',
+  'CARTOGRAPHY',
+  'SEAFARING',
+  'SCULPTING',
+] as const
+
 export const structureDefSchema = z.object({
   id: luaIdentifier,
   displayName: z.string().min(1, 'Required'),
@@ -436,6 +458,32 @@ export const structureDefSchema = z.object({
       prefab: z.string().min(1, 'Enter the prefab to spawn (e.g. deerclops)'),
       chance: z.number().min(0.01).max(1),
       range: z.number().min(1).max(100),
+    })
+    .optional(),
+  // Confirmed in the base game's own components/spawner.lua (used by pighouse,
+  // rabbithouse, catcoonden, etc.): a SINGLE persistent occupant, distinct from
+  // periodicspawner (which spawns as many as fit a density, with no individual
+  // identity). Configure(prefab, delay) spawns one on creation and, if it later
+  // dies, schedules a fresh one after `delay` seconds — the same real component,
+  // simplified down to just that core loop (dropped: day/night occupancy-cycling
+  // visuals, water spawning options, queued-retry spawning — all cosmetic/niche
+  // on top of the same mechanism).
+  resident: z
+    .object({
+      prefab: z.string().min(1, 'Enter the prefab that lives here (e.g. pigman)'),
+      respawnDelayDays: z.number().min(0.01),
+    })
+    .optional(),
+  // Confirmed directly in components/prototyper.lua + TUNING.PROTOTYPER_TREES —
+  // AddComponent("prototyper") + trees = TechTree.Create({ CATEGORY = tier }) is
+  // the entire mechanic behind "players near this can craft higher-tier recipes."
+  // Dropped: onturnon/onturnoff (cosmetic glow/sound while a player is near) and
+  // craftingstation (a separate, item-gated recipe-unlock mechanism used by a
+  // few specific shops, not a general crafting-tier feature).
+  prototyper: z
+    .object({
+      category: z.enum(PROTOTYPER_CATEGORIES),
+      tier: z.number().int().min(1).max(4),
     })
     .optional(),
   recipe: z.object({

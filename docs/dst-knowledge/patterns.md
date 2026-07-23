@@ -509,15 +509,25 @@ completo):** confirma o padrão de container de novo (mesmo `AddComponent`/
   formulário — é puro comportamento correto, não uma escolha de design.
 
 **Refinado com um TERCEIRO mod real ("Automation Farm")**: confirma o
-componente `preserver`, usado no próprio `icebox`/`icepack` vanilla
-(o mod só ajusta o multiplicador via config, o componente já existe neles):
+componente `preserver`:
 ```lua
 inst.components.preserver:SetPerishRateMultiplier(0.25) -- comida apodrece 4x mais lento
 inst.components.preserver:SetTemperatureRateMultiplier(0.25) -- opcional
 ```
 Totalmente independente de `container` no sentido de wiring (não precisa de
-nada em `modmain.lua`), mas só faz sentido combinado com um container (é
-assim que o icebox/icepack usam) — implementado como `container.preservation`.
+nada em `modmain.lua`), mas só faz sentido combinado com um container —
+implementado como `container.preservation`.
+
+**Correção (sessão de estruturas):** a frase original aqui dizia que
+`icebox`/`icepack` vanilla usam esse componente — **falso**, conferido direto
+em `Original/prefabs/prefabs/icebox.lua` e `icepack.lua`. Os dois só têm
+`inst:AddTag("fridge")`; quem faz o efeito é `perishable.lua`, que dá um
+multiplicador FIXO (`TUNING.PERISH_FRIDGE_MULT`) pra qualquer item guardado
+num contêiner com essa tag — não é configurável, e não usa `preserver`.
+O componente `preserver` é real, mas quem de fato o usa no jogo base é outro
+grupo de contêineres: `fish_box`, `saltbox`, `sisturn`, `seedpouch`,
+`pirate_stash`, `beargerfur_sack`. `container.preservation` (nosso campo)
+continua correto como mecanismo — só o exemplo de referência estava errado.
 
 **REDESENHADO com o mesmo mod ("Automation Farm"):** o modo "vanilla" deixou
 de ser um preset fixo com grid copiado à mão. Esse mod faz algo mais simples

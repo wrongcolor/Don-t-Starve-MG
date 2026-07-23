@@ -80,6 +80,16 @@ function needsDaySpawner(structure: StructureDef): boolean {
   return structure.daySpawner !== undefined
 }
 
+// Every other prefab a structure might reference at runtime (SpawnPrefab calls
+// outside its own fn()) — listed in its own `prefabs` table for preloading, same
+// convention creature.ts's herd manager uses.
+function referencedPrefabs(structure: StructureDef): string[] {
+  const prefabs: string[] = []
+  if (structure.daySpawner) prefabs.push(structure.daySpawner.prefab)
+  if (structure.resident) prefabs.push(structure.resident.prefab)
+  return prefabs
+}
+
 // Confirmed in the base game's own beefaloherd.lua: TheWorld:ListenForEvent
 // ("phasechanged", fn) + checking phase == "day" is the standard "once per day"
 // trigger, and math.random() < chance the standard probability roll (same file,
@@ -148,6 +158,21 @@ function componentBlock(structure: StructureDef): string {
     lines.push('    inst:ListenForEvent("phasechanged", trydayspawn, TheWorld)')
   }
 
+  if (structure.resident) {
+    const upper = toUpperSnake(structure.id)
+    lines.push('')
+    lines.push('    inst:AddComponent("spawner")')
+    lines.push(`    inst.components.spawner:Configure(${luaString(structure.resident.prefab)}, TUNING.${upper}_RESPAWN_DELAY)`)
+  }
+
+  if (structure.prototyper) {
+    lines.push('')
+    lines.push('    inst:AddComponent("prototyper")')
+    lines.push(
+      `    inst.components.prototyper.trees = TechTree.Create({ ${structure.prototyper.category} = ${structure.prototyper.tier} })`,
+    )
+  }
+
   return lines.join('\n')
 }
 
@@ -159,6 +184,10 @@ export function generateStructurePrefab(structure: StructureDef): string {
   const lines: string[] = []
   const build = resolveAnimationBuild(structure)
 
+  if (structure.prototyper) {
+    lines.push('local TechTree = require("techtree")')
+    lines.push('')
+  }
   lines.push('local assets =')
   lines.push('{')
   if (isVanillaAnimation(structure)) {
@@ -179,7 +208,8 @@ export function generateStructurePrefab(structure: StructureDef): string {
   if (needsDaySpawner(structure)) {
     lines.push(...daySpawnerFunctionBlock(structure))
   }
-  lines.push(needsDaySpawner(structure) ? `local prefabs = { ${luaString(structure.daySpawner!.prefab)} }` : 'local prefabs = {}')
+  const prefabs = referencedPrefabs(structure)
+  lines.push(prefabs.length > 0 ? `local prefabs = { ${prefabs.map(luaString).join(', ')} }` : 'local prefabs = {}')
   lines.push('')
   lines.push('local function fn()')
   lines.push('    local inst = CreateEntity()')

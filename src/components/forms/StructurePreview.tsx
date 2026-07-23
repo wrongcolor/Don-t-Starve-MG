@@ -14,6 +14,8 @@ export function StructurePreview({ structure }: { structure: Partial<StructureDe
   if (structure.container?.preservation) tags.push('🧊 Preserves contents')
   if (structure.teleportPair) tags.push('🌀 Teleporter pair')
   if (structure.daySpawner) tags.push('🌙 Chance to spawn a mob each day')
+  if (structure.resident) tags.push('🐷 Houses a resident')
+  if (structure.prototyper) tags.push('🔬 Crafting station')
 
   return (
     <div className="preview">
@@ -41,6 +43,22 @@ export function StructurePreview({ structure }: { structure: Partial<StructureDe
             <div className="preview-stat">
               <span className="lbl">💀 Loot drops</span>
               <span className="val">{structure.loot.length}</span>
+            </div>
+          )}
+          {structure.resident && (
+            <div className="preview-stat">
+              <span className="lbl">🐷 Resident / respawn</span>
+              <span className="val">
+                {structure.resident.prefab} / {structure.resident.respawnDelayDays}d
+              </span>
+            </div>
+          )}
+          {structure.prototyper && (
+            <div className="preview-stat">
+              <span className="lbl">🔬 Unlocks</span>
+              <span className="val">
+                {structure.prototyper.category} {structure.prototyper.tier}
+              </span>
             </div>
           )}
         </div>

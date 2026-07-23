@@ -91,6 +91,42 @@ describe('generateStructureFiles', () => {
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
+  it('wires a persistent single resident via the real spawner component (components/spawner.lua)', () => {
+    const house: StructureDef = { ...structure, id: 'testhouse', resident: { prefab: 'pigman', respawnDelayDays: 2 } }
+    const code = generateStructurePrefab(house)
+    expect(code).toContain('inst:AddComponent("spawner")')
+    expect(code).toContain('inst.components.spawner:Configure("pigman", TUNING.TESTHOUSE_RESPAWN_DELAY)')
+    expect(code).toContain('local prefabs = { "pigman" }')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('lists both daySpawner and resident prefabs together when a structure has both', () => {
+    const both: StructureDef = {
+      ...structure,
+      id: 'testboth',
+      daySpawner: { prefab: 'deerclops', chance: 0.1, range: 40 },
+      resident: { prefab: 'pigman', respawnDelayDays: 2 },
+    }
+    const code = generateStructurePrefab(both)
+    expect(code).toContain('local prefabs = { "deerclops", "pigman" }')
+  })
+
+  it('wires a prototyper via TechTree.Create({ category = tier }) (components/prototyper.lua)', () => {
+    const station: StructureDef = { ...structure, id: 'teststation', prototyper: { category: 'MAGIC', tier: 2 } }
+    const code = generateStructurePrefab(station)
+    expect(code).toContain('local TechTree = require("techtree")')
+    expect(code).toContain('inst:AddComponent("prototyper")')
+    expect(code).toContain('inst.components.prototyper.trees = TechTree.Create({ MAGIC = 2 })')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('does not require techtree when there is no prototyper', () => {
+    const code = generateStructurePrefab(structure)
+    expect(code).not.toContain('require("techtree")')
+  })
+
   it('reuses a vanilla build without declaring an ANIM asset when animation.source is vanilla', () => {
     const vanilla: StructureDef = { ...structure, id: 'testvanillastructure', animation: { source: 'vanilla', build: 'researchlab' } }
     const code = generateStructurePrefab(vanilla)

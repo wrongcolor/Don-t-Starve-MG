@@ -102,6 +102,15 @@ describe('generateModMain', () => {
     expect(spawnerCode).toContain('GLOBAL.TUNING.TESTSTRUCTURE_SPAWN_RANGE = 40')
   })
 
+  it('sets TUNING values for a resident structure (components/spawner.lua)', () => {
+    const withResident = {
+      ...sampleProject,
+      structures: [{ ...sampleProject.structures[0], resident: { prefab: 'pigman', respawnDelayDays: 2 } }],
+    }
+    const residentCode = generateModMain(withResident)
+    expect(residentCode).toContain('GLOBAL.TUNING.TESTSTRUCTURE_RESPAWN_DELAY = TUNING.TOTAL_DAY_TIME * 2')
+  })
+
   it('wires the Combine action once when at least one item is combinable', () => {
     const withCombinable = {
       ...sampleProject,
