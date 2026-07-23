@@ -23,13 +23,33 @@ export function containerCustomWidgetBuild(item: ItemDef): string {
 
 // Items with no animation choice keep the previous default: a custom build named
 // after the item's own id, which the user must supply as anim/<id>.zip (see README).
+// 'vanillaHat' resolves to the hat's real build name ("hat_<name>", confirmed in
+// hats.lua) — this is also what the swap_hat override in hatEquipFunctionsBlock ends
+// up using, since a hat's own build IS its swap_hat build (no separate swap_* file).
 function resolveAnimationBuild(item: ItemDef): string {
   const anim = item.animation ?? { source: 'custom' as const }
+  if (anim.source === 'vanillaHat') return `hat_${anim.hatName}`
   return anim.source === 'vanilla' ? anim.build : item.id
 }
 
 function isVanillaAnimation(item: ItemDef): boolean {
-  return (item.animation ?? { source: 'custom' as const }).source === 'vanilla'
+  const source = (item.animation ?? { source: 'custom' as const }).source
+  return source === 'vanilla' || source === 'vanillaHat'
+}
+
+// Confirmed in hats.lua's simple() constructor: a hat's AnimState bank is NOT the
+// same string as its build (unlike every other reuse mode this tool models) — bank
+// is "<name>hat", build is "hat_<name>". Only matters for 'vanillaHat'; every other
+// mode keeps bank === build.
+function resolveAnimationBank(item: ItemDef): string {
+  const anim = item.animation
+  return anim?.source === 'vanillaHat' ? `${anim.hatName}hat` : resolveAnimationBuild(item)
+}
+
+// Confirmed in hats.lua: a hat's idle animation clip is named "anim", not "idle"
+// like every other build this tool reuses.
+function resolveIdleClip(item: ItemDef): string {
+  return item.animation?.source === 'vanillaHat' ? 'anim' : 'idle'
 }
 
 // Confirmed against axe.lua/pickaxe.lua/spear.lua/hambat.lua (docs/dst-knowledge/patterns.md#2):
@@ -49,13 +69,18 @@ export function isStructure(item: ItemDef): boolean {
 }
 
 // Confirmed in armor_grass.lua/armor_wood.lua/armor_marble.lua/armor_sanity.lua/
-// armor_bramble.lua (docs/dst-knowledge/patterns.md#11): body armor uses a
-// DIFFERENT equip mechanism than hand-held items — swap_body instead of
-// swap_object, no separate swap build, ClearOverrideSymbol instead of arm
-// show/hide. If an item is somehow both (weapon + armor), handheld wins so we
-// don't generate two conflicting onequip/onunequip pairs.
-export function isBodyArmor(item: ItemDef): boolean {
+// armor_bramble.lua (docs/dst-knowledge/patterns.md#11) for body armor, and in
+// hats.lua for head armor: both use a DIFFERENT equip mechanism than hand-held
+// items (own build instead of a separate swap_<id> build, ClearOverrideSymbol
+// instead of arm show/hide) — see armorEquipFunctionsBlock/hatEquipFunctionsBlock
+// for the exact per-slot visuals. If an item is somehow both (weapon + armor),
+// handheld wins so we don't generate two conflicting onequip/onunequip pairs.
+export function isWearableArmor(item: ItemDef): boolean {
   return item.armor !== undefined && !isHandheld(item)
+}
+
+function armorEquipSlot(item: ItemDef): 'body' | 'head' {
+  return item.armor?.equipSlot === 'head' ? 'head' : 'body'
 }
 
 function needsArmorTakeDamage(item: ItemDef): boolean {
@@ -408,11 +433,11 @@ function componentBlock(item: ItemDef): string {
     }
   }
 
-  if (isHandheld(item) || isBodyArmor(item)) {
+  if (isHandheld(item) || isWearableArmor(item)) {
     lines.push('')
     lines.push('    inst:AddComponent("equippable")')
-    if (isBodyArmor(item)) {
-      lines.push('    inst.components.equippable.equipslot = EQUIPSLOTS.BODY')
+    if (isWearableArmor(item)) {
+      lines.push(`    inst.components.equippable.equipslot = EQUIPSLOTS.${armorEquipSlot(item).toUpperCase()}`)
     }
     lines.push('    inst.components.equippable:SetOnEquip(onequip)')
     lines.push('    inst.components.equippable:SetOnUnequip(onunequip)')
@@ -507,6 +532,11 @@ function componentBlock(item: ItemDef): string {
     lines.push('    inst.components.writeable:SetOnWrittenFn(onnamed)')
   }
 
+  if (item.moonrelic) {
+    lines.push('')
+    lines.push('    inst:AddComponent("moonrelic")')
+  }
+
   return lines.join('\n')
 }
 
@@ -554,6 +584,34 @@ function armorEquipFunctionsBlock(item: ItemDef): string[] {
   ]
 }
 
+// Confirmed in hats.lua's shared MakeHat() equip logic (e.g. the "football" head-slot
+// armor at fns.football, which reuses the exact same hat visuals as a non-armor hat —
+// no "blocked" sound override the way body armor gets). Simplified down to the core
+// visual toggles: drops skin-build variants, the "headbase_hat" override parameter,
+// and the HEAD_HAT_HELM/HEAD_HAT_NOHELM masking-conflict symbols (those only matter
+// when two different head slots can conflict, which this tool doesn't model).
+function hatEquipFunctionsBlock(item: ItemDef): string[] {
+  const build = resolveAnimationBuild(item)
+  return [
+    'local function onequip(inst, owner)',
+    `    owner.AnimState:OverrideSymbol("swap_hat", ${luaString(build)}, "swap_hat")`,
+    '    owner.AnimState:Show("HAT")',
+    '    owner.AnimState:Show("HAIR_HAT")',
+    '    owner.AnimState:Hide("HAIR_NOHAT")',
+    '    owner.AnimState:Hide("HAIR")',
+    'end',
+    '',
+    'local function onunequip(inst, owner)',
+    '    owner.AnimState:ClearOverrideSymbol("swap_hat")',
+    '    owner.AnimState:Hide("HAT")',
+    '    owner.AnimState:Hide("HAIR_HAT")',
+    '    owner.AnimState:Show("HAIR_NOHAT")',
+    '    owner.AnimState:Show("HAIR")',
+    'end',
+    '',
+  ]
+}
+
 // Assets: when the item reuses a vanilla build (item.animation.source === 'vanilla'),
 // no Asset("ANIM", ...) is declared — that animation data is already loaded by the
 // base game. Otherwise this is a PLACEHOLDER: the user must supply anim/<id>.zip
@@ -589,8 +647,8 @@ export function generateItemPrefab(item: ItemDef): string {
   lines.push('')
   if (handheld) {
     lines.push(...equipFunctionsBlock(item))
-  } else if (isBodyArmor(item)) {
-    lines.push(...armorEquipFunctionsBlock(item))
+  } else if (isWearableArmor(item)) {
+    lines.push(...(armorEquipSlot(item) === 'head' ? hatEquipFunctionsBlock(item) : armorEquipFunctionsBlock(item)))
   }
   if (needsOnAttack(item)) {
     lines.push(...onAttackFunctionBlock(item))
@@ -634,9 +692,9 @@ export function generateItemPrefab(item: ItemDef): string {
     lines.push('    MakeInventoryPhysics(inst)')
   }
   lines.push('')
-  lines.push(`    inst.AnimState:SetBank(${luaString(build)})`)
+  lines.push(`    inst.AnimState:SetBank(${luaString(resolveAnimationBank(item))})`)
   lines.push(`    inst.AnimState:SetBuild(${luaString(build)})`)
-  lines.push('    inst.AnimState:PlayAnimation("idle")')
+  lines.push(`    inst.AnimState:PlayAnimation(${luaString(resolveIdleClip(item))})`)
   lines.push('')
   if (isStructure(item)) {
     lines.push('    inst:AddTag("structure")')

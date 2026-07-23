@@ -23,7 +23,7 @@ export function ItemPreview({ item }: { item: Partial<ItemDef> }) {
   if (item.recipe?.placer) tags.push('🏗️ Structure (not an inventory item)')
   if (item.category === 'tool') tags.push('🔧 Tool')
   if (item.weapon) tags.push('⚔️ Weapon')
-  if (item.armor) tags.push('🛡️ Armor')
+  if (item.armor) tags.push(item.armor.equipSlot === 'head' ? '⛑️ Helmet' : '🛡️ Armor')
   if (item.weapon?.ranged?.onHitEffect === 'ignite') tags.push('🔥 Burns')
   if (item.weapon?.ranged?.onHitEffect === 'freeze') tags.push('❄️ Freezes')
   if (item.spellEffect) tags.push('✨ Magic')
@@ -37,6 +37,7 @@ export function ItemPreview({ item }: { item: Partial<ItemDef> }) {
   if (item.teleportPair) tags.push('🌀 Teleporter pair')
   if (item.nameable) tags.push('✏️ Renameable')
   if (item.rechargeable) tags.push('🔋 Rechargeable')
+  if (item.moonrelic) tags.push('🌙 Portal idol')
 
   return (
     <div className="preview">

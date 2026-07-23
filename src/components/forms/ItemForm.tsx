@@ -6,6 +6,7 @@ import {
   TECH_LEVELS,
   RECIPE_FILTERS,
   VANILLA_ITEM_BUILDS,
+  VANILLA_HAT_BUILDS,
   TOOL_ACTIONS,
   ON_HIT_EFFECTS,
   SPELL_EFFECTS,
@@ -81,7 +82,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const { fields, append, remove } = useFieldArray({ control, name: 'recipe.ingredients' })
   const spellbookSpells = useFieldArray({ control, name: 'spellbook.spells' as never })
 
-  const [animationSource, setAnimationSource] = useState<'custom' | 'vanilla'>(
+  const [animationSource, setAnimationSource] = useState<'custom' | 'vanilla' | 'vanillaHat'>(
     (initialItem ?? emptyItem).animation?.source ?? 'custom',
   )
   const [templateKey, setTemplateKey] = useState<string | null>(null)
@@ -119,6 +120,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const isPlacer = watched.recipe?.placer === true
   const enableTeleportPair = watched.teleportPair === true
   const handheld = category === 'tool' || enableWeapon
+  const isHeadArmor = watched.armor?.equipSlot === 'head'
 
   const onCategoryChange = (nextCategory: ItemDef['category']) => {
     if (nextCategory === 'food' && !watched.edible) {
@@ -126,6 +128,20 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
     } else if (nextCategory !== 'food' && watched.edible) {
       setValue('edible', undefined)
       setValue('onEatBuff', undefined)
+    }
+  }
+
+  // Football Helmet is this tool's default reused visual for anything worn on the
+  // head — switching to the head slot auto-picks it (if the user hasn't already
+  // chosen an animation of their own), and switching away resets to custom, since a
+  // vanillaHat build only makes sense on a head-slot item.
+  const onEquipSlotChange = (nextSlot: 'body' | 'head') => {
+    if (nextSlot === 'head' && animationSource === 'custom') {
+      setAnimationSource('vanillaHat')
+      setValue('animation', { source: 'vanillaHat', hatName: VANILLA_HAT_BUILDS[0].name })
+    } else if (nextSlot === 'body' && animationSource === 'vanillaHat') {
+      setAnimationSource('custom')
+      setValue('animation', { source: 'custom' })
     }
   }
 
@@ -232,6 +248,20 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   />
                   Reuse an existing in-game animation
                 </label>
+                {isHeadArmor && (
+                  <label>
+                    <input
+                      type="radio"
+                      name="item-animation-source"
+                      checked={animationSource === 'vanillaHat'}
+                      onChange={() => {
+                        setAnimationSource('vanillaHat')
+                        setValue('animation', { source: 'vanillaHat', hatName: VANILLA_HAT_BUILDS[0].name })
+                      }}
+                    />
+                    Reuse a vanilla hat build (head slot)
+                  </label>
+                )}
               </div>
 
               {animationSource === 'vanilla' && (
@@ -243,6 +273,21 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     {VANILLA_ITEM_BUILDS.map((b) => (
                       <option key={b.build} value={b.build}>
                         {b.label}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+              )}
+
+              {animationSource === 'vanillaHat' && (
+                <FormField
+                  label="Hat"
+                  error={(errors.animation as { hatName?: { message?: string } } | undefined)?.hatName?.message}
+                >
+                  <select className={inputClass} {...register('animation.hatName' as const)}>
+                    {VANILLA_HAT_BUILDS.map((h) => (
+                      <option key={h.name} value={h.name}>
+                        {h.label}
                       </option>
                     ))}
                   </select>
@@ -660,6 +705,15 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     <input type="number" step="0.01" min="0.01" max="1" className={inputClass} {...register('armor.absorption', { valueAsNumber: true })} />
                   </FormField>
                 </div>
+                <FormField label="Equip slot">
+                  <select
+                    className={inputClass}
+                    {...register('armor.equipSlot', { onChange: (e) => onEquipSlotChange(e.target.value) })}
+                  >
+                    <option value="body">Body (chestplate/suit)</option>
+                    <option value="head">Head (helmet/hat)</option>
+                  </select>
+                </FormField>
                 <div className="checks">
                   <label>
                     <input type="checkbox" {...register('armor.flammable')} />
@@ -955,16 +1009,28 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
             )}
           </Fieldset>
 
-          <Fieldset legend="Naming" step={9}>
+          <Fieldset legend="Special mechanics" step={9}>
             <div className="checks">
               <label>
                 <input type="checkbox" {...register('nameable')} />
                 Player can rename it (like signs/gravestones)
               </label>
             </div>
-            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: 8 }}>
+            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: 8, marginBottom: 8 }}>
               This sets up the item itself (named + writeable). Triggering the rename prompt with the vanilla feather
               pencil needs a manual check in-game — see the generated README.
+            </p>
+
+            <div className="checks">
+              <label>
+                <input type="checkbox" {...register('moonrelic')} />
+                Can be given to the Celestial Portal (character-switch idol)
+              </label>
+            </div>
+            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: 8 }}>
+              Confirmed straight from the base game (moonrockidol.lua): this is the entire mechanic behind "give an
+              idol to the portal to pick a new survivor" — no matter what else the item does, holding it lets the
+              player GIVE it to the Celestial Portal.
             </p>
           </Fieldset>
         </div>

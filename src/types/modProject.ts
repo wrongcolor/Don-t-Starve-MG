@@ -90,6 +90,18 @@ export const VANILLA_ITEM_BUILDS = [
   { build: 'nightmarefuel', label: 'Nightmare fuel' },
 ] as const
 
+// Confirmed in hats.lua's shared MakeHat(name) constructor: unlike VANILLA_ITEM_BUILDS
+// above, a hat's OWN bank/build/idle-clip names don't follow the simple "same string
+// for everything, clip is idle" pattern — bank is "<name>hat", build is "hat_<name>",
+// and the idle clip is "anim" (see resolveHatBank/resolveIdleClip in item.ts). Kept as
+// a separate curated list (and a separate itemAnimationSchema variant, 'vanillaHat')
+// instead of folding into VANILLA_ITEM_BUILDS so the generator always knows which
+// naming convention applies. "football" is the default reused build for any new
+// head-slot item — first in the list.
+export const VANILLA_HAT_BUILDS = [
+  { name: 'football', label: 'Football Helmet (default)' },
+] as const
+
 // "no_hunger" and "faster_walk" used to live here as fixed on/off perks
 // (hungerrate = 0, speed multiplier = 1.25). Removed in favor of the general
 // damageMultiplier/hungerRateMultiplier/walkSpeedMultiplier fields below
@@ -142,10 +154,14 @@ export const ingredientSchema = z.object({
 
 // 'vanilla' reuses an existing base-game build (no art required from the user).
 // 'custom' keeps the previous behavior: bank/build named after the item's own id,
-// which the user must supply as anim/<id>.zip (see README).
+// which the user must supply as anim/<id>.zip (see README). 'vanillaHat' is a THIRD,
+// separate reuse mode (not just 'vanilla' with a hat name in `build`) because hats
+// use a different bank/build/clip naming convention than every other vanilla build
+// this tool reuses — see VANILLA_HAT_BUILDS above.
 export const itemAnimationSchema = z.discriminatedUnion('source', [
   z.object({ source: z.literal('custom') }),
   z.object({ source: z.literal('vanilla'), build: z.string().min(1, 'Choose an animation') }),
+  z.object({ source: z.literal('vanillaHat'), hatName: z.string().min(1, 'Choose a hat') }),
 ])
 
 // Confirmed in staff.lua (firestaff/icestaff): a "magic" weapon deals 0 contact
@@ -303,6 +319,9 @@ export const itemDefSchema = z
         dapperness: z.number().optional(),
         weakness: z.object({ tag: z.string().min(1), extraDamage: z.number().min(0) }).optional(),
         sanityLossOnHitPercent: z.number().min(0).max(1).optional(),
+        // Confirmed in hats.lua (EQUIPSLOTS.HEAD, used by every hat) — defaults to
+        // 'body' (the previous, only behavior) so existing armor items are unaffected.
+        equipSlot: z.enum(['body', 'head']).optional(),
       })
       .optional(),
     equipWalkSpeedMult: z.number().min(0.1).max(3).optional(),
@@ -332,6 +351,13 @@ export const itemDefSchema = z
     // source whether that risks breaking the pencil's existing sign-writing
     // behavior, so it's left as a manual, documented step (see README).
     nameable: z.boolean().optional(),
+    // Confirmed directly in the base game (moonrockidol.lua + componentactions.lua):
+    // AddComponent("moonrelic") is the entire mechanic — componentactions.lua's
+    // built-in moonrelic handler already offers ACTIONS.GIVE against any
+    // "moontrader"-tagged target (the Celestial Portal) whenever this item is held,
+    // which is how a player hands an idol to the portal to unlock a new character.
+    // No extra wiring needed; the base game does the rest.
+    moonrelic: z.boolean().optional(),
     // Adapted from a real published Workshop mod ("Wanda Extended: The
     // Shifting Watch", see docs/dst-knowledge/patterns.md#26) — confirmed
     // real API: rechargeable is a THIRD durability model alongside

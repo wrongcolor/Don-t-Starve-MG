@@ -245,6 +245,57 @@ describe('generateItemFiles', () => {
     expect(itemDefSchema.safeParse(withoutCondition).success).toBe(false)
   })
 
+  it('equips head-slot armor via swap_hat (hats.lua) instead of swap_body, with no blocked-sound override', () => {
+    const helm: ItemDef = { ...armor, armor: { ...armor.armor!, equipSlot: 'head' } }
+    const code = generateItemPrefab(helm)
+    expect(code).toContain('inst.components.equippable.equipslot = EQUIPSLOTS.HEAD')
+    expect(code).toContain('owner.AnimState:OverrideSymbol("swap_hat", "testarmor", "swap_hat")')
+    expect(code).toContain('owner.AnimState:Show("HAT")')
+    expect(code).toContain('owner.AnimState:ClearOverrideSymbol("swap_hat")')
+    expect(code).not.toContain('swap_body')
+    expect(code).not.toContain('onblocked_armor')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('defaults armor to the body slot when equipSlot is not set', () => {
+    const code = generateItemPrefab(armor)
+    expect(code).toContain('inst.components.equippable.equipslot = EQUIPSLOTS.BODY')
+  })
+
+  it('wires the moonrelic component so the item can be given to the Celestial Portal', () => {
+    expect(generateItemPrefab(armor)).not.toContain('moonrelic')
+
+    const idol: ItemDef = { ...armor, moonrelic: true }
+    const code = generateItemPrefab(idol)
+    expect(code).toContain('inst:AddComponent("moonrelic")')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('reuses a vanilla hat build with its own bank/build/clip naming convention (hats.lua)', () => {
+    const helm: ItemDef = {
+      ...armor,
+      armor: { ...armor.armor!, equipSlot: 'head' },
+      animation: { source: 'vanillaHat', hatName: 'football' },
+    }
+    const code = generateItemPrefab(helm)
+    expect(code).not.toContain('Asset("ANIM"')
+    expect(code).toContain('-- Build "hat_football" reaproveitado do jogo base, sem asset próprio necessário.')
+    expect(code).toContain('inst.AnimState:SetBank("footballhat")')
+    expect(code).toContain('inst.AnimState:SetBuild("hat_football")')
+    expect(code).toContain('inst.AnimState:PlayAnimation("anim")')
+    expect(code).toContain('owner.AnimState:OverrideSymbol("swap_hat", "hat_football", "swap_hat")')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('keeps bank/build/clip identical (the non-hat convention) for a plain custom or vanilla build', () => {
+    expect(generateItemPrefab(armor)).toContain('inst.AnimState:PlayAnimation("idle")')
+    const vanillaBuild: ItemDef = { ...armor, animation: { source: 'vanilla', build: 'trinket_1' } }
+    const code = generateItemPrefab(vanillaBuild)
+    expect(code).toContain('inst.AnimState:SetBank("trinket_1")')
+    expect(code).toContain('inst.AnimState:SetBuild("trinket_1")')
+    expect(code).toContain('inst.AnimState:PlayAnimation("idle")')
+  })
+
   it('wires the edible component with foodtype and TUNING-driven hunger/health/sanity values', () => {
     const code = generateItemPrefab(food)
     expect(code).toContain('inst:AddComponent("edible")')
