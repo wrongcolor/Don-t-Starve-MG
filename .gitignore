@@ -15,6 +15,11 @@ dist-ssr
 # Generated mods used for manual/in-game testing (see scripts/build-test-mods.ts)
 /test-mods
 
+# Klei's real DST source, used locally as ground-truth reference. Copyrighted
+# third-party code — never track it (see docs/dst-knowledge/README.md).
+/Original
+*.rar
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
