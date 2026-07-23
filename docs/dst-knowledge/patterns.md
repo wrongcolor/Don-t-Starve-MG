@@ -1443,3 +1443,75 @@ pulado de propósito: 5261 linhas, sistema de loja/NPC bespoke demais).
 "naughtiness") ficam fora da stategraph. Gatilho de transformação
 lavae→mímico/mariposa: zero menção no arquivo, confirmado que fica em outro
 lugar (componente/brain), não na stategraph.
+
+## 41. Mais 6 stategraphs reais (monkey, mosquito, mossling, moonpig, otter, penguin)
+
+Continuação das seções 36-40 (agora 34 criaturas cobertas). **Correção de
+premissa:** `SGmoonpig.lua` NÃO é uma variante lunar do pig pacífico da
+seção 36 — todo o arquivo usa clipes/sons `were_*`
+(`dontstarve/creatures/werepig/...`). É o werepig lunar hostil (minerador de
+moonbase), sem relação nenhuma com o `funnyidle` do pig comum.
+
+**Clipes reais confirmados:**
+
+| Criatura | idle | mover | atacar | hit | death |
+|---|---|---|---|---|---|
+| monkey | `idle_loop` | `walk_pre/_loop/_pst` (só anda) | `atk` (melee) ou `throw` (arremesso) | `hit` | `death` |
+| mosquito | `walk_loop` (idle = mesmo clipe do mover) | `walk_loop` | `atk` | `hit` | `death` (ou `explode_pre`→`splat` se `toofat`) |
+| mossling | `idle` | `walk_pre/_loop/_pst` | `atk` (elétrico) ou `spin_pre→spin_loop→spin_pst→spin_pst_loop→spin_pst_loop_pst` | `hit` (default) | `death` (default) |
+| moonpig (werepig lunar) | `were_idle_loop` | só `were_run_pre/_loop/_pst` (sem walk) | `were_atk_pre`→`were_atk` (reaproveitado em `workmoonbase`) | `hit` | `death` |
+| otter | `idle` | `AddSimpleRunStates` (run_pre/_loop/_pst) | `bite` (override do default) | `hit` | `death` (+`death_idle` em água) |
+| penguin | `idle_loop` | `slide_bounce→slide_loop→slide_post` (deslizando) ou `walk` (start=loop) | `atk_pre`→`atk` (parado) ou `slide_bounce` reaproveitado em `runningattack` | `hit` | `death` |
+
+**Mecânicas novas confirmadas, generalizáveis, não modeladas hoje:**
+
+- **Seleção de modo de ataque por distância calculada no evento
+  `doattack`** (monkey: compara `GetDistanceSqToInst` contra
+  `MONKEY_MELEE_RANGE^2` pra escolher melee vs. arremesso, decidido antes de
+  entrar em qualquer estado). Mais um eixo de "modo de ataque" catalogado —
+  soma-se a distância (aqui), plataforma (gnarwail, #39), tag persistente
+  (lightninggoat, #40) e agora tag de locomoção corrente (penguin, abaixo).
+- **Morte condicional em detonação de área, excluindo quem alimentou por
+  último** (mosquito: se `inst.toofat`, entra em `splat` em vez de `death` —
+  no frame 11 varre `TheSim:FindEntities` num raio e aplica dano a tudo com
+  tag `_combat` exceto aliados de `inst.lastleader`, depois `inst:Remove()`).
+- **Troca permanente de moveset por morte de entidade dependente**
+  (mossling: `doattack` escolhe `attack` normal ou a cadeia bespoke `spin_*`
+  conforme `inst.mother_dead` — não é interrupção pontual, é permanente).
+- **Transformação temporária de build/tamanho durante um loop de combate,
+  com saída por tempo OU distância** (mossling `spin_loop`: troca pra
+  `mossling_angry_build`, cresce via `sizetweener:StartTween`, conta
+  `inst.numSpins`, sai por `ShouldStopSpin` = raio do jogador OU
+  `numSpins >= 2`).
+- **Interrupção mid-anim que força o brain a agir imediatamente**
+  (mossling `action`/comer remove `"busy"` no meio do timeline E chama
+  `inst.brain:ForceUpdate()` — evolução do padrão de interrupção graduada da
+  seção 38, agora acordando o brain em vez de só liberar tags).
+- **Reanimação tipo gárgula: pausa a anim exatamente na pose e retoma após
+  delay configurável** (moonpig: `death(inst, reanimating)` chama
+  `AnimState:Pause()` em vez de tocar animação, com
+  `TimeEvent(TUNING.GARGOYLE_REANIMATE_DELAY, ...)` chamando `Resume()`
+  depois; um estado `reanimate` dedicado restaura a pose via `SetFrame`/
+  `SetTime`). Padrão reaproveitável pra qualquer inimigo tipo estátua.
+- **Roubo com anim de ataque seguido de devolução condicionada a posição
+  espacial** (otter: `steal` reaproveita a anim `attack`; depois `toss_fish`
+  checa `target:IsOnOcean(false)` antes de devolver o peixe roubado
+  especificamente pro oceano).
+- **Som de movimento em loop precisa ser morto defensivamente em TODO
+  estado de saída, não só no próprio `onexit`** (penguin: `SoundEmitter:
+  KillSound("slide")` repetido em quase todo `onenter` de outros estados —
+  idle, run_start/stop, walk_start/stop, eat_pre, pickup, migrate, attack,
+  taunt, death — pra não vazar o som entre transições).
+- **Ramificação de ataque pela tag de locomoção corrente no momento do
+  evento** (penguin: `doattack` checa `inst.sg:HasStateTag("running")` pra
+  ir pra `attack` parado ou `runningattack` deslizando).
+- **Dano recebido enquanto segura item carregado força soltar o item**
+  (penguin: `eat_loop`/`pickup` escutam `"attacked"` no meio da animação e
+  chamam `TryToDropFood` — interrupção por dano específica de estar
+  carregando algo).
+
+**Fora de escopo (bespoke demais):** roubo de item do monkey (`ACTIONS.STEAL`
+roteado pro estado genérico `action`, já é padrão comum, não novo);
+`AddAmphibiousCreatureHopStates`/`AddLunarPreRiftMutationStates` do
+otter/penguin são helpers de framework já existentes, não mecânica nova
+dessas criaturas especificamente.
