@@ -16,6 +16,7 @@ import { castawaysCove } from '../mods/castawaysCove'
 import { eternalBlade } from '../mods/eternalBlade'
 import { vex } from '../mods/vex'
 import { adventurersToolkit } from '../mods/adventurersToolkit'
+import { uShapeCourtyard } from '../mods/uShapeCourtyard'
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const outputRoot = path.join(projectRoot, 'test-mods')
@@ -30,6 +31,7 @@ const TEST_PROJECTS = {
   eternal_blade: eternalBlade,
   vex,
   adventurers_toolkit: adventurersToolkit,
+  u_shape_courtyard: uShapeCourtyard,
 }
 
 async function writeModFiles(slug: string, files: Record<string, string>) {
