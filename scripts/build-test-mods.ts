@@ -18,6 +18,7 @@ import { vex } from '../mods/vex'
 import { adventurersToolkit } from '../mods/adventurersToolkit'
 import { uShapeCourtyard } from '../mods/uShapeCourtyard'
 import { bogLurker } from '../mods/bogLurker'
+import { meadowHopper } from '../mods/meadowHopper'
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const outputRoot = path.join(projectRoot, 'test-mods')
@@ -34,6 +35,7 @@ const TEST_PROJECTS = {
   adventurers_toolkit: adventurersToolkit,
   u_shape_courtyard: uShapeCourtyard,
   bog_lurker: bogLurker,
+  meadow_hopper: meadowHopper,
 }
 
 async function writeModFiles(slug: string, files: Record<string, string>) {
