@@ -2358,3 +2358,77 @@ RECTANGLE_EDGE`) mais o loader de mapas Tiled exportados
 propriedades customizadas por objeto). Reconfirma (não muda) a decisão da
 seção 16: `static_layouts`/`countstaticlayouts` seguem fora de escopo —
 são blueprints artesanais, não generalizáveis por formulário.
+
+## 53. `Room.tags` livre pode quebrar a geração do mundo inteiro — **BUG REAL CONFIRMADO**
+
+Continuação da seção 52, agora nos arquivos de placement/distribuição de
+`scripts/map/`. Achado mais importante: `storygen.lua` (linha ~1179, dentro
+de `Story:GetExtrasForRoom`) processa cada tag de uma Room assim:
+
+```lua
+for i,tag in ipairs(next_room.tags) do
+    local type, extra = self.map_tags.Tag[tag](self.map_tags.TagData, self.level)
+```
+
+**`self.map_tags.Tag` é um dicionário fechado** (`maptags.lua`, chave→função)
+com um conjunto específico de nomes reais. `next_room.tags[i]` é usado
+como chave DIRETA nesse dicionário e o resultado é **chamado como função
+sem checar nil**. Se a tag não existir na enum, `self.map_tags.Tag[tag]`
+é `nil` e `nil(...)` quebra com `attempt to call a nil value` —
+**geração do mundo inteiro falha**, não um erro silencioso ou cosmético.
+
+**Confirmado que isso afeta este projeto diretamente**: `roomDefSchema.tags`
+(`src/types/worldContent.ts`) é `z.array(z.string().min(1))` — texto livre,
+sem validação contra enum nenhuma — e `RoomForm.tsx` (`src/components/forms/
+RoomForm.tsx:94`) expõe um campo de texto livre pra cada tag com placeholder
+`"e.g. Town"`, convidando o usuário a digitar qualquer string. Qualquer tag
+fora da lista real quebra o mod gerado.
+
+**Enum real confirmada em `maptags.lua`** (chaves "seguras" — efeito
+`"TAG"`/`"GLOBALTAG"` puro, sem side-effect de spawnar conteúdo único do
+jogo base): `Maze`, `MazeEntrance`, `Labyrinth`, `LabyrinthEntrance`,
+`OverrideCentroid`, `RoadPoison`, `ForceConnected`, `ForceDisconnected`,
+`OneshotWormhole`, `ExitPiece`, `Town`, `Nightmare`, `Atrium`, `Mist`,
+`sandstorm`, `nohunt`, `moonhunt`, `nohasslers`, `not_mainland`,
+`lunacyarea`, `GrottoWarEntrance`, `fumarolearea`. Existem mais 9 chaves
+(`Chester_Eyebone`, `StagehandGarden`, `Terrarium_Spawner`,
+`CharlieStage_Spawner`, `Junkyard_Spawner`, `Balatro_Spawner`,
+`Hutch_Fishbowl`, `Astral_1`, `Astral_2`) ligadas a spawns únicos e
+específicos do jogo base — tecnicamente válidas, mas não fazem sentido
+como opção genérica de formulário (roubam conteúdo único, ex. o osso do
+Chester).
+
+**Confirmado em código ativo do próprio motor**: `storygen.lua` (linha
+~1163) usa `tags = {"RoadPoison", "ForceDisconnected"}` numa Room interna
+(`LOOP_BLANK_SUB`) — reforça que tags reais são curtas e específicas dessa
+lista, nunca texto descritivo livre como `"Perigoso"` ou `"Zona de spawn"`.
+
+**Status:** gap de correção real, não só de cobertura — diferente da
+maioria das seções anteriores (que documentam mecânica não modelada), este
+é candidato direto a virar `z.enum` fechado em `roomDefSchema.tags` e um
+`<select>`/checkbox no `RoomForm` em vez de texto livre.
+
+**Outros achados desta leva, sem novidade de escopo:**
+
+- `placement.lua` **não é** o algoritmo de `countprefabs`/`distributeprefabs`
+  — é posicionamento de Rooms INTEIRAS no grafo do mapa (`PlaceNodesMode0`/
+  `PlaceNodesRandom`, decidido pelo motor de `storygen`, não configurável
+  via `AddRoom`/`AddTask`). A fonte real de como prefabs são posicionados
+  DENTRO de uma Room continua não lida.
+- `resource_substitution.lua`: substituição real de prefab (`rock1`→
+  `basalt`/`rock_flintless`, `evergreen`→variantes, etc.) existe, mas só é
+  acionada por `Level.substitutes` (`Level:GetOverridesForTasks`) — uma
+  camada acima de Task que este gerador não toca. Não afeta
+  `fixedPrefabs`/`scatter.prefabs` de uma Room de mod automaticamente.
+- `pointsofinterest.lua`/`protected_resources.lua`/`boons.lua` confirmam
+  (não estendem) que `static_layout`/`countstaticlayouts` seguem fora de
+  escopo — mesmo padrão `{Sandbox=<por bioma>, Layouts=<achatada>}` nos 3
+  arquivos, blueprints artesanais (esqueletos temáticos, guardas de
+  recurso, "cofrinhos" de loot).
+- `locations.lua` confirma `forest`/`cave` como os 2 únicos valores reais
+  de `TASK_LOCATIONS` no jogo normal Together (`lavaarena`/`quagmire` são
+  modos de jogo à parte). Revela um 3º sentido homônimo de
+  `required_prefabs` — agora existe em Room, Task E Location, cada um
+  independente — e campos de `Location.overrides` (`layout_mode`,
+  `wormhole_prefab`, `roads`, etc.) que ficam fora de escopo pela mesma
+  razão que `AddTaskSet` (redefine o modo de jogo inteiro).
