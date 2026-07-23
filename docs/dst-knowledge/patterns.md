@@ -1885,3 +1885,69 @@ panela de oferenda, `AnchorToSaltlick` (mecânica de sal específica),
 máquina de 3 fases temporizadas de saudação do beefalo (interessante mas
 alta complexidade pra generalizar), `ChattyNode` (diálogo ambiente por
 ação — generalizável como flag simples, mas não é decisão de IA em si).
+
+## 47. Mais 9 brains (bat, bird, bird_mutant, bunnyman, butterfly, buzzard, carrat, catcoon, centipede)
+
+Continuação da seção 46 (18 criaturas cobertas). Confirmado: `centipedebrain.lua`
+é mesmo o `archive_centipede` (robô do Arquivo), bate com o `ShouldRoll`/
+evento `"rollattack"`/`CHARGE_RANGE` já identificado na stategraph (#39).
+
+**Mecânicas de decisão novas, generalizáveis, não modeladas hoje:**
+
+- **Recurso mundial compartilhado com teto de "donos" escalado por
+  tamanho** (buzzard: `SIZE_TO_NUM_OWNERS = {tiny=1, ..., large=10}`,
+  tabela estática cross-instância rastreando quem já "reservou" uma
+  carcaça — impede que N buzzards disputem o mesmo recurso além da
+  capacidade dele). Achado mais forte desta leva.
+- **Alvo sugerido/arbitrado em grupo, com fallback se recusado**
+  (buzzard: `combat:SuggestTarget(doer)` — diferente de setar o alvo
+  direto, permite que vários membros do grupo neguem sobreposição de
+  alvo entre si; se a sugestão falha, a árvore cai pro próximo nó).
+- **Engajar ou fugir decidido por posse de recurso, não por HP/tag**
+  (buzzard `DealWithThreat`: defende comida/carcaça perto em vez de fugir,
+  inverso do padrão usual "foge se fraco").
+- **Modo de comportamento ditado por ordens externas de um líder de
+  esquadrão** (bat: `teamattacker:GetOrders()` = HOLD/ATTACK/nil escolhe
+  qual sub-ação a criatura roda).
+- **Roubo de item específico via varredura de inventário/contêiner
+  próximo** (bat: procura "nitre" em players/contêineres no alcance,
+  monta lista de candidatos e sorteia um).
+- **"Reactive brain": árvore inteira colapsa em ação disparada por evento
+  externo empurrado**, não por condição sondada a cada tick (bird: todo
+  nó de folha vira `FlyAway` via `PushEvent`, reagindo a `"threatnear"`/
+  `"gohome"`). Perfil útil como alternativa simples ao polling constante.
+- **Composição dinâmica da árvore por tag de variante, montada no
+  `OnStart`** (bird_mutant: `table.insert` condicional a
+  `bird_mutant_spitter` antes de construir a `PriorityNode`) — variantes
+  da mesma criatura podem ter listas de nós genuinamente diferentes, não
+  só parâmetros diferentes.
+- **Alvo de enxame/grupo compartilhado, atribuído por manager externo**
+  (bird_mutant: `entitytracker:GetEntity("swarmTarget")`, com fallback pra
+  alvo aleatório entre players/seguidores no alcance).
+- **Fuga disparada por limiar de HP percentual** (bunnyman:
+  `health:GetPercent() < threshold` — primeiro caso confirmado nesta
+  série de "foge por estar fraco", distinto de fugir por susto/predador).
+- **Foge de uma TAG de item equipado específica, não da entidade em si**
+  (bunnyman: foge de quem estiver carregando "manrabbitscarer",
+  independente de quem seja o portador).
+- **Ameaça neutralizada por progressão de personagem (perk/skilltree)**
+  (butterfly: `RunAway` ignora o predador se ele tiver
+  `skilltreeupdater:IsActivated("wormwood_bugs")` ativo).
+- **Forrageamento ciente de risco**: entre alvos de comida candidatos,
+  prefere um que não esteja perto de uma ameaça conhecida, só aceita
+  perto de ameaça se não houver opção limpa disponível (carrat).
+- **Intervalo de idle aleatório modulado pelo vínculo social atual**
+  (catcoon: recalculado a cada disparo, curto com líder por perto, longo
+  sem líder).
+- **Gatilho de ação pontual por lealdade abaixo de limiar crítico**
+  (catcoon `whine`) — complementa o follow-escalado-por-lealdade do #46.
+- **Inventário cheio dispara retorno pra depositar** (catcoon).
+- **Cooldown implementado por remoção de tag + restauração agendada**
+  (catcoon: `DoTaskInTime(30, restore_toy_tag)` em vez de
+  `components.timer`).
+- **Suspensão total da árvore por um único gate de state tag**, em vez de
+  checagem "busy" nó a nó (centipede: `WhileNode(not HasStateTag("charge"))`
+  envolvendo a `PriorityNode` inteira).
+
+**Confirmações (reforçam #46, não são novidade):** hit-and-run/kiting
+reaparece como "Dodge" no centipede (variante mirada no próprio alvo).
