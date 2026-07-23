@@ -1304,3 +1304,76 @@ do bat (item-específico), mutação lunar de bird/buzzard, lançador de chamas
 (FX pool), captura em armadilha do bird (`trapped`→`stunned`→`flyaway`,
 componente externo cuida da doma, não a stategraph), `abandon`/`cheer` do
 bunnyman (já coberto pelo padrão "camada job/lealdade" da seção 37).
+
+## 39. Mais 6 stategraphs reais (carrat, catcoon, centipede, deer, frog, gnarwail)
+
+Continuação das seções 36-38 (agora 22 criaturas cobertas). **Correção de
+premissa:** `SGcentipede.lua` é o `archive_centipede` (robô do Arquivo/Forge),
+não a lagarta de caverna comum — sem burrow/hide nenhum, confirmado via
+`grep` (`archive_centipede`/`ARCHIVE_CENTIPEDE` em toda referência de tuning).
+
+**Clipes reais confirmados:**
+
+| Criatura | idle | mover | atacar | hit | death |
+|---|---|---|---|---|---|
+| carrat | `idle1`/`idle2` | `walk_*`/`run_*` padrão | **não existe** (sem `combat`) | `hit` | `death` |
+| catcoon | `idle_loop` | `walk_pre/_loop/_pst` | default (`atk_pre`/`atk`) | default | default |
+| centipede (archive) | `idle` | `walk_*` custom | `atk_roll_pre/_loop/_pst` (carga) + `atk_aoe` | default | default |
+| deer | `idle_loop` (+`idle_grazing`) | `walk_*`/`run_*` padrão | melee default + `atk_magic_*` (só com `inst.gem`) | `hit`/`hit_2` (com gema) | default |
+| frog | `idle`/`idle2` (lunar) | `jump_pre`→`jump`→`jump_pst` (hop, não walk contínuo) | `atk_pre`→`atk` | `hit` | `death` |
+| gnarwail | `idle_loop` (+`idle2_loop`) | `walk_*`/`run`/`submerge`, tudo custom | `submerge` (barco) / `attack_2` (investida) | `hit` | `dead`→`dead_loop` |
+
+**Mecânicas novas confirmadas, generalizáveis, não modeladas hoje:**
+
+- **Auto-esconder por janela de tempo + checagem espacial** (carrat: `idle`
+  compara `inst.sg.mem.emerge_time + TIME_LIMIT` contra `GetTime()` e só
+  submerge se também não achar a tag `"beefalo"` num raio de 20). Gatilho
+  puramente temporal + presença de entidade específica — diferente da
+  emboscada por combate do tentacle (seção 37).
+- **Frame de ataque empurra evento comportamental no alvo, não dano**
+  (catcoon: `pounceattack` no frame 6 dispara
+  `target:PushEvent("threatnear", {threat=inst})` em alvos com tag `"bird"`,
+  fazendo o alvo fugir por conta própria). Variante "induz fuga" do padrão
+  "mata direto" já visto no buzzard (seção 38).
+- **Estado-loop que produz item com chance crescente por iteração e piscina
+  por relacionamento** (catcoon `hairball`: chance `.8/numretches`, prêmios
+  diferentes se `follower:GetLeader()` existe ou não).
+- **Follow-up de combate adiado via flag checada no `idle`** (centipede: o
+  fim de um ataque seta `inst.doAOE = true`; o `idle` seguinte checa a flag e
+  pula direto pra `atk_aoe` se achar alvo em `TheSim:FindEntities`, em vez de
+  ociosar). Extensão do padrão "flags pendentes no idle" (seção 37, beefalo)
+  pra encadeamento de combate.
+- **Dano por varredura espacial contínua durante o movimento, não por
+  `DoAttack` único** (centipede: o `onupdate` do estado `roll` varre a área e
+  mantém uma lista `ignores` pra não bater duas vezes no mesmo alvo).
+- **Múltiplas intenções pendentes concorrentes, com prioridade explícita,
+  consumidas no `idle`** (deer: `wantstocast`/`wantstogrowantler`/
+  `wantstounshackle`, setadas quando o evento chega ocupado). Generaliza o
+  padrão de flag pendente da seção 37 pra várias intenções competindo.
+- **Troca de identidade por respawn orquestrado dentro do próprio estado**
+  (deer `unshackle`: `inst:Remove()` + `SpawnPrefab("deer")` +
+  `sg:GoToState` chamado direto na nova instância, com prefab de FX à parte
+  pra continuidade visual) — diferente de transformar a mesma entidade.
+- **Detecção de alvo montado em plataforma, ramificando o ataque entre
+  passageiro e a própria plataforma** (gnarwail: `GetCurrentPlatform()`
+  decide entre `fin_taunt`/`body_slam`/`boat_attack` conforme o alvo estar
+  ou não num barco).
+- **Ataque de impacto atrasado que corrige a posição pelo deslocamento do
+  alvo entre aquisição e execução** (gnarwail `boat_attack`: recalcula
+  `target_position + (target_boat:GetPosition() - old_boat_position)` no
+  `ontimeout`).
+- **Atacante vira seu próprio projétil** (gnarwail `finish_boat_attack`:
+  spawna `gnarwail_attack_horn` carregando `inst:GetSaveRecord()`, aplica
+  dano separadamente ao passageiro e ao casco, e a própria criatura se
+  remove).
+- **Locomoção normal escalona sozinha pra um modo de deslocamento mais forte
+  com tags de combate, decidido no próprio `ontimeout` do loop de
+  movimento** (gnarwail: `run`→`body_slam` se a distância até o destino
+  ultrapassa `RUNNING_DIVE_DISTANCESQ` — decisão de combate tomada dentro do
+  movimento, não por evento de ataque).
+
+**Fora de escopo (bespoke demais):** minigame de corrida YOTC do carrat
+(`endofrace_*`), brincar com brinquedo do catcoon (`pounceplay`), sistema de
+veados-gema/magia do deer (`deercast_cd`), arremesso de item n'água do
+gnarwail (`toss`). Frog não trouxe mecânica nova — confirma só o padrão
+"hop" já visto em bird/buzzard (seção 38) aplicado a anfíbio pequeno.
