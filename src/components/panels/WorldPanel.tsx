@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { RoomsPanel } from './RoomsPanel'
 import { TasksPanel } from './TasksPanel'
+import { StaticLayoutsPanel } from './StaticLayoutsPanel'
 
 const SUBTABS = [
   { key: 'rooms', label: 'Rooms' },
   { key: 'tasks', label: 'Tasks' },
+  { key: 'staticLayouts', label: 'Static layouts' },
 ] as const
 
 type SubTabKey = (typeof SUBTABS)[number]['key']
@@ -23,6 +25,7 @@ export function WorldPanel() {
       </div>
       {subtab === 'rooms' && <RoomsPanel />}
       {subtab === 'tasks' && <TasksPanel />}
+      {subtab === 'staticLayouts' && <StaticLayoutsPanel />}
     </div>
   )
 }

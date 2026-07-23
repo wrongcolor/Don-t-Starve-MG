@@ -216,6 +216,7 @@ export const sampleProject: ModProject = {
       requiredPrefabs: [],
       fixedPrefabs: [{ prefab: 'pighouse', count: { min: 2, max: 4 } }],
       scatter: { percent: 0.1, prefabs: [{ prefab: 'grass', weight: 0.05 }] },
+      staticLayouts: [{ layoutId: 'TestGraveyard', count: { min: 1, max: 1 } }],
     },
   ],
   tasks: [
@@ -229,6 +230,23 @@ export const sampleProject: ModProject = {
       regionId: 'testisland1',
       locations: ['forest'],
       colour: { r: 0, g: 1, b: 0, a: 1 },
+    },
+  ],
+  staticLayouts: [
+    {
+      id: 'TestGraveyard',
+      width: 4,
+      height: 4,
+      tiles: [
+        [0, 0, 0, 0],
+        [0, 7, 7, 0],
+        [0, 7, 7, 0],
+        [0, 0, 0, 0],
+      ],
+      objects: [{ prefab: 'gravestone', col: 1, row: 1, properties: [{ key: 'data.setepitaph', value: 'Bryce' }] }],
+      layoutPosition: 'CENTER',
+      startMask: 'IGNORE_IMPASSABLE_BARREN_RESERVED',
+      fillMask: 'IGNORE_IMPASSABLE_BARREN_RESERVED',
     },
   ],
 }

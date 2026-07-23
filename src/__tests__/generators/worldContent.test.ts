@@ -6,13 +6,13 @@ describe('generateWorldContentFiles', () => {
   const [room] = sampleProject.rooms
   const [task] = sampleProject.tasks
 
-  it('generates a single modworldgenmain.lua at the mod root when rooms/tasks exist (patterns.md#22)', () => {
+  it('generates modworldgenmain.lua plus one file per static layout (patterns.md#22, #55)', () => {
     const files = generateWorldContentFiles(sampleProject)
-    expect(Object.keys(files)).toEqual(['modworldgenmain.lua'])
+    expect(Object.keys(files).sort()).toEqual(['modworldgenmain.lua', 'scripts/map/static_layouts/TestGraveyard.lua'])
   })
 
-  it('generates no world content files when there are no rooms/tasks', () => {
-    const files = generateWorldContentFiles({ ...sampleProject, rooms: [], tasks: [] })
+  it('generates no world content files when there are no rooms/tasks/static layouts', () => {
+    const files = generateWorldContentFiles({ ...sampleProject, rooms: [], tasks: [], staticLayouts: [] })
     expect(files).toEqual({})
   })
 
@@ -24,6 +24,12 @@ describe('generateWorldContentFiles', () => {
     expect(code).toContain('["pighouse"] = function() return 1 + math.random(3) end')
     expect(code).toContain('distributepercent = 0.1')
     expect(code).toContain('["grass"] = 0.05')
+  })
+
+  it('wires a Room referencing a static layout via countstaticlayouts (patterns.md#55)', () => {
+    const code = generateWorldContentFiles(sampleProject)['modworldgenmain.lua']
+    expect(code).toContain('countstaticlayouts = {')
+    expect(code).toContain('["TestGraveyard"] = 1,')
   })
 
   it('wires a Task with locks, keys_given, room_choices, and region_id', () => {

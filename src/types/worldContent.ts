@@ -93,6 +93,85 @@ export const ROOM_TAGS = [
   { value: 'fumarolearea', label: 'Fumarole area' },
 ] as const
 
+// Real fixed order from Original/map/map/static_layout.lua's GROUND_TYPES table —
+// position (1-based) is the literal value a static layout's tile grid must use to
+// mean that terrain; never reorder. IMPASSABLE legitimately repeats 3x in the real
+// array; kept as-is (not deduped) so index arithmetic matches the source exactly.
+// See docs/dst-knowledge/patterns.md#55.
+export const GROUND_TYPES = [
+  'IMPASSABLE', 'ROAD', 'ROCKY', 'DIRT', 'SAVANNA', 'GRASS', 'FOREST', 'MARSH',
+  'WOODFLOOR', 'CARPET', 'CHECKER', 'CAVE', 'FUNGUS', 'SINKHOLE', 'QUAGMIRE_GATEWAY', 'QUAGMIRE_SOIL',
+  'OCEAN_COASTAL_SHORE', 'OCEAN_COASTAL', 'OCEAN_ROUGH', 'OCEAN_BRINEPOOL', 'UNDERROCK', 'MUD', 'QUAGMIRE_PEATFOREST', 'IMPASSABLE',
+  'BRICK', 'OCEAN_SWELL', 'TILES', 'OCEAN_HAZARDOUS', 'TRIM', 'IMPASSABLE', 'QUAGMIRE_PARKSTONE', 'QUAGMIRE_PARKFIELD',
+  'PEBBLEBEACH', 'METEOR', 'FUNGUSRED', 'FUNGUSGREEN', 'FAKE_GROUND', 'LAVAARENA_FLOOR', 'LAVAARENA_TRIM', 'QUAGMIRE_CITYSTONE',
+  'SHELLBEACH', 'ARCHIVE', 'FUNGUSMOON', 'OCEAN_WATERLOG', 'MONKEY_DOCK', 'MONKEY_GROUND', 'MOSAIC_GREY', 'MOSAIC_RED',
+  'MOSAIC_BLUE', 'CARPET2', 'VAULT', 'VENT',
+] as const
+
+// Curated paintable palette for the static-layout grid editor (same curation spirit
+// as WORLD_TILES/ROOM_TAGS above) — a small common subset of the 52 GROUND_TYPES.
+// `index` is derived from the real array instead of hardcoded so it can never drift.
+export const LAYOUT_TILE_PALETTE = (
+  [
+    ['GRASS', 'Grass'], ['FOREST', 'Forest'], ['ROCKY', 'Rocky'], ['SAVANNA', 'Savanna'],
+    ['DIRT', 'Dirt'], ['MARSH', 'Marsh'], ['CAVE', 'Cave'], ['FUNGUS', 'Fungus'],
+    ['WOODFLOOR', 'Wood floor'], ['CARPET', 'Carpet'], ['CHECKER', 'Checker floor'], ['MUD', 'Mud'],
+    ['SINKHOLE', 'Sinkhole'], ['PEBBLEBEACH', 'Pebble beach'], ['IMPASSABLE', 'Impassable'],
+    ['OCEAN_COASTAL', 'Ocean — coastal'],
+  ] as const
+).map(([value, label]) => ({ value, label, index: GROUND_TYPES.indexOf(value) + 1 }))
+
+// LAYOUT_POSITION / PLACE_MASK real enums confirmed in Original/scripts/constants.lua.
+export const LAYOUT_POSITIONS = [
+  { value: 'CENTER', label: 'Centered in the room' },
+  { value: 'RANDOM', label: 'Random position in the room' },
+] as const
+
+export const PLACE_MASKS = [
+  { value: 'NORMAL', label: 'Normal (no exceptions)' },
+  { value: 'IGNORE_IMPASSABLE', label: 'Ignore impassable ground' },
+  { value: 'IGNORE_BARREN', label: 'Ignore barren ground' },
+  { value: 'IGNORE_IMPASSABLE_BARREN', label: 'Ignore impassable + barren ground' },
+  { value: 'IGNORE_RESERVED', label: 'Ignore reserved space' },
+  { value: 'IGNORE_IMPASSABLE_RESERVED', label: 'Ignore impassable + reserved space' },
+  { value: 'IGNORE_BARREN_RESERVED', label: 'Ignore barren + reserved space' },
+  { value: 'IGNORE_IMPASSABLE_BARREN_RESERVED', label: 'Ignore impassable + barren + reserved space' },
+] as const
+
+export const LAYOUT_GRID_SIZE = { min: 4, max: 24 }
+
+// A static layout is a small hand-placed arrangement of ground tiles + fixed
+// prefabs a Room can embed (Room.contents.countstaticlayouts) — confirmed by
+// reading a real published mod ("Graveyard Island") end-to-end plus the actual
+// engine loader (Original/map/map/static_layout.lua). See patterns.md#55.
+export const staticLayoutObjectSchema = z.object({
+  prefab: z.string().min(1),
+  col: z.number().int().min(0),
+  row: z.number().int().min(0),
+  // Matches the real dotted-key convention (e.g. properties["data.setepitaph"] =
+  // "Bryce") seen in the source mod — stored as flat key/value pairs here and
+  // exploded into nested Lua tables by the generator.
+  properties: z.array(z.object({ key: z.string().min(1), value: z.string().min(1) })),
+})
+
+export const staticLayoutDefSchema = z
+  .object({
+    id: worldContentId,
+    width: z.number().int().min(LAYOUT_GRID_SIZE.min).max(LAYOUT_GRID_SIZE.max),
+    height: z.number().int().min(LAYOUT_GRID_SIZE.min).max(LAYOUT_GRID_SIZE.max),
+    // Rows of columns; each cell is 0 (no override — the room's own terrain shows
+    // through) or a 1-based index into GROUND_TYPES.
+    tiles: z.array(z.array(z.number().int().min(0).max(GROUND_TYPES.length))),
+    objects: z.array(staticLayoutObjectSchema),
+    layoutPosition: z.enum(LAYOUT_POSITIONS.map((p) => p.value) as [string, ...string[]]),
+    startMask: z.enum(PLACE_MASKS.map((m) => m.value) as [string, ...string[]]),
+    fillMask: z.enum(PLACE_MASKS.map((m) => m.value) as [string, ...string[]]),
+  })
+  .refine((layout) => layout.tiles.length === layout.height && layout.tiles.every((row) => row.length === layout.width), {
+    message: 'Tile grid size does not match width/height',
+    path: ['tiles'],
+  })
+
 export const roomDefSchema = z.object({
   id: worldContentId,
   terrain: z.enum(WORLD_TILES.map((t) => t.value) as [string, ...string[]]),
@@ -105,6 +184,10 @@ export const roomDefSchema = z.object({
       prefabs: z.array(z.object({ prefab: z.string().min(1), weight: z.number().min(0.001) })).min(1),
     })
     .optional(),
+  // References StaticLayoutDef.id — a Room can embed one or more hand-placed
+  // micro-layouts (e.g. a small graveyard clearing) alongside its normal
+  // fixedPrefabs/scatter content. See patterns.md#55.
+  staticLayouts: z.array(z.object({ layoutId: z.string().min(1), count: countRangeSchema })),
 })
 
 // Confirmed in a real published Workshop mod ("Graveyard Island", see
@@ -155,6 +238,8 @@ export const taskDefSchema = z.object({
 export type RoomDef = z.infer<typeof roomDefSchema>
 export type TaskColour = z.infer<typeof taskColourSchema>
 export type TaskDef = z.infer<typeof taskDefSchema>
+export type StaticLayoutObject = z.infer<typeof staticLayoutObjectSchema>
+export type StaticLayoutDef = z.infer<typeof staticLayoutDefSchema>
 
 export function createEmptyRoom(): RoomDef {
   return {
@@ -163,6 +248,26 @@ export function createEmptyRoom(): RoomDef {
     tags: [],
     requiredPrefabs: [],
     fixedPrefabs: [],
+    staticLayouts: [],
+  }
+}
+
+const DEFAULT_LAYOUT_SIZE = 12
+
+export function createEmptyTileGrid(width: number, height: number): number[][] {
+  return Array.from({ length: height }, () => Array.from({ length: width }, () => 0))
+}
+
+export function createEmptyStaticLayout(): StaticLayoutDef {
+  return {
+    id: '',
+    width: DEFAULT_LAYOUT_SIZE,
+    height: DEFAULT_LAYOUT_SIZE,
+    tiles: createEmptyTileGrid(DEFAULT_LAYOUT_SIZE, DEFAULT_LAYOUT_SIZE),
+    objects: [],
+    layoutPosition: 'CENTER',
+    startMask: 'IGNORE_IMPASSABLE_BARREN_RESERVED',
+    fillMask: 'IGNORE_IMPASSABLE_BARREN_RESERVED',
   }
 }
 

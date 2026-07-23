@@ -5,6 +5,7 @@ import { roomDefSchema, WORLD_TILES, ROOM_TAGS, type RoomDef } from '../../types
 import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
 import { RoomPreview } from './RoomPreview'
 import { PrefabPickerButton } from './PrefabPicker'
+import { useModProjectStore } from '../../store/modProjectStore'
 
 interface RoomFormProps {
   initialRoom?: RoomDef
@@ -18,6 +19,7 @@ const emptyRoom: RoomDef = {
   tags: [],
   requiredPrefabs: [],
   fixedPrefabs: [],
+  staticLayouts: [],
 }
 
 export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
@@ -51,6 +53,8 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
   const requiredPrefabs = useFieldArray({ control, name: 'requiredPrefabs' as never })
   const fixedPrefabs = useFieldArray({ control, name: 'fixedPrefabs' })
   const scatterPrefabs = useFieldArray({ control, name: 'scatter.prefabs' as never })
+  const staticLayoutRefs = useFieldArray({ control, name: 'staticLayouts' })
+  const availableStaticLayouts = useModProjectStore((s) => s.project.staticLayouts)
 
   const watched = watch()
   const onSubmit = (data: RoomDef) => onSave(data)
@@ -145,9 +149,43 @@ export function RoomForm({ initialRoom, onSave, onCancel }: RoomFormProps) {
             </Fieldset>
           </div>
 
+          {availableStaticLayouts.length > 0 && (
+            <Fieldset
+              legend="Static layouts (optional)"
+              step={5}
+              info="Embeds a hand-placed micro-layout (painted in the Static layouts tab) into this room, in a random amount between min and max."
+            >
+              {staticLayoutRefs.fields.map((field, index) => (
+                <div key={field.id} className="ingredient-row">
+                  <select className={inputClass} {...register(`staticLayouts.${index}.layoutId` as const)}>
+                    {availableStaticLayouts.map((layout) => (
+                      <option key={layout.id} value={layout.id}>
+                        {layout.id}
+                      </option>
+                    ))}
+                  </select>
+                  <input type="number" className="qty-input" placeholder="min" {...register(`staticLayouts.${index}.count.min` as const, { valueAsNumber: true })} />
+                  <input type="number" className="qty-input" placeholder="max" {...register(`staticLayouts.${index}.count.max` as const, { valueAsNumber: true })} />
+                  <button type="button" className={btnDanger} onClick={() => staticLayoutRefs.remove(index)}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="add-ingredient"
+                onClick={() =>
+                  staticLayoutRefs.append({ layoutId: availableStaticLayouts[0].id, count: { min: 1, max: 1 } })
+                }
+              >
+                + Add static layout
+              </button>
+            </Fieldset>
+          )}
+
           <Fieldset
             legend="Scattered decoration"
-            step={5}
+            step={6}
             info="Small non-functional decoration (grass tufts, rocks, flowers) sprinkled randomly across the room's floor tiles — purely visual, doesn't affect gameplay."
           >
             <div className="checks">

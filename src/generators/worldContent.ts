@@ -1,6 +1,7 @@
 import type { ModProject } from '../types/modProject'
 import type { RoomDef, TaskDef } from '../types/worldContent'
 import { luaString } from './luaUtils'
+import { generateStaticLayoutLua, generateStaticLayoutRegistration } from './staticLayout'
 
 // Room/Task ids and prefab names are arbitrary user strings (the real game uses ids
 // like "Make a pick"), so every Lua table key derived from them uses bracket+string
@@ -38,6 +39,13 @@ function generateRoomLua(room: RoomDef): string {
     lines.push('        distributeprefabs = {')
     for (const sp of room.scatter.prefabs) {
       lines.push(`            [${luaString(sp.prefab)}] = ${sp.weight},`)
+    }
+    lines.push('        },')
+  }
+  if (room.staticLayouts.length > 0) {
+    lines.push('        countstaticlayouts = {')
+    for (const sl of room.staticLayouts) {
+      lines.push(`            [${luaString(sl.layoutId)}] = ${countExpr(sl.count.min, sl.count.max)},`)
     }
     lines.push('        },')
   }
@@ -98,7 +106,7 @@ function taskRegistrationBlock(project: ModProject): string[] {
 }
 
 export function generateWorldContentFiles(project: ModProject): Record<string, string> {
-  if (project.rooms.length === 0 && project.tasks.length === 0) return {}
+  if (project.rooms.length === 0 && project.tasks.length === 0 && project.staticLayouts.length === 0) return {}
 
   const sections: string[] = []
   for (const room of project.rooms) {
@@ -111,6 +119,13 @@ export function generateWorldContentFiles(project: ModProject): Record<string, s
   if (registration.length > 0) {
     sections.push(registration.join('\n') + '\n')
   }
+  for (const layout of project.staticLayouts) {
+    sections.push(generateStaticLayoutRegistration(layout))
+  }
 
-  return { 'modworldgenmain.lua': sections.join('\n') }
+  const files: Record<string, string> = { 'modworldgenmain.lua': sections.join('\n') }
+  for (const layout of project.staticLayouts) {
+    files[`scripts/map/static_layouts/${layout.id}.lua`] = generateStaticLayoutLua(layout)
+  }
+  return files
 }

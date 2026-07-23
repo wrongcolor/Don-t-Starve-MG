@@ -2521,3 +2521,66 @@ via `ModManager:GetPostInitFns`): `RoomPreInit`, `TaskPreInit`,
 `LevelPreInit`, `LevelPreInitAny`. `Level:EnqueueATask` também crasha via
 `assert` se o id não bater com um `AddTask` real — mais um ponto de
 falha reforçando a exigência já documentada na seção 22.
+
+## 55. `static_layouts` estava errado como "fora de escopo" — **reversão confirmada, implementado**
+
+As seções 16/22 descartaram `countstaticlayouts`/`static_layouts` como fora
+de escopo, assumindo que exigia o editor Tiled (level design artesanal, não
+generalizável a um campo de formulário). Lendo um mod real publicado
+("Graveyard Island", pasta `DST_Mods_20260719_0250/Graveyard Island/`) por
+completo — `modmain.lua`, `modworldgenmain.lua`, e
+`scripts/map/static_layouts/graveyard_island.lua` — mais o loader real do
+motor (`Original/map/map/static_layout.lua`), essa suposição estava errada:
+o formato do arquivo não tem nada de artesanal, é só uma tabela Lua no
+formato de exportação Tiled — uma grade plana de índices de tile mais uma
+lista de objetos `{type, x, y, properties}`. Nada disso exige o software
+Tiled; só o fluxo de trabalho que a documentação do próprio jogo assume.
+
+**Formato real confirmado** (`ConvertStaticLayoutToLayout` em
+`static_layout.lua`): `tilefactor = ceil(64/tilewidth)`. Gerando sempre com
+`tilewidth = tileheight = 64` (decisão de design deste gerador), `tilefactor
+= 1`, o que colapsa o parsing da grade de tiles pra um array plano
+`width*height` em ordem row-major (sem interlacing) e torna a posição de
+objeto trivial: um prefab centralizado na célula `(col,row)` é
+`x = col*64+32, y = row*64+32, width=0, height=0` nas coordenadas Tiled
+brutas do arquivo. Valor de tile `0` significa "sem override, o terreno da
+Room aparece"; qualquer outro valor `N` é um índice 1-based na tabela real
+`GROUND_TYPES` do mesmo arquivo — **52 entradas** (não 44 — contagem
+corrigida durante a implementação; a versão inicial do plano tinha contado
+errado), com `IMPASSABLE` repetindo legitimamente 3x na ordem real (índices
+1, 24, 30). A ordem é fixa e nunca deve ser reordenada — é a codificação
+literal escrita no arquivo.
+
+**Registro confirmado no mesmo mod real** (bloco separado dentro de
+`modworldgenmain.lua`, distinto do `Room` que referencia o layout):
+```lua
+require"map/layouts".Layouts.graveyard_island =
+require"map/static_layout".Get("map/static_layouts/graveyard_island", {
+    type = LAYOUT.STATIC,
+    layout_position = LAYOUT_POSITION.CENTER,
+    start_mask = PLACE_MASK.IGNORE_IMPASSABLE_BARREN_RESERVED,
+    fill_mask = PLACE_MASK.IGNORE_IMPASSABLE_BARREN_RESERVED,
+})
+```
+`LAYOUT_POSITION` (`RANDOM=0`/`CENTER=1`) e `PLACE_MASK` (8 valores,
+`NORMAL` até `IGNORE_IMPASSABLE_BARREN_RESERVED`) confirmados em
+`Original/scripts/constants.lua`. A Room referencia o layout via
+`contents.countstaticlayouts = { [id] = count }` — mesma semântica de
+`countExpr` já usada por `countprefabs`.
+
+**Implementado nesta sessão**: `StaticLayoutDef` (`src/types/worldContent.ts`)
+— grade 4x4 a 24x24, lista de objetos com propriedades dotted-key
+(`properties["data.setepitaph"]="Bryce"`) — um novo editor visual de grade em
+CSS puro (`src/components/forms/LayoutGrid.tsx`, sem canvas, pintura por
+clique-e-arrasto + modo de posicionar prefab), formulário/painel próprios
+(`StaticLayoutForm.tsx`/`StaticLayoutsPanel.tsx`, nova aba "Static layouts"
+em `WorldPanel.tsx`), gerador (`src/generators/staticLayout.ts`) e wiring em
+`Room.staticLayouts`/`generateRoomLua`/`generateWorldContentFiles`. Cobertura
+de teste em `staticLayout.test.ts`, `StaticLayoutForm.test.tsx`, e extensão
+de `worldContent.test.ts`.
+
+**Lição de processo:** este era o segundo veredito de "fora de escopo" a
+cair só por finalmente ler o dado real em vez de assumir a partir do nome
+("level design artesanal" soava plausível, mas o arquivo em si é só grade +
+lista de posições) — mesmo padrão da lição de nomes de arquivo enganosos já
+registrada nas seções 39-44 (ler sempre vence supor).

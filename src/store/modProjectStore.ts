@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ModMeta, ModProject, ItemDef, CharacterDef, CreatureDef } from '../types/modProject'
 import { createEmptyModProject } from '../types/modProject'
-import type { RoomDef, TaskDef } from '../types/worldContent'
+import type { RoomDef, TaskDef, StaticLayoutDef } from '../types/worldContent'
 
 interface ModProjectState {
   project: ModProject
@@ -17,6 +17,8 @@ interface ModProjectState {
   removeRoom: (id: string) => void
   upsertTask: (task: TaskDef) => void
   removeTask: (id: string) => void
+  upsertStaticLayout: (layout: StaticLayoutDef) => void
+  removeStaticLayout: (id: string) => void
   resetProject: () => void
 }
 
@@ -33,19 +35,25 @@ function upsertById<T extends { id: string }>(list: T[], entry: T): T[] {
 // keys (whole arrays like rooms/tasks), not fields inside an already-persisted entity.
 // A project saved before such a field existed would otherwise fail schema validation
 // (or crash a generator reading it as undefined) the moment the user hits "Generate".
-const PROJECT_SCHEMA_VERSION = 1
+const PROJECT_SCHEMA_VERSION = 2
 
 function migrateProject(persistedState: unknown, version: number): unknown {
   if (persistedState === null || typeof persistedState !== 'object' || !('project' in persistedState)) {
     return persistedState
   }
-  const state = persistedState as { project?: { items?: unknown[] } }
+  const state = persistedState as { project?: { items?: unknown[]; rooms?: unknown[] } }
   if (version < 1 && Array.isArray(state.project?.items)) {
     state.project.items = state.project.items.map((item) => {
       if (item === null || typeof item !== 'object' || !('armor' in item)) return item
       const armor = (item as { armor?: unknown }).armor
       if (armor === null || typeof armor !== 'object' || 'condition' in armor) return item
       return { ...item, armor: { ...armor, condition: 100 } }
+    })
+  }
+  if (version < 2 && Array.isArray(state.project?.rooms)) {
+    state.project.rooms = state.project.rooms.map((room) => {
+      if (room === null || typeof room !== 'object' || 'staticLayouts' in room) return room
+      return { ...room, staticLayouts: [] }
     })
   }
   return state
@@ -89,6 +97,14 @@ export const useModProjectStore = create<ModProjectState>()(
       removeTask: (id) =>
         set((state) => ({
           project: { ...state.project, tasks: state.project.tasks.filter((t) => t.id !== id) },
+        })),
+      upsertStaticLayout: (layout) =>
+        set((state) => ({
+          project: { ...state.project, staticLayouts: upsertById(state.project.staticLayouts, layout) },
+        })),
+      removeStaticLayout: (id) =>
+        set((state) => ({
+          project: { ...state.project, staticLayouts: state.project.staticLayouts.filter((l) => l.id !== id) },
         })),
       resetProject: () => set({ project: createEmptyModProject() }),
     }),
