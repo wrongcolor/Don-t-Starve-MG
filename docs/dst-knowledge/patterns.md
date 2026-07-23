@@ -1038,14 +1038,68 @@ gerador, só o texto.
 **Status:** implementado (via string table), correto pro que faz — só a
 descrição mental de "como funciona" estava incompleta antes desta leitura.
 
-## O que ainda não temos como confirmar
+## 34. Golpe vs. estocada (animação de ataque por tipo de arma) — **confirmado, GAP quase irrelevante**
 
-Desde 2026-07-23 temos acesso local completo a `scripts/components/*.lua`
-(821 arquivos) e `scripts/stategraphs/*.lua` (261 arquivos, incluindo
-`SGwilson.lua` completo) — o buraco que existia antes (só `scripts/prefabs/`)
-está fechado para leitura sob demanda. O que falta agora é tempo de leitura,
-não acesso: a maior parte de `scripts/components/` e todo `scripts/stategraphs/`
-ainda não foi lido seção por seção — só os componentes específicos listados
-acima. Em particular, a pergunta original sobre "golpe vs estocada" (se existe
-lógica de seleção de animação de ataque por tipo de arma) pode agora ser
-respondida lendo `SGwilson.lua` diretamente, mas isso ainda não foi feito.
+Pergunta original (seções anteriores, em aberto até agora): existe lógica real
+de seleção de animação de ataque corpo-a-corpo por tipo de arma (ex: espada
+golpeia, lança estoca)? Lido `stategraphs/SGwilson.lua` (28601 linhas) direto —
+o `ActionHandler(ACTIONS.ATTACK, ...)` (~linha 1317) e o estado `"attack"`
+(~linha 10666) resolvem a animação numa cadeia de `elseif equip:HasTag(...)`,
+checando a **tag da arma equipada**, nunca o tipo/categoria do item em si:
+
+```lua
+elseif equip ~= nil and equip:HasTag("jab") then
+    inst.AnimState:PlayAnimation("spearjab_pre")
+    inst.AnimState:PushAnimation("spearjab", false)
+elseif equip ~= nil and equip:HasTag("lancejab") then
+    inst.AnimState:PlayAnimation("lancejab_pre")
+    inst.AnimState:PushAnimation("lancejab", false)
+elseif equip ~= nil and equip:HasTag("whip") then ... -- "whip_pre"/"whip"
+elseif equip ~= nil and equip:HasTag("book") then ...  -- "attack_book"
+elseif equip ~= nil and equip:HasTag("chop_attack") and inst:HasTag("woodcutter") then ... -- Woodie-only
+elseif equip ~= nil and equip.components.weapon ~= nil and not equip:HasTag("punch") then
+    inst.AnimState:PlayAnimation("atk_pre")
+    inst.AnimState:PushAnimation("atk", false) -- default: TODA arma "normal" cai aqui
+```
+
+Confirmado por que quase nada usa a variante "estocada": busquei a tag `"jab"`
+em todos os 1594 prefabs reais — **zero resultados** (nenhuma arma do jogo base
+a usa; os estados `spearjab_pre`/`spearjab` existem no stategraph mas estão
+órfãos/reservados). A tag `"lancejab"` tem exatamente **um** uso real:
+`yoth_lance.lua` (arma do evento sazonal Year of the Tiger). O `spear.lua`
+comum, `spear_wathgrithr.lua` (Wigfrid), `spear_lance.lua` (investida montada)
+e `spear_gungnir.lua` não usam nem `jab` nem `lancejab` — todos caem no `atk_pre`/
+`atk` genérico, igual a um machado.
+
+**Conclusão prática:** não existe uma distinção golpe/estocada dirigida por
+"tipo de arma" que faça sentido modelar no gerador — é uma tag opcional
+(`jab`/`lancejab`/`whip`/`book`/`chop_attack`/...) usada por meia dúzia de
+armas muito específicas em toda a base do jogo, não um padrão geral de lanças
+vs. machados. **Status:** não vale a pena implementar — GAP confirmado como
+não relevante, não como pendência.
+
+## 35. `deployable` ≠ `placer` — dois mecanismos distintos (correção)
+
+`docs/dst-knowledge/components.json` tinha uma hipótese não confirmada sobre o
+componente `deployable`: "provavelmente relacionado ao nosso 'placer' de
+estruturas". Lendo `components/deployable.lua` (149 linhas) e
+`scripts/prefabutil.lua` diretamente, a hipótese estava **errada** — são dois
+mecanismos separados:
+
+- **`placer`** (`MakePlacer`, `scripts/prefabutil.lua:1`) é o ghost/preview de
+  posicionamento durante a construção de uma receita — `inst:AddComponent("placer")`.
+  É exatamente o que `src/generators/item.ts` (`generateItemPlacerPrefab`,
+  linha ~667) já gera via `MakePlacer(...)` para `item.recipe.placer` — **já
+  modelado corretamente**, nenhuma mudança necessária.
+- **`deployable`** (`MakeDeployableKitItem`, `scripts/prefabutil.lua:76`) é um
+  componente completamente diferente: permite que um item **já no inventário**
+  seja "deployado" direto no mundo por uma ação (right-click), fora do fluxo
+  de receita/construção — ex. armadilhas, sacos de areia, barracas. API real:
+  `SetDeployMode(mode)` (`DEPLOYMODE.DEFAULT/ANYWHERE/TURF/PLANT/WALL/WATER/CUSTOM`,
+  cada um valida a posição de forma diferente), `SetDeploySpacing(spacing)`,
+  campo `restrictedtag`, `Deploy(pt, deployer, rot)`.
+
+**Status:** `placer` já implementado (sem mudança); `deployable` é um recurso
+NOVO e não relacionado, não implementado — só valeria a pena se quiséssemos
+gerar itens "deployáveis avulsos" (sem receita), o que está fora do escopo
+atual do gerador.
