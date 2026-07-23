@@ -1,19 +1,10 @@
 @import "tailwindcss";
 
 /* Tema "baú de madeira": marrom escuro (chrome do app) + pergaminho (painéis) +
-   dourado (destaque/ação), portado de mod_creator.html — fonte pixelada custom
-   BigDonstarve com fallback serif. */
-@font-face {
-  font-family: 'BigDonstarve';
-  src: url('/fonts/BigDonstarve.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
+   dourado (destaque/ação), portado de mod_creator.html. */
 @theme {
-  --font-display: 'BigDonstarve', serif;
-  --font-body: 'BigDonstarve', sans-serif;
+  --font-display: -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-body: -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 :root {
