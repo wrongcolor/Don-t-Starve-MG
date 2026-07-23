@@ -16,6 +16,7 @@ export const bogLurker: ModProject = {
     configOptions: [],
   },
   items: [],
+  structures: [],
   characters: [],
   creatures: [
     {

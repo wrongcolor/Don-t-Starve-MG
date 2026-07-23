@@ -82,7 +82,7 @@ describe('generateModMain', () => {
   it('sets TUNING values for a rechargeable item (patterns.md#26)', () => {
     const withRecharge = {
       ...sampleProject,
-      items: [{ ...sampleProject.items[4], finiteuses: undefined, rechargeable: { cooldownSeconds: 30 } }],
+      items: [{ ...sampleProject.items[3], finiteuses: undefined, rechargeable: { cooldownSeconds: 30 } }],
     }
     const rechargeCode = generateModMain(withRecharge)
     expect(rechargeCode).toContain('GLOBAL.TUNING.TESTFIRESTAFF_COOLDOWN = 30')
@@ -90,6 +90,16 @@ describe('generateModMain', () => {
 
   it('does not wire the Combine action when no item is combinable (patterns.md#19)', () => {
     expect(code).not.toContain('COMBINE_ITEM')
+  })
+
+  it('sets TUNING values for a day spawner structure', () => {
+    const withSpawner = {
+      ...sampleProject,
+      structures: [{ ...sampleProject.structures[0], daySpawner: { prefab: 'deerclops', chance: 0.1, range: 40 } }],
+    }
+    const spawnerCode = generateModMain(withSpawner)
+    expect(spawnerCode).toContain('GLOBAL.TUNING.TESTSTRUCTURE_SPAWN_CHANCE = 0.1')
+    expect(spawnerCode).toContain('GLOBAL.TUNING.TESTSTRUCTURE_SPAWN_RANGE = 40')
   })
 
   it('wires the Combine action once when at least one item is combinable', () => {

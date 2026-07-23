@@ -1,24 +1,26 @@
-import type { ItemDef } from '../types/modProject'
+import type { ItemDef, Container } from '../types/modProject'
 import { luaString, toUpperSnake } from './luaUtils'
 
+// Shared by both Item and Structure containers — takes the container config
+// directly (not a whole ItemDef) so structure.ts can reuse these too.
 // Only meaningful for a 'custom' widget — a 'vanilla' one clones its grid at
 // runtime via deepcopy (patterns.md#20), so we never know its slot count
 // ourselves. Shared with modmain.ts, which needs the same numbers to build
 // the custom grid.
-export function containerSlotCount(item: ItemDef): number {
-  const widget = item.container?.widget
+export function containerSlotCount(container: Container | undefined): number {
+  const widget = container?.widget
   return widget?.source === 'custom' ? widget.slots : 0
 }
 
-export function containerColumns(item: ItemDef): number {
-  const widget = item.container?.widget
+export function containerColumns(container: Container | undefined): number {
+  const widget = container?.widget
   return widget?.source === 'custom' ? widget.columns : 0
 }
 
-// The UI build a 'custom' container widget needs — always named after the
-// item's own id, distinct from its inventory-icon build.
-export function containerCustomWidgetBuild(item: ItemDef): string {
-  return `ui_${item.id}`
+// The UI build a 'custom' container widget needs — always named after its
+// host's own id, distinct from its inventory-icon build.
+export function containerCustomWidgetBuild(id: string): string {
+  return `ui_${id}`
 }
 
 // Items with no animation choice keep the previous default: a custom build named
@@ -57,15 +59,6 @@ function resolveIdleClip(item: ItemDef): string {
 // in-hand look, swapped onto the character's "swap_object" hand symbol on equip.
 export function isHandheld(item: ItemDef): boolean {
   return item.category === 'tool' || item.weapon !== undefined
-}
-
-// Confirmed in a real published Workshop mod ("Automation Farm", see
-// docs/dst-knowledge/patterns.md#25) — a placed structure is never an
-// inventory item: no MakeInventoryPhysics/inventoryitem/"item" tag, it uses
-// MakeObstaclePhysics + tag "structure" instead. It only leaves the world by
-// being hammered down (workable), never by being picked back up.
-export function isStructure(item: ItemDef): boolean {
-  return item.recipe.placer === true
 }
 
 // Confirmed in armor_grass.lua/armor_wood.lua/armor_marble.lua/armor_sanity.lua/
@@ -137,22 +130,6 @@ function onAttackFunctionBlock(item: ItemDef): string[] {
   lines.push('end')
   lines.push('')
   return lines
-}
-
-// Confirmed in a real published Workshop mod ("Automation Farm", see
-// docs/dst-knowledge/patterns.md#25) — a structure needs its OWN way out of
-// the world, since (unlike a portable item) it can never go back into an
-// inventory: workable + hammer, dropping whatever loot it has and removing itself.
-function onHammeredFunctionBlock(): string[] {
-  return [
-    'local function onhammered(inst)',
-    '    if inst.components.lootdropper ~= nil then',
-    '        inst.components.lootdropper:DropLoot()',
-    '    end',
-    '    inst:Remove()',
-    'end',
-    '',
-  ]
 }
 
 // Confirmed in staff.lua (yellowstaff/opalstaff createlight + light_reticuletargetfn):
@@ -292,42 +269,6 @@ function onEatenFunctionBlock(item: ItemDef): string[] {
   ]
 }
 
-// Adapted from a real published Workshop mod ("Craftable Wormholes", see
-// docs/dst-knowledge/patterns.md#23). A shared GLOBAL table (self-initializing,
-// no modmain.lua wiring needed) tracks built instances per item id; every 2nd
-// build links back to the 1st, every 4th to the 3rd, and so on.
-function teleportPairFunctionBlock(): string[] {
-  return [
-    'local function OnTeleportPairRemoved(inst)',
-    '    local siblings = GLOBAL.TELEPORT_PAIRS and GLOBAL.TELEPORT_PAIRS[inst.prefab]',
-    '    if siblings == nil then return end',
-    '    for i = #siblings, 1, -1 do',
-    '        if siblings[i] == inst then',
-    '            table.remove(siblings, i)',
-    '            break',
-    '        end',
-    '    end',
-    'end',
-    '',
-    'local function LinkTeleportPair(inst)',
-    '    GLOBAL.TELEPORT_PAIRS = GLOBAL.TELEPORT_PAIRS or {}',
-    '    local siblings = GLOBAL.TELEPORT_PAIRS[inst.prefab]',
-    '    if siblings == nil then',
-    '        siblings = {}',
-    '        GLOBAL.TELEPORT_PAIRS[inst.prefab] = siblings',
-    '    end',
-    '    table.insert(siblings, inst)',
-    '    if #siblings % 2 == 0 then',
-    '        local a, b = siblings[#siblings - 1], siblings[#siblings]',
-    '        a.components.teleporter:Target(b)',
-    '        b.components.teleporter:Target(a)',
-    '    end',
-    '    inst:ListenForEvent("onremove", OnTeleportPairRemoved)',
-    'end',
-    '',
-  ]
-}
-
 // Adapted from a real published Workshop mod ("Renameable Watches", see
 // docs/dst-knowledge/patterns.md#24) — named + writeable is the confirmed
 // vanilla mechanism behind signs/gravestones: the player can type a custom
@@ -348,17 +289,7 @@ function componentBlock(item: ItemDef): string {
   const lines: string[] = []
 
   lines.push('    inst:AddComponent("inspectable")')
-  if (!isStructure(item)) {
-    lines.push('    inst:AddComponent("inventoryitem")')
-  } else {
-    lines.push('')
-    lines.push('    inst:AddComponent("lootdropper")')
-    lines.push('')
-    lines.push('    inst:AddComponent("workable")')
-    lines.push('    inst.components.workable:SetWorkAction(ACTIONS.HAMMER)')
-    lines.push('    inst.components.workable:SetWorkLeft(4)')
-    lines.push('    inst.components.workable:SetOnFinishCallback(onhammered)')
-  }
+  lines.push('    inst:AddComponent("inventoryitem")')
 
   if (item.category === 'tool' && item.toolAction) {
     lines.push('')
@@ -496,13 +427,9 @@ function componentBlock(item: ItemDef): string {
     lines.push(`    inst.components.container:WidgetSetup(${luaString(item.id)})`)
     // Confirmed in a second real mod ("Winona Toolbox", patterns.md#20): close
     // the container when it's put away, so it doesn't stay visually open.
-    // Only applies to a portable container — a placed structure has no
-    // inventoryitem to hook (see isStructure, patterns.md#25).
-    if (!isStructure(item)) {
-      lines.push('    inst.components.inventoryitem:SetOnPutInInventoryFn(function(inst)')
-      lines.push('        inst.components.container:Close()')
-      lines.push('    end)')
-    }
+    lines.push('    inst.components.inventoryitem:SetOnPutInInventoryFn(function(inst)')
+    lines.push('        inst.components.container:Close()')
+    lines.push('    end)')
     if (item.container.preservation) {
       lines.push('')
       lines.push('    inst:AddComponent("preserver")')
@@ -513,12 +440,6 @@ function componentBlock(item: ItemDef): string {
         )
       }
     }
-  }
-
-  if (item.teleportPair) {
-    lines.push('')
-    lines.push('    inst:AddComponent("teleporter")')
-    lines.push('    LinkTeleportPair(inst)')
   }
 
   if (item.nameable) {
@@ -640,7 +561,7 @@ export function generateItemPrefab(item: ItemDef): string {
     }
   }
   if (item.container?.widget.source === 'custom') {
-    lines.push(`    Asset("ANIM", "anim/${containerCustomWidgetBuild(item)}.zip"), -- PLACEHOLDER: art da UI do contêiner, ver README`)
+    lines.push(`    Asset("ANIM", "anim/${containerCustomWidgetBuild(item.id)}.zip"), -- PLACEHOLDER: art da UI do contêiner, ver README`)
   }
   lines.push(`    Asset("INV_IMAGE", "${item.id}"),`)
   lines.push('}')
@@ -668,14 +589,8 @@ export function generateItemPrefab(item: ItemDef): string {
   if (item.combinable) {
     lines.push(...combineWithFunctionBlock())
   }
-  if (item.teleportPair) {
-    lines.push(...teleportPairFunctionBlock())
-  }
   if (item.nameable) {
     lines.push(...onNamedFunctionBlock())
-  }
-  if (isStructure(item)) {
-    lines.push(...onHammeredFunctionBlock())
   }
   lines.push('local prefabs = {}')
   lines.push('')
@@ -686,21 +601,13 @@ export function generateItemPrefab(item: ItemDef): string {
   lines.push('    inst.entity:AddAnimState()')
   lines.push('    inst.entity:AddNetwork()')
   lines.push('')
-  if (isStructure(item)) {
-    lines.push('    MakeObstaclePhysics(inst, 0.5) -- ajuste o raio conforme o tamanho real da estrutura')
-  } else {
-    lines.push('    MakeInventoryPhysics(inst)')
-  }
+  lines.push('    MakeInventoryPhysics(inst)')
   lines.push('')
   lines.push(`    inst.AnimState:SetBank(${luaString(resolveAnimationBank(item))})`)
   lines.push(`    inst.AnimState:SetBuild(${luaString(build)})`)
   lines.push(`    inst.AnimState:PlayAnimation(${luaString(resolveIdleClip(item))})`)
   lines.push('')
-  if (isStructure(item)) {
-    lines.push('    inst:AddTag("structure")')
-  } else {
-    lines.push('    inst:AddTag("item")')
-  }
+  lines.push('    inst:AddTag("item")')
   if (item.combinable) {
     // Needs to be visible client-side too — it's read by the USEITEM component
     // action handler in modmain.lua to decide whether to show the "Combine" action.
@@ -722,33 +629,8 @@ export function generateItemPrefab(item: ItemDef): string {
   return lines.join('\n') + '\n'
 }
 
-export function generateItemPlacerPrefab(item: ItemDef): string {
-  const lines: string[] = []
-  const build = resolveAnimationBuild(item)
-
-  lines.push('local assets =')
-  lines.push('{')
-  if (isVanillaAnimation(item)) {
-    lines.push(`    -- Build "${build}" reaproveitado do jogo base, sem asset próprio necessário.`)
-  } else {
-    lines.push(`    Asset("ANIM", "anim/${item.id}.zip"), -- PLACEHOLDER: mesmo build do item, ver README`)
-  }
-  lines.push('}')
-  lines.push('')
-  lines.push('local function fn()')
-  lines.push(`    return MakePlacer(${luaString(item.id + '_placer')}, ${luaString(build)}, ${luaString(build)}, "idle")`)
-  lines.push('end')
-  lines.push('')
-  lines.push(`return Prefab("${item.id}_placer", fn, assets)`)
-  return lines.join('\n') + '\n'
-}
-
 export function generateItemFiles(item: ItemDef): Record<string, string> {
-  const files: Record<string, string> = {
+  return {
     [`scripts/prefabs/${item.id}.lua`]: generateItemPrefab(item),
   }
-  if (item.recipe.placer) {
-    files[`scripts/prefabs/${item.id}_placer.lua`] = generateItemPlacerPrefab(item)
-  }
-  return files
 }

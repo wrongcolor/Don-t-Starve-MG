@@ -20,6 +20,7 @@ import { uShapeCourtyard } from '../mods/uShapeCourtyard'
 import { bogLurker } from '../mods/bogLurker'
 import { meadowHopper } from '../mods/meadowHopper'
 import { portalIdolHelm } from '../mods/portalIdolHelm'
+import { deerclopsAlarm } from '../mods/deerclopsAlarm'
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const outputRoot = path.join(projectRoot, 'test-mods')
@@ -38,6 +39,7 @@ const TEST_PROJECTS = {
   bog_lurker: bogLurker,
   meadow_hopper: meadowHopper,
   portal_idol_helm: portalIdolHelm,
+  deerclops_alarm: deerclopsAlarm,
 }
 
 async function writeModFiles(slug: string, files: Record<string, string>) {

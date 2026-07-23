@@ -15,3 +15,4 @@ Cada entrada é um `ModProject` real em `mods/<nome>.ts`, gerado e validado via
 | 7 | `bogLurker` | Criatura hostil completa: build "hound" reaproveitado, aggroRange customizado, hit-and-run (kiting) e cadeia de pânico (fogo/assombração) | Gerado |
 | 8 | `meadowHopper` | Criatura amigável (companion): build "pigman" padrão (sem arte própria), segue o jogador, corta árvores e coleta itens perto de si, além de manada e aura de sanidade positiva | Gerado |
 | 9 | `portalIdolHelm` | Capacete (armadura de cabeça, `EQUIPSLOTS.HEAD`, reaproveita o build vanilla "football helmet") que também é um ídolo: pode ser entregue ao Portal Celestial (`moonrelic`) pra trocar de personagem | Gerado |
+| 10 | `deerclopsAlarm` | Estrutura que, a cada início de dia, tem uma chance de invocar um Deerclops num ponto aleatório dentro de um raio grande ao redor de si (`daySpawner`) | Gerado |

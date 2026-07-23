@@ -14,6 +14,7 @@ export const castawaysCove: ModProject = {
     configOptions: [],
   },
   items: [],
+  structures: [],
   characters: [],
   creatures: [],
   rooms: [

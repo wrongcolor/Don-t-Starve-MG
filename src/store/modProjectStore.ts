@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { ModMeta, ModProject, ItemDef, CharacterDef, CreatureDef } from '../types/modProject'
+import type { ModMeta, ModProject, ItemDef, StructureDef, CharacterDef, CreatureDef } from '../types/modProject'
 import { createEmptyModProject } from '../types/modProject'
 import type { RoomDef, TaskDef, StaticLayoutDef } from '../types/worldContent'
 
@@ -9,6 +9,8 @@ interface ModProjectState {
   setMeta: (meta: ModMeta) => void
   upsertItem: (item: ItemDef) => void
   removeItem: (id: string) => void
+  upsertStructure: (structure: StructureDef) => void
+  removeStructure: (id: string) => void
   upsertCharacter: (character: CharacterDef) => void
   removeCharacter: (id: string) => void
   upsertCreature: (creature: CreatureDef) => void
@@ -69,6 +71,14 @@ export const useModProjectStore = create<ModProjectState>()(
       removeItem: (id) =>
         set((state) => ({
           project: { ...state.project, items: state.project.items.filter((i) => i.id !== id) },
+        })),
+      upsertStructure: (structure) =>
+        set((state) => ({
+          project: { ...state.project, structures: upsertById(state.project.structures, structure) },
+        })),
+      removeStructure: (id) =>
+        set((state) => ({
+          project: { ...state.project, structures: state.project.structures.filter((s) => s.id !== id) },
         })),
       upsertCharacter: (character) =>
         set((state) => ({

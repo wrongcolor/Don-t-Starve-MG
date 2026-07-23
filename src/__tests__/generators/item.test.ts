@@ -5,7 +5,7 @@ import { itemDefSchema, type ItemDef } from '../../types/modProject'
 import { sampleProject } from '../fixtures'
 
 describe('generateItemFiles', () => {
-  const [sword, structure, trinket, axe, firestaff, armor, food] = sampleProject.items
+  const [sword, trinket, axe, firestaff, armor, food] = sampleProject.items
 
   it('checks TheWorld.ismastersim right after SetPristine, before server components', () => {
     const code = generateItemPrefab(sword)
@@ -18,14 +18,9 @@ describe('generateItemFiles', () => {
     expect(componentIdx).toBeGreaterThan(ismastersimIdx)
   })
 
-  it('only generates a placer prefab file when recipe.placer is true', () => {
+  it('generates exactly one prefab file — an item is never a placer (that is a Structure thing now)', () => {
     const swordFiles = generateItemFiles(sword)
     expect(Object.keys(swordFiles)).toEqual(['scripts/prefabs/testsword.lua'])
-
-    const structureFiles = generateItemFiles(structure)
-    expect(Object.keys(structureFiles).sort()).toEqual(
-      ['scripts/prefabs/teststructure.lua', 'scripts/prefabs/teststructure_placer.lua'].sort(),
-    )
   })
 
   it('wires weapon/finiteuses components to TUNING-driven values', () => {
@@ -350,7 +345,7 @@ describe('generateItemFiles', () => {
         ranged: { minRange: 6, maxRange: 10, projectilePrefab: 'fire_projectile' },
       },
       spellEffect: 'createLight',
-      recipe: { ingredients: [{ prefab: 'twigs', amount: 1 }], techLevel: 'NONE', filters: ['MAGIC'], placer: false },
+      recipe: { ingredients: [{ prefab: 'twigs', amount: 1 }], techLevel: 'NONE', filters: ['MAGIC'] },
     }
 
     expect(itemDefSchema.safeParse(projectileAndLightStaff).success).toBe(true)
@@ -468,68 +463,13 @@ describe('generateItemFiles', () => {
     expect(code).toContain('inst.components.container:Close()')
   })
 
-  it('wires teleporter + auto-pairing via a shared GLOBAL table when teleportPair is set (patterns.md#23)', () => {
-    const teleporter: ItemDef = { ...structure, id: 'testteleporter', teleportPair: true }
-    const code = generateItemPrefab(teleporter)
-    expect(code).toContain('inst:AddComponent("teleporter")')
-    expect(code).toContain('LinkTeleportPair(inst)')
-    expect(code).toContain('GLOBAL.TELEPORT_PAIRS = GLOBAL.TELEPORT_PAIRS or {}')
-    expect(code).toContain('a.components.teleporter:Target(b)')
-    expect(code).toContain('b.components.teleporter:Target(a)')
-
-    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
-  })
-
-  it('rejects a teleporter pair on a non-structure item', () => {
-    const handheldTeleporter = { ...sword, teleportPair: true }
-    expect(itemDefSchema.safeParse(handheldTeleporter).success).toBe(false)
-
-    const structureTeleporter = { ...structure, teleportPair: true }
-    expect(itemDefSchema.safeParse(structureTeleporter).success).toBe(true)
-  })
-
-  it('treats a structure (recipe.placer) as never an inventory item (patterns.md#25)', () => {
-    const code = generateItemPrefab(structure)
-    expect(code).toContain('MakeObstaclePhysics(inst, 0.5)')
-    expect(code).not.toContain('MakeInventoryPhysics')
-    expect(code).toContain('inst:AddTag("structure")')
-    expect(code).not.toContain('inst:AddTag("item")')
-    expect(code).not.toContain('inst:AddComponent("inventoryitem")')
-
-    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
-  })
-
-  it('wires workable + hammer-destroy for a structure, dropping loot if any', () => {
-    const code = generateItemPrefab(structure)
-    expect(code).toContain('inst:AddComponent("lootdropper")')
-    expect(code).toContain('inst:AddComponent("workable")')
-    expect(code).toContain('inst.components.workable:SetWorkAction(ACTIONS.HAMMER)')
-    expect(code).toContain('inst.components.workable:SetOnFinishCallback(onhammered)')
-    expect(code).toContain('local function onhammered(inst)')
-    expect(code).toContain('inst.components.lootdropper:DropLoot()')
-    expect(code).toContain('inst:Remove()')
-  })
-
-  it('keeps a non-structure item as a normal inventory item', () => {
+  it('keeps an item a normal inventory item, never obstacle-physics/hammerable (that is a Structure thing now)', () => {
     const code = generateItemPrefab(sword)
     expect(code).toContain('MakeInventoryPhysics(inst)')
     expect(code).toContain('inst:AddTag("item")')
     expect(code).toContain('inst:AddComponent("inventoryitem")')
     expect(code).not.toContain('MakeObstaclePhysics')
     expect(code).not.toContain('onhammered')
-  })
-
-  it('does not wire the container auto-close-on-pickup for a structure container (no inventoryitem to hook)', () => {
-    const structureContainer: ItemDef = {
-      ...structure,
-      id: 'teststructurebag',
-      container: { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: false },
-    }
-    const code = generateItemPrefab(structureContainer)
-    expect(code).toContain('inst:AddComponent("container")')
-    expect(code).not.toContain('SetOnPutInInventoryFn')
-
-    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
   it('wires rechargeable + Discharge inside onattack for a weapon (patterns.md#26)', () => {
@@ -554,7 +494,7 @@ describe('generateItemFiles', () => {
       category: 'generic',
       spellEffect: 'createLight',
       rechargeable: { cooldownSeconds: 45 },
-      recipe: { ingredients: [{ prefab: 'nightmarefuel', amount: 1 }], techLevel: 'MAGIC_TWO', filters: ['MAGIC'], placer: false },
+      recipe: { ingredients: [{ prefab: 'nightmarefuel', amount: 1 }], techLevel: 'MAGIC_TWO', filters: ['MAGIC'] },
     }
     expect(itemDefSchema.safeParse(rechargeableStaff).success).toBe(true)
 

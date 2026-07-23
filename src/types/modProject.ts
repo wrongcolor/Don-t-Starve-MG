@@ -73,8 +73,12 @@ export const PANIC_CAUSES = ['onFire', 'haunted'] as const
 // the one to follow.
 export const COMPANION_TASKS = ['chopTrees', 'collectItems'] as const
 
-// Simple pickup-item builds bundled with the base game — safe to reuse via SetBank/SetBuild
-// without shipping an anim/*.zip, since the game already has this animation data loaded.
+// Bundled with the base game — safe to reuse via SetBank/SetBuild without shipping
+// an anim/*.zip, since the game already has this animation data loaded. Pickup-item
+// shapes and placed-structure shapes both follow the same simple convention (bank
+// === build === name, idle clip "idle"), confirmed for the Science Machine directly
+// in scienceprototyper.lua (createmachine's fn: SetBank(name)/SetBuild(name)/
+// PlayAnimation("idle"), MakeObstaclePhysics(inst, .4)) — so both fit the same list.
 export const VANILLA_ITEM_BUILDS = [
   { build: 'trinket_1', label: 'Odd trinket 1 (generic shape)' },
   { build: 'trinket_2', label: 'Odd trinket 2 (generic shape)' },
@@ -88,6 +92,7 @@ export const VANILLA_ITEM_BUILDS = [
   { build: 'cutgrass', label: 'Cut grass' },
   { build: 'goldnugget', label: 'Gold nugget' },
   { build: 'nightmarefuel', label: 'Nightmare fuel' },
+  { build: 'researchlab', label: 'Science Machine (structure)' },
 ] as const
 
 // Confirmed in hats.lua's shared MakeHat(name) constructor: unlike VANILLA_ITEM_BUILDS
@@ -335,14 +340,6 @@ export const itemDefSchema = z
     // cap at 100%, consume the second item.
     combinable: z.boolean().optional(),
     container: containerSchema.optional(),
-    // Adapted from a real published Workshop mod ("Craftable Wormholes", see
-    // docs/dst-knowledge/patterns.md#23) — confirmed real API:
-    // teleporter:Target(otherEntity) links two entities one-way (set on both
-    // sides for a two-way pair). The source mod's own auto-pairing is a whole
-    // event-driven queue with admin restrictions, custom naming, and minimap
-    // RPC sync — too bespoke to generalize. Kept just the core idea: built
-    // structures of this type link up two at a time, in build order.
-    teleportPair: z.boolean().optional(),
     // Adapted from a real published Workshop mod ("Renameable Watches", see
     // docs/dst-knowledge/patterns.md#24) — confirmed real API: named + writeable
     // is the same system signs/gravestones use to let a player type a custom
@@ -369,7 +366,6 @@ export const itemDefSchema = z
       ingredients: z.array(ingredientSchema).min(1, 'Add at least 1 ingredient'),
       techLevel: z.enum(TECH_LEVELS),
       filters: z.array(z.enum(RECIPE_FILTERS)).min(1, 'Select at least one tab'),
-      placer: z.boolean(),
     }),
   })
   .refine((item) => item.category !== 'tool' || item.toolAction !== undefined, {
@@ -395,12 +391,6 @@ export const itemDefSchema = z
     message: 'Combining requires a durability model — set max uses, perishable, or armor first',
     path: ['combinable'],
   })
-  // A teleporter you carry around in your inventory doesn't make sense — the
-  // source mod's own version is always a placed structure players walk into.
-  .refine((item) => !item.teleportPair || item.recipe.placer, {
-    message: 'A teleporter pair only makes sense as a structure — enable "It\'s a structure" first',
-    path: ['teleportPair'],
-  })
   .refine((item) => !item.rechargeable || item.weapon !== undefined || item.spellEffect !== undefined, {
     message: 'Rechargeable needs a way to be "used" — make it a weapon or give it a magic effect first',
     path: ['rechargeable'],
@@ -413,6 +403,47 @@ export const itemDefSchema = z
     message: 'A spellbook already lets the item cast multiple spells — turn off the single magic effect first',
     path: ['spellbook'],
   })
+
+// A structure is never handheld/wearable/edible — it's always a placed prefab
+// (MakeObstaclePhysics + tag "structure", confirmed in patterns.md#25), so it only
+// gets its own 'custom'/'vanilla' reuse modes, never 'vanillaHat' (no equip slot).
+export const structureAnimationSchema = z.discriminatedUnion('source', [
+  z.object({ source: z.literal('custom') }),
+  z.object({ source: z.literal('vanilla'), build: z.string().min(1, 'Choose an animation') }),
+])
+
+export const structureDefSchema = z.object({
+  id: luaIdentifier,
+  displayName: z.string().min(1, 'Required'),
+  description: z.string().min(1, 'Required'),
+  animation: structureAnimationSchema.optional(),
+  loot: z.array(z.object({ prefab: z.string().min(1), chance: z.number().min(0.01).max(1) })),
+  container: containerSchema.optional(),
+  // Adapted from a real published Workshop mod ("Craftable Wormholes", see
+  // docs/dst-knowledge/patterns.md#23) — confirmed real API:
+  // teleporter:Target(otherEntity) links two entities one-way (set on both
+  // sides for a two-way pair). The source mod's own auto-pairing is a whole
+  // event-driven queue with admin restrictions, custom naming, and minimap
+  // RPC sync — too bespoke to generalize. Kept just the core idea: built
+  // structures of this type link up two at a time, in build order.
+  teleportPair: z.boolean().optional(),
+  // Confirmed in the base game's own beefaloherd.lua: TheWorld:ListenForEvent
+  // ("phasechanged", ...) + a math.random() chance check, gated on phase == "day",
+  // is the standard "something happens once per day" pattern — same mechanism,
+  // just spawning a different prefab instead of tagging a herd member.
+  daySpawner: z
+    .object({
+      prefab: z.string().min(1, 'Enter the prefab to spawn (e.g. deerclops)'),
+      chance: z.number().min(0.01).max(1),
+      range: z.number().min(1).max(100),
+    })
+    .optional(),
+  recipe: z.object({
+    ingredients: z.array(ingredientSchema).min(1, 'Add at least 1 ingredient'),
+    techLevel: z.enum(TECH_LEVELS),
+    filters: z.array(z.enum(RECIPE_FILTERS)).min(1, 'Select at least one tab'),
+  }),
+})
 
 // Confirmed in dryad.lua's master_postinit (docs/dst-knowledge/patterns.md#21) —
 // stripped of Dryad's own (unmodeled) skill-tree conditionals, keeping just the
@@ -621,6 +652,7 @@ export const creatureDefSchema = z
 export const modProjectSchema = z.object({
   meta: modMetaSchema,
   items: z.array(itemDefSchema),
+  structures: z.array(structureDefSchema),
   characters: z.array(characterDefSchema),
   creatures: z.array(creatureDefSchema),
   rooms: z.array(roomDefSchema),
@@ -652,6 +684,7 @@ export type CreatureAnimation = z.infer<typeof creatureAnimationSchema>
 export type ModMeta = z.infer<typeof modMetaSchema>
 export type Ingredient = z.infer<typeof ingredientSchema>
 export type ItemDef = z.infer<typeof itemDefSchema>
+export type StructureDef = z.infer<typeof structureDefSchema>
 export type CharacterDef = z.infer<typeof characterDefSchema>
 export type CreatureDef = z.infer<typeof creatureDefSchema>
 export type ModProject = z.infer<typeof modProjectSchema>
@@ -667,6 +700,7 @@ export function createEmptyModProject(): ModProject {
       configOptions: [],
     },
     items: [],
+    structures: [],
     characters: [],
     creatures: [],
     rooms: [],

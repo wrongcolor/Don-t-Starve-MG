@@ -3,6 +3,7 @@ import type { ModProject } from '../types/modProject'
 import { generateModInfo } from './modinfo'
 import { generateModMain } from './modmain'
 import { generateItemFiles, isHandheld } from './item'
+import { generateStructureFiles } from './structure'
 import { generateCharacterFiles } from './character'
 import { generateSpeechFile } from './speech'
 import { generateCreatureFiles } from './creature'
@@ -43,6 +44,18 @@ function generateReadme(project: ModProject): string {
             `    - Por ser empunhável, também precisa de \`anim/swap_${item.id}.zip\` (aparência na mão do personagem).`,
           )
         }
+      }
+    }
+  }
+  if (project.structures.length > 0) {
+    lines.push('- **Estruturas**: `images/inventoryimages/<id>.xml`/`.tex` (ícone de inventário, sempre necessário).')
+    for (const structure of project.structures) {
+      if (structure.animation?.source === 'vanilla') {
+        lines.push(
+          `  - \`${structure.id}\`: reaproveita o build "${structure.animation.build}" do jogo base — nenhum \`anim/*.zip\` próprio é necessário.`,
+        )
+      } else {
+        lines.push(`  - \`${structure.id}\`: precisa de \`anim/${structure.id}.zip\` (build/bank "${structure.id}", animação "idle").`)
       }
     }
   }
@@ -93,6 +106,9 @@ function generateReadme(project: ModProject): string {
   if (project.items.length > 0) {
     lines.push('- [ ] Para cada item: `c_give("<id>")` no console e verificar se craft aparece na aba certa.')
   }
+  if (project.structures.length > 0) {
+    lines.push('- [ ] Para cada estrutura: craftar e posicionar no mundo, e martelar pra confirmar que ela sai (hammer-destroy).')
+  }
   if (project.characters.length > 0) {
     lines.push('- [ ] Para cada personagem: aparece na tela de seleção e carrega sem crash.')
   }
@@ -118,7 +134,12 @@ function generateReadme(project: ModProject): string {
 // message instead of a mysteriously missing prefab in the published mod.
 function findDuplicatePrefabId(project: ModProject): string | undefined {
   const seen = new Set<string>()
-  for (const id of [...project.items.map((i) => i.id), ...project.characters.map((c) => c.id), ...project.creatures.map((c) => c.id)]) {
+  for (const id of [
+    ...project.items.map((i) => i.id),
+    ...project.structures.map((s) => s.id),
+    ...project.characters.map((c) => c.id),
+    ...project.creatures.map((c) => c.id),
+  ]) {
     if (seen.has(id)) return id
     seen.add(id)
   }
@@ -141,6 +162,9 @@ export function buildModFiles(project: ModProject): Record<string, string> {
 
   for (const item of project.items) {
     Object.assign(files, generateItemFiles(item))
+  }
+  for (const structure of project.structures) {
+    Object.assign(files, generateStructureFiles(structure))
   }
   for (const character of project.characters) {
     const speech = generateSpeechFile(character)

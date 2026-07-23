@@ -21,6 +21,7 @@ export const meadowHopper: ModProject = {
     configOptions: [],
   },
   items: [],
+  structures: [],
   characters: [],
   creatures: [
     {

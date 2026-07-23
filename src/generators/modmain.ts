@@ -1,4 +1,4 @@
-import type { ModProject, ItemDef, CharacterDef, CreatureDef } from '../types/modProject'
+import type { ModProject, ItemDef, StructureDef, CharacterDef, CreatureDef, Container } from '../types/modProject'
 import { luaString, luaStringArray, toUpperSnake } from './luaUtils'
 import { containerColumns, containerSlotCount, containerCustomWidgetBuild } from './item'
 
@@ -11,9 +11,6 @@ function itemRecipeBlock(item: ItemDef): string {
     `        atlas = "images/inventoryimages/${item.id}.xml",`,
     `        image = "${item.id}.tex",`,
   ]
-  if (item.recipe.placer) {
-    configLines.push(`        placer = "${item.id}_placer",`)
-  }
 
   const filters = luaStringArray(item.recipe.filters)
 
@@ -22,6 +19,47 @@ function itemRecipeBlock(item: ItemDef): string {
     ...configLines,
     `    }, ${filters})`,
   ].join('\n')
+}
+
+// A structure's recipe always registers a placer — unlike an item, it's the
+// one thing every structure has in common (that's what makes it a structure).
+function structureRecipeBlock(structure: StructureDef): string {
+  const ingredients = structure.recipe.ingredients
+    .map((i) => `Ingredient(${luaString(i.prefab)}, ${i.amount})`)
+    .join(', ')
+
+  const configLines = [
+    `        atlas = "images/inventoryimages/${structure.id}.xml",`,
+    `        image = "${structure.id}.tex",`,
+    `        placer = "${structure.id}_placer",`,
+  ]
+
+  const filters = luaStringArray(structure.recipe.filters)
+
+  return [
+    `AddRecipe2(${luaString(structure.id)}, { ${ingredients} }, TECH.${structure.recipe.techLevel}, {`,
+    ...configLines,
+    `    }, ${filters})`,
+  ].join('\n')
+}
+
+function structureTuningBlock(structure: StructureDef): string[] {
+  const upper = toUpperSnake(structure.id)
+  const lines: string[] = []
+  if (structure.daySpawner) {
+    lines.push(`GLOBAL.TUNING.${upper}_SPAWN_CHANCE = ${structure.daySpawner.chance}`)
+    lines.push(`GLOBAL.TUNING.${upper}_SPAWN_RANGE = ${structure.daySpawner.range}`)
+  }
+  return lines
+}
+
+function structureStringsBlock(structure: StructureDef): string[] {
+  const upper = toUpperSnake(structure.id)
+  return [
+    `STRINGS.NAMES.${upper} = ${luaString(structure.displayName)}`,
+    `STRINGS.RECIPE_DESC.${upper} = ${luaString(structure.description)}`,
+    `STRINGS.CHARACTERS.GENERIC.DESCRIBE.${upper} = ${luaString(structure.description)}`,
+  ]
 }
 
 function itemTuningBlock(item: ItemDef): string[] {
@@ -119,27 +157,29 @@ function characterTuningBlock(character: CharacterDef): string[] {
 }
 
 function needsContainerParams(project: ModProject): boolean {
-  return project.items.some((item) => item.container)
+  return project.items.some((item) => item.container) || project.structures.some((structure) => structure.container)
 }
 
 // Adapted from TWO real published Workshop mods (see docs/dst-knowledge/
 // patterns.md#20). `containers.params.<id>` — the slot grid, widget skin, and
 // whether it auto-opens as a side panel — can only be set up from
-// modmain.lua (the prefab script just calls WidgetSetup with this id).
-function containerParamsBlock(item: ItemDef): string[] {
-  const widget = item.container!.widget
+// modmain.lua (the prefab script just calls WidgetSetup with this id). Shared
+// by Item and Structure containers alike — takes the id + container config
+// directly rather than a whole ItemDef.
+function containerParamsBlock(id: string, container: Container): string[] {
+  const widget = container.widget
   const lines: string[] = []
 
   if (widget.source === 'vanilla') {
     // Confirmed in "Automation Farm": clone an existing container's ENTIRE
     // widget config (skin + exact slot grid) at runtime — no manual grid math,
     // works for any valid container prefab id, not just one curated preset.
-    lines.push(`params.${item.id} = GLOBAL.deepcopy(containers.params[${luaString(widget.reusePrefab)}])`)
+    lines.push(`params.${id} = GLOBAL.deepcopy(containers.params[${luaString(widget.reusePrefab)}])`)
   } else {
-    const columns = containerColumns(item)
-    const slots = containerSlotCount(item)
-    const build = containerCustomWidgetBuild(item)
-    lines.push(`params.${item.id} = {`)
+    const columns = containerColumns(container)
+    const slots = containerSlotCount(container)
+    const build = containerCustomWidgetBuild(id)
+    lines.push(`params.${id} = {`)
     lines.push('    widget = {')
     lines.push('        slotpos = {},')
     lines.push(`        animbank = ${luaString(build)},`)
@@ -157,25 +197,25 @@ function containerParamsBlock(item: ItemDef): string[] {
       const col = i % columns
       const x = (col - (columns - 1) / 2) * 75
       const y = ((rows - 1) / 2 - row) * 75
-      lines.push(`table.insert(params.${item.id}.widget.slotpos, Vector3(${x}, ${y}, 0))`)
+      lines.push(`table.insert(params.${id}.widget.slotpos, Vector3(${x}, ${y}, 0))`)
     }
   }
 
-  lines.push(`params.${item.id}.issidewidget = ${item.container!.sideWidget}`)
-  lines.push(`params.${item.id}.type = ${luaString(item.id)}`)
+  lines.push(`params.${id}.issidewidget = ${container.sideWidget}`)
+  lines.push(`params.${id}.type = ${luaString(id)}`)
   lines.push('')
-  lines.push(`containers.MAXITEMSLOTS = math.max(containers.MAXITEMSLOTS, #params.${item.id}.widget.slotpos)`)
+  lines.push(`containers.MAXITEMSLOTS = math.max(containers.MAXITEMSLOTS, #params.${id}.widget.slotpos)`)
 
   const acceptConditions: string[] = []
-  if (item.container!.acceptsTag) {
-    acceptConditions.push(`item:HasTag(${luaString(item.container!.acceptsTag)})`)
+  if (container.acceptsTag) {
+    acceptConditions.push(`item:HasTag(${luaString(container.acceptsTag)})`)
   }
-  for (const prefab of item.container!.acceptsPrefabs ?? []) {
+  for (const prefab of container.acceptsPrefabs ?? []) {
     acceptConditions.push(`item.prefab == ${luaString(prefab)}`)
   }
   if (acceptConditions.length > 0) {
     lines.push('')
-    lines.push(`function params.${item.id}.itemtestfn(container, item, slot)`)
+    lines.push(`function params.${id}.itemtestfn(container, item, slot)`)
     lines.push(`    return ${acceptConditions.join(' or ')}`)
     lines.push('end')
   }
@@ -252,7 +292,9 @@ export function generateModMain(project: ModProject): string {
   const prefabFiles: string[] = []
   for (const item of project.items) {
     prefabFiles.push(item.id)
-    if (item.recipe.placer) prefabFiles.push(`${item.id}_placer`)
+  }
+  for (const structure of project.structures) {
+    prefabFiles.push(structure.id, `${structure.id}_placer`)
   }
   for (const character of project.characters) {
     prefabFiles.push(character.id)
@@ -287,6 +329,20 @@ export function generateModMain(project: ModProject): string {
     }
   }
 
+  if (project.structures.length > 0) {
+    sections.push('')
+    sections.push('-- Structures: tuning + strings')
+    for (const structure of project.structures) {
+      sections.push(...structureTuningBlock(structure))
+      sections.push(...structureStringsBlock(structure))
+    }
+    sections.push('')
+    sections.push('-- Structures: recipes')
+    for (const structure of project.structures) {
+      sections.push(structureRecipeBlock(structure))
+    }
+  }
+
   if (needsCombineAction(project)) {
     sections.push('')
     sections.push('-- Combine action (shared by every combinable item)')
@@ -301,7 +357,13 @@ export function generateModMain(project: ModProject): string {
     for (const item of project.items) {
       if (item.container) {
         sections.push('')
-        sections.push(...containerParamsBlock(item))
+        sections.push(...containerParamsBlock(item.id, item.container))
+      }
+    }
+    for (const structure of project.structures) {
+      if (structure.container) {
+        sections.push('')
+        sections.push(...containerParamsBlock(structure.id, structure.container))
       }
     }
   }

@@ -1,8 +1,8 @@
 import type { ModProject } from '../../src/types/modProject'
 
 // Exercises the mechanics sampleProject (src/__tests__/fixtures.ts) doesn't cover:
-// rechargeable, container, teleportPair, nameable, combinable, skill tree, herd,
-// kiting, panic causes.
+// rechargeable, container, nameable, combinable, skill tree, herd, kiting, panic
+// causes, and teleportPair (on a Structure, not an Item — see structures below).
 export const advancedMechanicsProject: ModProject = {
   meta: {
     name: 'Advanced Mechanics Test Mod',
@@ -25,7 +25,6 @@ export const advancedMechanicsProject: ModProject = {
         ingredients: [{ prefab: 'moonrocknugget', amount: 2 }],
         techLevel: 'CELESTIAL_ONE',
         filters: ['MAGIC'],
-        placer: false,
       },
     },
     {
@@ -43,20 +42,6 @@ export const advancedMechanicsProject: ModProject = {
         ingredients: [{ prefab: 'boards', amount: 2 }, { prefab: 'ice', amount: 2 }],
         techLevel: 'SCIENCE_TWO',
         filters: ['CONTAINERS'],
-        placer: false,
-      },
-    },
-    {
-      id: 'wormholegate',
-      displayName: 'Wormhole Gate',
-      description: 'A structure that pairs up with another to teleport',
-      category: 'generic',
-      teleportPair: true,
-      recipe: {
-        ingredients: [{ prefab: 'purplegem', amount: 1 }, { prefab: 'boards', amount: 4 }],
-        techLevel: 'MAGIC_THREE',
-        filters: ['MAGIC', 'STRUCTURES'],
-        placer: true,
       },
     },
     {
@@ -69,7 +54,6 @@ export const advancedMechanicsProject: ModProject = {
         ingredients: [{ prefab: 'boards', amount: 1 }],
         techLevel: 'NONE',
         filters: ['DECOR'],
-        placer: true,
       },
     },
     {
@@ -84,7 +68,20 @@ export const advancedMechanicsProject: ModProject = {
         ingredients: [{ prefab: 'twigs', amount: 1 }, { prefab: 'flint', amount: 2 }],
         techLevel: 'NONE',
         filters: ['TOOLS'],
-        placer: false,
+      },
+    },
+  ],
+  structures: [
+    {
+      id: 'wormholegate',
+      displayName: 'Wormhole Gate',
+      description: 'A structure that pairs up with another to teleport',
+      loot: [],
+      teleportPair: true,
+      recipe: {
+        ingredients: [{ prefab: 'purplegem', amount: 1 }, { prefab: 'boards', amount: 4 }],
+        techLevel: 'MAGIC_THREE',
+        filters: ['MAGIC', 'STRUCTURES'],
       },
     },
   ],

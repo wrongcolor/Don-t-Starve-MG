@@ -34,19 +34,6 @@ export const sampleProject: ModProject = {
         ],
         techLevel: 'SCIENCE_ONE',
         filters: ['WEAPONS'],
-        placer: false,
-      },
-    },
-    {
-      id: 'teststructure',
-      displayName: 'Test Structure',
-      description: 'A structure for testing',
-      category: 'generic',
-      recipe: {
-        ingredients: [{ prefab: 'boards', amount: 4 }],
-        techLevel: 'NONE',
-        filters: ['STRUCTURES'],
-        placer: true,
       },
     },
     {
@@ -59,7 +46,6 @@ export const sampleProject: ModProject = {
         ingredients: [{ prefab: 'flint', amount: 1 }],
         techLevel: 'NONE',
         filters: ['TOOLS'],
-        placer: false,
       },
     },
     {
@@ -74,7 +60,6 @@ export const sampleProject: ModProject = {
         ingredients: [{ prefab: 'twigs', amount: 1 }, { prefab: 'flint', amount: 1 }],
         techLevel: 'NONE',
         filters: ['TOOLS'],
-        placer: false,
       },
     },
     {
@@ -94,7 +79,6 @@ export const sampleProject: ModProject = {
         ingredients: [{ prefab: 'nightmarefuel', amount: 3 }],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
-        placer: false,
       },
     },
     {
@@ -116,7 +100,6 @@ export const sampleProject: ModProject = {
         ingredients: [{ prefab: 'log', amount: 4 }],
         techLevel: 'NONE',
         filters: ['ARMOUR'],
-        placer: false,
       },
     },
     {
@@ -130,7 +113,6 @@ export const sampleProject: ModProject = {
         ingredients: [{ prefab: 'monstermeat', amount: 1 }],
         techLevel: 'NONE',
         filters: ['COOKING'],
-        placer: false,
       },
     },
     {
@@ -148,7 +130,19 @@ export const sampleProject: ModProject = {
         ingredients: [{ prefab: 'nightmarefuel', amount: 2 }],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
-        placer: false,
+      },
+    },
+  ],
+  structures: [
+    {
+      id: 'teststructure',
+      displayName: 'Test Structure',
+      description: 'A structure for testing',
+      loot: [],
+      recipe: {
+        ingredients: [{ prefab: 'boards', amount: 4 }],
+        techLevel: 'NONE',
+        filters: ['STRUCTURES'],
       },
     },
   ],

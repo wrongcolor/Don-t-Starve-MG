@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ModMetaForm } from './components/forms/ModMetaForm'
 import { ItemsPanel } from './components/panels/ItemsPanel'
+import { StructuresPanel } from './components/panels/StructuresPanel'
 import { CharactersPanel } from './components/panels/CharactersPanel'
 import { CreaturesPanel } from './components/panels/CreaturesPanel'
 import { WorldPanel } from './components/panels/WorldPanel'
@@ -10,6 +11,7 @@ import { GenerateButton } from './components/GenerateButton'
 const TABS = [
   { key: 'meta', label: 'Metadata', icon: '📋' },
   { key: 'items', label: 'Items', icon: '⚔️' },
+  { key: 'structures', label: 'Structures', icon: '🏛️' },
   { key: 'characters', label: 'Characters', icon: '🧑' },
   { key: 'creatures', label: 'Creatures', icon: '👹' },
   { key: 'world', label: 'World', icon: '🌍' },
@@ -44,6 +46,7 @@ function App() {
         </div>
       )}
       {tab === 'items' && <ItemsPanel />}
+      {tab === 'structures' && <StructuresPanel />}
       {tab === 'characters' && <CharactersPanel />}
       {tab === 'creatures' && <CreaturesPanel />}
       {tab === 'world' && <WorldPanel />}

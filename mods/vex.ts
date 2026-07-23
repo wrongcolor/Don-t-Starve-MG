@@ -15,6 +15,7 @@ export const vex: ModProject = {
     configOptions: [],
   },
   items: [],
+  structures: [],
   characters: [
     {
       id: 'vex',

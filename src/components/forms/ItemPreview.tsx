@@ -20,7 +20,6 @@ const CATEGORY_LABELS: Record<ItemDef['category'], string> = {
 export function ItemPreview({ item }: { item: Partial<ItemDef> }) {
   const category = item.category ?? 'generic'
   const tags: string[] = []
-  if (item.recipe?.placer) tags.push('🏗️ Structure (not an inventory item)')
   if (item.category === 'tool') tags.push('🔧 Tool')
   if (item.weapon) tags.push('⚔️ Weapon')
   if (item.armor) tags.push(item.armor.equipSlot === 'head' ? '⛑️ Helmet' : '🛡️ Armor')
@@ -34,7 +33,6 @@ export function ItemPreview({ item }: { item: Partial<ItemDef> }) {
   if (item.combinable) tags.push('🔗 Combinable')
   if (item.container) tags.push('🎒 Container')
   if (item.container?.preservation) tags.push('🧊 Preserves contents')
-  if (item.teleportPair) tags.push('🌀 Teleporter pair')
   if (item.nameable) tags.push('✏️ Renameable')
   if (item.rechargeable) tags.push('🔋 Rechargeable')
   if (item.moonrelic) tags.push('🌙 Portal idol')

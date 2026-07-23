@@ -28,7 +28,6 @@ export const adventurersToolkit: ModProject = {
         ingredients: [{ prefab: 'flint', amount: 2 }, { prefab: 'twigs', amount: 1 }],
         techLevel: 'NONE',
         filters: ['WEAPONS'],
-        placer: false,
       },
     },
     {
@@ -43,7 +42,6 @@ export const adventurersToolkit: ModProject = {
         ingredients: [{ prefab: 'flint', amount: 2 }, { prefab: 'twigs', amount: 1 }],
         techLevel: 'NONE',
         filters: ['TOOLS'],
-        placer: false,
       },
     },
     {
@@ -59,7 +57,6 @@ export const adventurersToolkit: ModProject = {
         ingredients: [{ prefab: 'silk', amount: 4 }, { prefab: 'rope', amount: 2 }],
         techLevel: 'NONE',
         filters: ['CONTAINERS'],
-        placer: false,
       },
     },
     {
@@ -76,10 +73,10 @@ export const adventurersToolkit: ModProject = {
         ingredients: [{ prefab: 'boards', amount: 2 }, { prefab: 'rope', amount: 1 }],
         techLevel: 'NONE',
         filters: ['CONTAINERS'],
-        placer: false,
       },
     },
   ],
+  structures: [],
   characters: [],
   creatures: [],
   rooms: [],

@@ -30,6 +30,7 @@ export const uShapeCourtyard: ModProject = {
     configOptions: [],
   },
   items: [],
+  structures: [],
   characters: [],
   creatures: [],
   staticLayouts: [

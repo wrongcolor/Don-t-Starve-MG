@@ -14,6 +14,7 @@ export const alchemistIsland: ModProject = {
     configOptions: [],
   },
   items: [],
+  structures: [],
   characters: [],
   creatures: [],
   rooms: [

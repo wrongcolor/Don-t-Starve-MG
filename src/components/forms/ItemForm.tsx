@@ -30,7 +30,7 @@ const emptyItem: ItemDef = {
   description: '',
   category: 'generic',
   animation: { source: 'custom' },
-  recipe: { ingredients: [{ prefab: 'twigs', amount: 1 }], techLevel: 'NONE', filters: ['TOOLS'], placer: false },
+  recipe: { ingredients: [{ prefab: 'twigs', amount: 1 }], techLevel: 'NONE', filters: ['TOOLS'] },
 }
 
 // Quick presets that prefill category + the fields that matter most for that
@@ -117,8 +117,6 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const containerWidgetSource = watched.container?.widget?.source ?? 'vanilla'
   const enableAcceptsTag = watched.container?.acceptsTag !== undefined
   const enablePreservation = watched.container?.preservation !== undefined
-  const isPlacer = watched.recipe?.placer === true
-  const enableTeleportPair = watched.teleportPair === true
   const handheld = category === 'tool' || enableWeapon
   const isHeadArmor = watched.armor?.equipSlot === 'head'
 
@@ -649,32 +647,6 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                 ))}
               </div>
               {errors.recipe?.filters?.message && <p className="field error">{errors.recipe.filters.message}</p>}
-
-              <div className="checks">
-                <label>
-                  <input
-                    type="checkbox"
-                    {...register('recipe.placer', {
-                      onChange: (e) => {
-                        if (!e.target.checked) setValue('teleportPair', undefined)
-                      },
-                    })}
-                  />
-                  It's a structure (generates a placer)
-                </label>
-              </div>
-              {isPlacer && (
-                <div className="checks">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={enableTeleportPair}
-                      onChange={(e) => setValue('teleportPair', e.target.checked || undefined)}
-                    />
-                    Teleporter pair (every 2 built link to each other)
-                  </label>
-                </div>
-              )}
             </Fieldset>
           </div>
 
