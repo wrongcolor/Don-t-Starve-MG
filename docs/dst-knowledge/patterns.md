@@ -2174,3 +2174,128 @@ independente do template de pesca, #43); ida pra casa por ciclo dia/noite
 reaparece com polaridade invertida no wobster (`should_go_home =
 isday or iscaveday` — criatura noturna, casa de dia); slurperbrain e
 spatbrain(panic/chase/wander base) não trazem novidade além do já listado.
+
+## 51. Últimos 8 brains (worm, dustmoth, lunar_grazer, powdermonkey, primemate, caveventmite, molebat, pigelitefighter) — fecha a varredura de brains
+
+Última leva da série 46-51: 53 criaturas cobertas no total.
+`pigelitefighterbrain.lua` é o guarda de combate real, distinto do
+`pigelitebrain.lua` (minigame do Rei Porco, #49).
+
+**Mecânicas novas confirmadas, generalizáveis, não modeladas hoje:**
+
+- **Emboscada estacionária travada por state tag até evento destravar**
+  (worm: árvore inteira congela em `StandStill` enquanto `HasStateTag
+  ("lure")`; só destrava via `"dolure"` disparado de dentro de
+  `GoHomeAction`, sem alvo e fora de cooldown) — categoria "trava total
+  pelo próprio estado-alvo do comportamento", distinta da interrupção
+  defensiva do centipede (#47).
+- **Escopo do medo condicionado a estar carregando carga** (dustmoth:
+  vazio foge de QUALQUER `scarytoprey`; carregado só foge de caçadores
+  não-jogadores) — gatilho de medo por posse de item, categoria nova.
+- **Autodetecção de travamento com recuperação temporizada** (dustmoth:
+  conta tempo parado com ação em buffer sem progresso; ao cruzar um
+  limiar, limpa a ação e força wander temporário forçado, revertido por
+  `DoTaskInTime`) — "IA se autodiagnostica travada e sai do próprio
+  estado", diretamente aplicável a qualquer criatura gerada com pathing
+  sujeito a falhar.
+- **Tática de combate ramificada pelo estado de consciência do ALVO**
+  (lunar_grazer: alvo dormindo/nocauteado vs. acordado escolhe abordagem
+  diferente) — gate sobre o alvo, não sobre o próprio ator.
+- **Posicionamento de cerco/strafe calculado por ângulo com continuidade
+  de giro** (lunar_grazer `DoStalking`: remapeia distância pra ângulo de
+  flanco, escolhe o candidato mais próximo da rotação atual) — manobra
+  tática mais rica que `ChaseAndAttack` simples.
+- **Ciclo de vida (spawn/despawn) gerenciado dentro da própria árvore de
+  IA**, incluindo autodestruição por ociosidade perto de casa
+  (lunar_grazer).
+- **`ParallelNodeAny`** confirmado como primitiva (corrida entre filhos —
+  o primeiro a terminar decide) — terceira variante de composição
+  paralela na série, distinta de `ParallelNode` (todos rodam sempre).
+- **Medo disparado por timer de dano recente** ("apanhei há pouco"), não
+  por HP%/distância/tag (powdermonkey `shouldrun`: foge se
+  `timer:TimerExists("hit")` e tem alvo) — categoria de gatilho nova.
+- **Status de esquadrão de N estados suprimindo MÚLTIPLOS nós
+  simultaneamente** (powdermonkey: `boatcrew.status == "retreat"` filtra
+  alvo elegível E ativa `RunAway` E ativa `Leash` no bote ao mesmo tempo)
+  — estende a "ordem suprime instinto" do #47/#49 pra vários nós juntos.
+- **IA de arma montada em veículo**: busca posição livre por arco/alcance,
+  testa linha de tiro (diferença angular), aplica jitter de mira
+  (powdermonkey, canhão) — categoria nova de "operador de arma
+  estacionária".
+- **Busca de vaga física livre por tentativa-e-erro**, sorteando ângulo e
+  testando ocupação repetidamente (powdermonkey/primemate, embarque em
+  bote).
+- **Categoria de ação inteira desligada por flag de evento/chefe de
+  mundo** (powdermonkey: recusa roubar se a rainha pirata tem
+  `"right_of_passage"` ativo).
+- **Gate de engajamento calculado pela GEOMETRIA do veículo** (primemate
+  `cangettotarget`: fora do bote sempre libera; no bote, só se o alvo
+  está na mesma plataforma OU dentro de alcance+raio da plataforma) —
+  gate de combate completo, não só exceção de cooldown (distinto do
+  gnarwail, #48).
+- **Manutenção do próprio veículo priorizada ACIMA do combate**
+  (primemate: `fixboat` roda antes até de checar alcance de ataque).
+- **`UseShield` com gatilho PROATIVO** (arma o escudo enquanto seguro/sem
+  alvo, com recarga randomizada), alternativa ao reativo-por-dano do
+  spider (#46) — mesmo primitivo, parâmetro de gatilho diferente
+  (caveventmite).
+- **Pânico por evento de mundo dedicado** (molebat: tremor de caverna,
+  `_quaking`) — nova causa na cadeia de pânico.
+- **Chamado de reforços pelo próprio ATACANTE em combate** (molebat,
+  `ShouldSummonAllies`) — inverso do `SummonGuardian` defensivo do
+  mossling (#49).
+- **Drive de "necessidade de descanso" como categoria própria**, distinta
+  de fome/medo, gateando tanto construção de casa quanto ida dormir
+  (molebat `WantsToNap`).
+- **Congelamento de árvore por tag de animação com prioridade ACIMA até
+  do pânico** (pigelitefighter: tag `"jumping"` bloqueia tudo, inclusive
+  fogo/choque/assombração).
+- **Pânico por assombração** (`hauntable.panic`) — nova causa confirmada
+  (pigelitefighter).
+- **Existência do próprio agente condicionada a vínculo de liderança**:
+  autodestrói-se via evento repetido se `follower:GetLeader() == nil`
+  (pigelitefighter) — lifecycle do AGENTE, não do alvo (distinto do
+  krampus, #48, onde era o alvo que se autoinvalidava).
+- **`LoopNode` envolvendo `ActionNode`** como terceira técnica confirmada
+  de "sempre-fire" side-effect (após `FailIfSuccessDecorator` do deer,
+  #48, e `NotDecorator` do lunar_grazer, acima).
+
+### Síntese final (fecha as seções 46-51, 53 criaturas)
+
+Os achados mais transversais — confirmados de forma independente em
+várias criaturas, com aplicação direta em `src/generators/brain.ts` (hoje
+só 3 perfis fixos: hostile/neutral/passive, cada um uma `PriorityNode`
+mínima com `Wander`+`ChaseAndAttack` opcional, `SEE_TARGET_DIST` fixo em
+10):
+
+1. **Hit-and-run/kiting** reapareceu em pelo menos 8 criaturas
+   independentes (bee, pig, merm, centipede, gnarwail, walrus, molebat, e
+   variantes de `Dodge`). É o candidato nº1 a virar um perfil real —
+   hoje `brain.ts` só tem `ChaseAndAttack` puro, sem opção de recuo por
+   cooldown.
+2. **`SEE_TARGET_DIST` fixo em 10 é irreal**: todo brain real varia
+   alcance por posse/vínculo/plataforma/lealdade (hound: pet=10, com
+   casa=20, solto=100; merm por lealdade; primemate por geometria de
+   bote). Parametrizar por perfil é simples e de alto impacto.
+3. **Pânico é sempre uma cadeia de causas, não um gatilho único** — susto,
+   fogo, choque, ipeca, assombração, evento de mundo (tremor). `brain.ts`
+   trata pânico como binário/ausente; uma lista extensível de causas é
+   barata de implementar.
+4. **Duas sub-árvores completas por modo** (dia/noite, filiação a grupo,
+   tem-casa-ou-não) é o padrão dominante pra comportamento complexo —
+   perfis de `brain.ts` deveriam poder alternar CONJUNTOS de nós, não só
+   parâmetros de um conjunto fixo.
+5. **"Sempre-fire" side-effect node** (3 implementações distintas:
+   `FailIfSuccessDecorator`, `NotDecorator`, `LoopNode`) é um idioma real
+   de DST pra sincronizar estado/eventos a cada tick sem competir por
+   prioridade — útil pra geração de eventos periódicos (despawn,
+   cleanup, etc.).
+6. **Alvo/recurso compartilhado com reserva e teto** (buzzard, mole,
+   otter, pigelite, squid, powdermonkey) é o mecanismo mais repetido pra
+   IA em grupo evitar disputar o mesmo alvo/recurso — vale um helper
+   dedicado se o gerador algum dia suportar criaturas em bando/rebanho.
+
+Com isso, a varredura sistemática dos brains de criatura "básica" também
+está concluída — mesmo critério de escopo aplicado às stategraphs
+(seção 45): ficaram de fora bosses, personagens jogáveis, e sistemas de
+minigame/evento sazonal muito específicos.
