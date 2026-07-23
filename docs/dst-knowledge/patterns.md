@@ -1241,3 +1241,66 @@ beefalo (growable + hair_growth + achievements), skins/YOTB, revive; merm
 virando mermking, mutação lunar, spawn de shadow minion; som ambiente
 desacoplado da animação sobrevivendo a sleep/wake do tentacle (`rumblesound`,
 efeito bem específico) — todos sistemas de UMA criatura, não padrão geral.
+
+## 38. Mais 6 stategraphs reais (bat, bird, bird_mutant, bunnyman, butterfly, buzzard)
+
+Continuação das seções 36-37 (agora 16 criaturas cobertas).
+
+**Clipes reais confirmados:**
+
+| Criatura | idle | mover | atacar | hit | death |
+|---|---|---|---|---|---|
+| bat | `fly_loop` (nunca pousa) | `fly_loop` | `atk` (default) | `hit` (default) | `death` (default) |
+| bird | `idle` | `hop` (chão) / `glide` (ar) | **não existe** (só a variante mutante ataca) | `hit` | `death` |
+| bird_mutant | `idle` | `hop` (mesmo clipe do "walk") / `glide` | `attack` | **não existe** | `death` |
+| bunnyman | `funnyidle`→variantes | `walk_loop`/`run_loop` | `atk` | `hit` | `death` |
+| butterfly | `idle_flight_loop` | `flight_cycle` | **não existe** | **não existe** | `death` |
+| buzzard | `idle` | `hop`/`glide` | `atk` (mutante: `atk_flame_pre/_loop/_pst`) | `hit` | `death` |
+
+**Mecânicas novas confirmadas, generalizáveis, não modeladas hoje:**
+
+- **Voo vertical invencível pra ponto inacessível** (bat, `flyaway`/`flyback`) —
+  move só no eixo Y via `Physics:SetMotorVel(0, Y, 0)` (sem `locomotor`), com
+  `health:SetInvincible(true)` e sombra desligada enquanto voa; o retorno
+  monitora a posição Y a cada `onupdate` até `pt.y <= .1` pra só então
+  teleportar e reativar hitbox/sombra. Reaproveitável pra qualquer criatura
+  que precise "sumir" temporariamente (ninho, teto de caverna).
+- **Idle com tique sorteado por faixas de probabilidade cumulativas**
+  (bird: `r<.5`/`r<.6`/... escolhe entre `idle`/`switch`/`peck`/`hop`/
+  `flyaway`/`caw` no timeout do próprio estado, sem envolver o brain).
+- **Ausência de reação a dano é traço independente de ter ataque**
+  (bird_mutant: tem `attack` completo mas ZERO ocorrência de `"hit"` ou do
+  evento `attacked` no arquivo — dano não interrompe nem visualmente reage).
+  Espelha o achado da seção 37 pro koalefant (fuga × combate independentes),
+  agora pro par hit × attack.
+- **Ataque que se auto-interrompe no meio do timeline** (bunnyman: no frame
+  de dano, o próprio `onenter` do `attack` já chama
+  `inst.sg:RemoveStateTag("attack")`/`RemoveStateTag("busy")`, liberando a
+  criatura pra reagir a outros eventos antes do `animover` terminar — janela
+  de interrupção configurável sem precisar de um estado extra). Mesmo padrão
+  confirmado de novo em buzzard (remove `"attack"` no frame 20, mantém
+  `"busy"`; `flamethrower_pst` remove `"busy"` no frame 13).
+- **Criatura sem ataque E sem hit** (butterfly) — grau mais raso de "presa
+  pacífica" que o coelho da seção 36 (que ao menos tem `hit`): só
+  idle/pousar/decolar/morrer, nenhuma reação a combate de nenhum lado.
+- **Mergulho que executa a presa em vez de causar dano** (buzzard: ao pousar
+  sobre um alvo com tag `prey`, vai pro estado `kill`, que no frame 27 chama
+  `target.components.health:Kill()` diretamente — não `combat:DoAttack`).
+  Padrão de "predador vs. presa pequena" reaproveitável, distinto de combate
+  normal.
+- **Stun com janela de interrupção graduada** (buzzard: cadeia
+  `fall`→`stun_pre`→`stun_loop`↔`stun_hit`→`stun_pst`, usa
+  `inst.sg.mem.stun_endtime` — timestamp persistente que sobrevive a troca de
+  estado, ao contrário de `statemem` — e vai soltando/prendendo tags
+  (`noelectrocute`/`caninterrupt`/`busy`) em frames específicos conforme o
+  atordoamento evolui, em vez de tudo de uma vez).
+- **Coordenação entre instâncias via busca espacial** (buzzard:
+  `ChooseAttack` varre `TheSim:FindEntities` por outros buzzards mutantes já
+  usando o ataque especial no mesmo alvo, pra não disparar todos juntos —
+  coordenação implícita sem manager central).
+
+**Fora de escopo (bespoke demais):** mastigação em N repetições configuráveis
+do bat (item-específico), mutação lunar de bird/buzzard, lançador de chamas
+(FX pool), captura em armadilha do bird (`trapped`→`stunned`→`flyaway`,
+componente externo cuida da doma, não a stategraph), `abandon`/`cheer` do
+bunnyman (já coberto pelo padrão "camada job/lealdade" da seção 37).
