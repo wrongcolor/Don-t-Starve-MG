@@ -161,4 +161,70 @@ describe('ItemForm', () => {
     expect(saved.armor).toMatchObject({ condition: 100, absorption: 0.8 })
     expect(saved.weapon).toBeUndefined()
   })
+
+  it('enabling the tame cloud checkbox reveals its fields with sane defaults, and submits a custom value', async () => {
+    const onSave = vi.fn()
+    render(<ItemForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_item'), { target: { value: 'testtamebomb' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Test Tame Bomb' } })
+    fireEvent.change(screen.getByLabelText('Description (crafting + inspect)'), { target: { value: 'Bomb' } })
+
+    fireEvent.click(screen.getByText('Tame cloud (thrown at a point, temporarily tames nearby hostile creatures)'))
+    expect((screen.getByLabelText('Radius') as HTMLInputElement).value).toBe('4')
+
+    fireEvent.change(screen.getByLabelText('Radius'), { target: { value: '8' } })
+    fireEvent.change(screen.getByLabelText('Cloud lasts (seconds)'), { target: { value: '15' } })
+    fireEvent.change(screen.getByLabelText('Tamed for (seconds)'), { target: { value: '90' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.tameBomb).toEqual({ radius: 8, cloudDurationSeconds: 15, tameDurationSeconds: 90 })
+  })
+
+  it('the magic effect and tame cloud checkboxes disable each other (same spellcaster slot)', () => {
+    render(<ItemForm onSave={vi.fn()} />)
+
+    fireEvent.click(screen.getByText('Magic effect (use on a map point)'))
+    expect((screen.getByRole('checkbox', { name: /Tame cloud/ }) as HTMLInputElement).disabled).toBe(true)
+
+    fireEvent.click(screen.getByText(/Magic effect \(use on a map point\)/))
+    expect((screen.getByRole('checkbox', { name: /Tame cloud/ }) as HTMLInputElement).disabled).toBe(false)
+
+    fireEvent.click(screen.getByText('Tame cloud (thrown at a point, temporarily tames nearby hostile creatures)'))
+    expect((screen.getByRole('checkbox', { name: /Magic effect \(use on a map point\)/ }) as HTMLInputElement).disabled).toBe(true)
+  })
+
+  it('enabling the ground attack checkbox reveals its fields with sane defaults, and submits a custom value', async () => {
+    const onSave = vi.fn()
+    render(<ItemForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_item'), { target: { value: 'testspikerod' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Test Spike Rod' } })
+    fireEvent.change(screen.getByLabelText('Description (crafting + inspect)'), { target: { value: 'Rod' } })
+
+    fireEvent.click(screen.getByText('Ground attack (thrown at a point, erupts sand spikes/walls — like the Antlion)'))
+    expect((screen.getByLabelText('Spikes') as HTMLInputElement).value).toBe('5')
+    expect((screen.getByLabelText('Walls (0 = none)') as HTMLInputElement).value).toBe('0')
+
+    fireEvent.change(screen.getByLabelText('Spikes'), { target: { value: '8' } })
+    fireEvent.change(screen.getByLabelText('Walls (0 = none)'), { target: { value: '3' } })
+    fireEvent.change(screen.getByLabelText('Radius'), { target: { value: '10' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.groundAttack).toEqual({ spikeCount: 8, wallCount: 3, radius: 10 })
+  })
+
+  it('ground attack disables both magic effect and tame cloud (all three share the spellcaster slot)', () => {
+    render(<ItemForm onSave={vi.fn()} />)
+
+    fireEvent.click(screen.getByText('Ground attack (thrown at a point, erupts sand spikes/walls — like the Antlion)'))
+    expect((screen.getByRole('checkbox', { name: /Magic effect \(use on a map point\)/ }) as HTMLInputElement).disabled).toBe(true)
+    expect((screen.getByRole('checkbox', { name: /Tame cloud/ }) as HTMLInputElement).disabled).toBe(true)
+  })
 })
