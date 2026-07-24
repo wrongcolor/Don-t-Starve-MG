@@ -123,7 +123,30 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
             </Fieldset>
           </div>
 
-          <Fieldset legend="Recipe (Crafting)" step={3}>
+          <Fieldset legend="How is it placed?" step={3}>
+            <div className="checks">
+              <label>
+                <input
+                  type="radio"
+                  name="structure-deploy-mode"
+                  checked={watched.deployMode !== 'deployableItem'}
+                  onChange={() => setValue('deployMode', undefined)}
+                />
+                Crafting shows a placer ghost — click the ground to build it directly (like a Science Machine)
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="structure-deploy-mode"
+                  checked={watched.deployMode === 'deployableItem'}
+                  onChange={() => setValue('deployMode', 'deployableItem')}
+                />
+                Crafting gives an inventory item first — placed as a separate action, and hammering it back down returns that same item (like Warly's Portable Crock Pot)
+              </label>
+            </div>
+          </Fieldset>
+
+          <Fieldset legend="Recipe (Crafting)" step={4}>
             <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', marginBottom: 8 }}>
               Ingredients
             </span>
@@ -166,26 +189,34 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
             {errors.recipe?.filters?.message && <p className="field error">{errors.recipe.filters.message}</p>}
           </Fieldset>
 
-          <Fieldset legend="Loot (hammered down)" step={4}>
-            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
-              Dropped when a player hammers this structure down (workable + lootdropper).
-            </p>
-            {loot.fields.map((field, index) => (
-              <div key={field.id} className="ingredient-row">
-                <input className={inputClass} placeholder="prefab id (e.g. boards)" {...register(`loot.${index}.prefab` as const)} />
-                <PrefabPickerButton onSelect={(id) => setValue(`loot.${index}.prefab` as const, id, { shouldDirty: true })} />
-                <input type="number" step="0.01" min="0.01" max="1" className="qty-input" {...register(`loot.${index}.chance` as const, { valueAsNumber: true })} />
-                <button type="button" className={btnDanger} onClick={() => loot.remove(index)}>
-                  Remove
-                </button>
-              </div>
-            ))}
-            <button type="button" className="add-ingredient" onClick={() => loot.append({ prefab: '', chance: 1 })}>
-              + Add loot
-            </button>
-          </Fieldset>
+          {watched.deployMode === 'deployableItem' ? (
+            <Fieldset legend="Loot (hammered down)" step={5}>
+              <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4 }}>
+                Hammering a deployed item back down returns the inventory item itself, so it never drops separate loot.
+              </p>
+            </Fieldset>
+          ) : (
+            <Fieldset legend="Loot (hammered down)" step={5}>
+              <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+                Dropped when a player hammers this structure down (workable + lootdropper).
+              </p>
+              {loot.fields.map((field, index) => (
+                <div key={field.id} className="ingredient-row">
+                  <input className={inputClass} placeholder="prefab id (e.g. boards)" {...register(`loot.${index}.prefab` as const)} />
+                  <PrefabPickerButton onSelect={(id) => setValue(`loot.${index}.prefab` as const, id, { shouldDirty: true })} />
+                  <input type="number" step="0.01" min="0.01" max="1" className="qty-input" {...register(`loot.${index}.chance` as const, { valueAsNumber: true })} />
+                  <button type="button" className={btnDanger} onClick={() => loot.remove(index)}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button type="button" className="add-ingredient" onClick={() => loot.append({ prefab: '', chance: 1 })}>
+                + Add loot
+              </button>
+            </Fieldset>
+          )}
 
-          <Fieldset legend="Container (optional)" step={5}>
+          <Fieldset legend="Container (optional)" step={6}>
             <div className="checks">
               <label>
                 <input
@@ -309,7 +340,7 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
             )}
           </Fieldset>
 
-          <Fieldset legend="Special mechanics" step={6}>
+          <Fieldset legend="Special mechanics" step={7}>
             <div className="checks">
               <label>
                 <input

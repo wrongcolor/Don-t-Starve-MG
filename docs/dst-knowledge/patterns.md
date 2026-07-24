@@ -2594,3 +2594,71 @@ cair só por finalmente ler o dado real em vez de assumir a partir do nome
 ("level design artesanal" soava plausível, mas o arquivo em si é só grade +
 lista de posições) — mesmo padrão da lição de nomes de arquivo enganosos já
 registrada nas seções 39-44 (ler sempre vence supor).
+
+## 56. Uma segunda forma real de "estrutura" — craft vira item, deploy separado — **implementado**
+
+A seção 25 fixou que uma estrutura nunca é item de inventário, e isso
+segue verdadeiro para o fluxo "placer" (Science Machine, Ice Box etc.).
+Mas existe um segundo fluxo, igualmente real e comum, que a seção 25 não
+cobria: `Original/prefabs/prefabs/portablecookpot.lua` (e o mesmo padrão em
+`portablefirepit.lua`, `portableblender.lua`, `portablespicer.lua`,
+`portabletent.lua`, `fence.lua`, `walls.lua`, `birdtrap.lua`, etc.) craft
+vira um ITEM de inventário primeiro; "implantar" é uma ação separada do
+jogador que então vira a estrutura no mundo; martelar a estrutura devolve
+esse mesmo item em vez de destruí-la.
+
+**Confirmado em `Original/components/components/deployable.lua`:**
+`AddComponent("deployable")` no item, com `inst.components.deployable.
+ondeploy = fn(inst, pt, deployer)` chamado quando o jogador aponta e clica
+o mundo — a implementação real cobre `DEPLOYMODE`/`DEPLOYSPACING`/
+`CanDeploy` (grid, água, planta, parede...), mas o núcleo é só isso: um
+callback que roda no ponto clicado.
+
+**Confirmado em `portablecookpot.lua`'s `ChangeToItem`/`OnDismantle`/
+`ondeploy`:** o ciclo completo é dois `SpawnPrefab` que se referenciam
+de volta:
+```lua
+-- estrutura no mundo, martelada:
+local function ChangeToItem(inst)
+    local item = SpawnPrefab("portablecookpot_item", ...)
+    item.Transform:SetPosition(inst.Transform:GetWorldPosition())
+end
+
+-- item no inventário, implantado:
+local function ondeploy(inst, pt, deployer)
+    local pot = SpawnPrefab("portablecookpot", ...)
+    pot.Physics:Teleport(pt.x, 0, pt.z)
+    inst:Remove()
+end
+```
+O componente real usado na estrutura pra rastrear esse ciclo
+(`portablestructure`, com `SetOnDismantleFn`) NÃO foi modelado — ver
+simplificação abaixo.
+
+**Confirmado em `Original/scripts/recipes.lua`:** a receita crafta direto
+pro `_item`, sem nenhum campo `placer` —
+`Recipe2("portablecookpot_item", {...}, TECH.NONE, {builder_tag="masterchef"})`.
+
+**Confirmado em `Original/scripts/strings.lua`:** os dois prefabs (mundo e
+item) têm sua própria entrada em `STRINGS.NAMES` (mesmo texto nos dois),
+mas só o item tem `STRINGS.RECIPE_DESC` — é ele o produto real da receita.
+
+**Implementado nesta sessão:** `StructureDef.deployMode?: 'placer' |
+'deployableItem'` (`src/types/modProject.ts`, undefined = comportamento
+antigo intacto). Em `src/generators/structure.ts`: `generateStructureItemPrefab`
+gera o item (`MakeInventoryPhysics` + `deployable.ondeploy` spawnando a
+estrutura), e o `onhammered` da estrutura (`onDismantledFunctionBlock`)
+spawna o item de volta em vez de dropar loot — `lootdropper`/`loot` ficam
+inertes nesse modo (packing up não é destruição). Em `src/generators/
+modmain.ts`: a receita crafta pro `_item` sem `placer`, `PrefabFiles` lista
+`_item` em vez de `_placer`, e `STRINGS.NAMES`/`DESCRIBE` saem pros dois
+prefabs enquanto `RECIPE_DESC` fica só no item. UI em `StructureForm.tsx`/
+`StructurePreview.tsx` (novo fieldset "How is it placed?").
+
+**Simplificação assumida, não confirmada:** não modelamos o componente
+real `portablestructure` (que o jogo usa pra rastrear o dismantle e
+integrar com skins/toss/queima) — o ciclo item↔estrutura aqui é só os dois
+`SpawnPrefab` diretos, mesmo espírito de simplificação já usado em
+`resident` (sem fila de respawn) e `daySpawner` (sem ciclo dia/noite
+visual): cobre o mecanismo central, não os extras cosméticos/skin do jogo
+real.

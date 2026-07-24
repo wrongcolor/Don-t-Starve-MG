@@ -21,23 +21,28 @@ function itemRecipeBlock(item: ItemDef): string {
   ].join('\n')
 }
 
-// A structure's recipe always registers a placer — unlike an item, it's the
-// one thing every structure has in common (that's what makes it a structure).
+// A placer-mode structure's recipe always registers a placer — unlike an item,
+// it's the one thing every such structure has in common. A deployableItem
+// structure instead crafts straight to its "_item" inventory prefab, with no
+// placer field at all — confirmed in Original/scripts/recipes.lua's own
+// Recipe2("portablecookpot_item", ...).
 function structureRecipeBlock(structure: StructureDef): string {
+  const deployableItem = structure.deployMode === 'deployableItem'
+  const product = deployableItem ? `${structure.id}_item` : structure.id
   const ingredients = structure.recipe.ingredients
     .map((i) => `Ingredient(${luaString(i.prefab)}, ${i.amount})`)
     .join(', ')
 
   const configLines = [
-    `        atlas = "images/inventoryimages/${structure.id}.xml",`,
-    `        image = "${structure.id}.tex",`,
-    `        placer = "${structure.id}_placer",`,
+    `        atlas = "images/inventoryimages/${product}.xml",`,
+    `        image = "${product}.tex",`,
+    ...(deployableItem ? [] : [`        placer = "${structure.id}_placer",`]),
   ]
 
   const filters = luaStringArray(structure.recipe.filters)
 
   return [
-    `AddRecipe2(${luaString(structure.id)}, { ${ingredients} }, TECH.${structure.recipe.techLevel}, {`,
+    `AddRecipe2(${luaString(product)}, { ${ingredients} }, TECH.${structure.recipe.techLevel}, {`,
     ...configLines,
     `    }, ${filters})`,
   ].join('\n')
@@ -56,12 +61,30 @@ function structureTuningBlock(structure: StructureDef): string[] {
   return lines
 }
 
+// A deployableItem structure is inspectable/nameable as BOTH prefabs (the
+// carried item and the placed structure) — confirmed in Original/scripts/
+// strings.lua's own NAMES.PORTABLECOOKPOT + NAMES.PORTABLECOOKPOT_ITEM pair.
+// RECIPE_DESC is keyed to whichever prefab is the recipe's actual product.
 function structureStringsBlock(structure: StructureDef): string[] {
   const upper = toUpperSnake(structure.id)
+  const name = luaString(structure.displayName)
+  const desc = luaString(structure.description)
+
+  if (structure.deployMode === 'deployableItem') {
+    const itemUpper = toUpperSnake(`${structure.id}_item`)
+    return [
+      `STRINGS.NAMES.${upper} = ${name}`,
+      `STRINGS.NAMES.${itemUpper} = ${name}`,
+      `STRINGS.RECIPE_DESC.${itemUpper} = ${desc}`,
+      `STRINGS.CHARACTERS.GENERIC.DESCRIBE.${upper} = ${desc}`,
+      `STRINGS.CHARACTERS.GENERIC.DESCRIBE.${itemUpper} = ${desc}`,
+    ]
+  }
+
   return [
-    `STRINGS.NAMES.${upper} = ${luaString(structure.displayName)}`,
-    `STRINGS.RECIPE_DESC.${upper} = ${luaString(structure.description)}`,
-    `STRINGS.CHARACTERS.GENERIC.DESCRIBE.${upper} = ${luaString(structure.description)}`,
+    `STRINGS.NAMES.${upper} = ${name}`,
+    `STRINGS.RECIPE_DESC.${upper} = ${desc}`,
+    `STRINGS.CHARACTERS.GENERIC.DESCRIBE.${upper} = ${desc}`,
   ]
 }
 
@@ -297,7 +320,7 @@ export function generateModMain(project: ModProject): string {
     prefabFiles.push(item.id)
   }
   for (const structure of project.structures) {
-    prefabFiles.push(structure.id, `${structure.id}_placer`)
+    prefabFiles.push(structure.id, structure.deployMode === 'deployableItem' ? `${structure.id}_item` : `${structure.id}_placer`)
   }
   for (const character of project.characters) {
     prefabFiles.push(character.id)

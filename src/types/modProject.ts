@@ -439,6 +439,14 @@ export const structureDefSchema = z.object({
   displayName: z.string().min(1, 'Required'),
   description: z.string().min(1, 'Required'),
   animation: structureAnimationSchema.optional(),
+  // Confirmed in Original/prefabs/prefabs/portablecookpot.lua (and repeated
+  // across fence.lua, walls.lua, birdtrap.lua, the other Warly portable
+  // stations): a second, equally real crafting flow alongside the placer one
+  // below — the recipe's product is an inventory ITEM (AddComponent
+  // ("deployable")), placed into the world as a separate action afterwards,
+  // and hammered back into that same item rather than destroyed. Undefined
+  // keeps every existing structure on the original placer-only behavior.
+  deployMode: z.enum(['placer', 'deployableItem']).optional(),
   loot: z.array(z.object({ prefab: z.string().min(1), chance: z.number().min(0.01).max(1) })),
   container: containerSchema.optional(),
   // Adapted from a real published Workshop mod ("Craftable Wormholes", see

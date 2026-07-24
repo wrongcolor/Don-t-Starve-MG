@@ -9,7 +9,10 @@ function containerSlotsLabel(container: NonNullable<StructureDef['container']>):
 }
 
 export function StructurePreview({ structure }: { structure: Partial<StructureDef> }) {
-  const tags: string[] = ['🏗️ Structure (hammer-destroy, not an inventory item)']
+  const tags: string[] =
+    structure.deployMode === 'deployableItem'
+      ? ['🎒 Crafts to an inventory item first — deployed, and hammered back into that same item']
+      : ['🏗️ Structure (hammer-destroy, not an inventory item)']
   if (structure.container) tags.push('🎒 Container')
   if (structure.container?.preservation) tags.push('🧊 Preserves contents')
   if (structure.teleportPair) tags.push('🌀 Teleporter pair')

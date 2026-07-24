@@ -111,6 +111,38 @@ describe('generateModMain', () => {
     expect(residentCode).toContain('GLOBAL.TUNING.TESTSTRUCTURE_RESPAWN_DELAY = TUNING.TOTAL_DAY_TIME * 2')
   })
 
+  describe('deployMode: deployableItem (Original/scripts/recipes.lua Recipe2("portablecookpot_item", ...))', () => {
+    const portableProject = {
+      ...sampleProject,
+      structures: [{ ...sampleProject.structures[0], id: 'testportable', deployMode: 'deployableItem' as const }],
+    }
+    const portableCode = generateModMain(portableProject)
+
+    it('lists the item prefab, not a placer, in PrefabFiles', () => {
+      expect(portableCode).toContain('"testportable"')
+      expect(portableCode).toContain('"testportable_item"')
+      expect(portableCode).not.toContain('"testportable_placer"')
+    })
+
+    it('crafts straight to the item, with no placer field', () => {
+      expect(portableCode).toContain('AddRecipe2("testportable_item"')
+      expect(portableCode).not.toContain('placer = "testportable')
+      expect(portableCode).toContain('atlas = "images/inventoryimages/testportable_item.xml"')
+    })
+
+    it('names both the item and the structure, but keys RECIPE_DESC to the crafted item', () => {
+      expect(portableCode).toContain('STRINGS.NAMES.TESTPORTABLE = "Test Structure"')
+      expect(portableCode).toContain('STRINGS.NAMES.TESTPORTABLE_ITEM = "Test Structure"')
+      expect(portableCode).toContain('STRINGS.RECIPE_DESC.TESTPORTABLE_ITEM = "A structure for testing"')
+      expect(portableCode).not.toContain('STRINGS.RECIPE_DESC.TESTPORTABLE =')
+    })
+
+    it('makes both the item and the placed structure inspectable (STRINGS.NAMES.PORTABLECOOKPOT_ITEM pair)', () => {
+      expect(portableCode).toContain('STRINGS.CHARACTERS.GENERIC.DESCRIBE.TESTPORTABLE = "A structure for testing"')
+      expect(portableCode).toContain('STRINGS.CHARACTERS.GENERIC.DESCRIBE.TESTPORTABLE_ITEM = "A structure for testing"')
+    })
+  })
+
   it('wires the Combine action once when at least one item is combinable', () => {
     const withCombinable = {
       ...sampleProject,

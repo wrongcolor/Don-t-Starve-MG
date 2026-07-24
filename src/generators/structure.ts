@@ -15,6 +15,14 @@ function isVanillaAnimation(structure: StructureDef): boolean {
   return structure.animation?.source === 'vanilla'
 }
 
+function isDeployableItem(structure: StructureDef): boolean {
+  return structure.deployMode === 'deployableItem'
+}
+
+function itemId(structure: StructureDef): string {
+  return `${structure.id}_item`
+}
+
 function lootBlock(structure: StructureDef): string[] {
   if (structure.loot.length === 0) return ['', '    inst:AddComponent("lootdropper")']
   const lines = ['', '    inst:AddComponent("lootdropper")']
@@ -33,6 +41,23 @@ function onHammeredFunctionBlock(): string[] {
     'local function onhammered(inst)',
     '    if inst.components.lootdropper ~= nil then',
     '        inst.components.lootdropper:DropLoot()',
+    '    end',
+    '    inst:Remove()',
+    'end',
+    '',
+  ]
+}
+
+// Confirmed in Original/prefabs/prefabs/portablecookpot.lua's ChangeToItem: a
+// deployableItem structure's hammer is a "pack it back up" action, not a kill —
+// it hands the ingredients back as the same item it was deployed from, instead
+// of the placer flow's lootdropper.
+function onDismantledFunctionBlock(structure: StructureDef): string[] {
+  return [
+    'local function onhammered(inst)',
+    `    local item = SpawnPrefab(${luaString(itemId(structure))})`,
+    '    if item ~= nil then',
+    '        item.Transform:SetPosition(inst.Transform:GetWorldPosition())',
     '    end',
     '    inst:Remove()',
     'end',
@@ -87,6 +112,7 @@ function referencedPrefabs(structure: StructureDef): string[] {
   const prefabs: string[] = []
   if (structure.daySpawner) prefabs.push(structure.daySpawner.prefab)
   if (structure.resident) prefabs.push(structure.resident.prefab)
+  if (isDeployableItem(structure)) prefabs.push(itemId(structure))
   return prefabs
 }
 
@@ -124,8 +150,10 @@ function componentBlock(structure: StructureDef): string {
   const lines: string[] = []
 
   lines.push('    inst:AddComponent("inspectable")')
-  lines.push(...lootBlock(structure))
-  lines.push('')
+  if (!isDeployableItem(structure)) {
+    lines.push(...lootBlock(structure))
+    lines.push('')
+  }
   lines.push('    inst:AddComponent("workable")')
   lines.push('    inst.components.workable:SetWorkAction(ACTIONS.HAMMER)')
   lines.push('    inst.components.workable:SetWorkLeft(4)')
@@ -198,10 +226,15 @@ export function generateStructurePrefab(structure: StructureDef): string {
   if (structure.container?.widget.source === 'custom') {
     lines.push(`    Asset("ANIM", "anim/${containerCustomWidgetBuild(structure.id)}.zip"), -- PLACEHOLDER: art da UI do contêiner, ver README`)
   }
-  lines.push(`    Asset("INV_IMAGE", "${structure.id}"),`)
+  // A deployableItem structure is never craftable/hoverable directly — the item
+  // half (generateStructureItemPrefab) owns the recipe icon, so only IT declares
+  // an INV_IMAGE.
+  if (!isDeployableItem(structure)) {
+    lines.push(`    Asset("INV_IMAGE", "${structure.id}"),`)
+  }
   lines.push('}')
   lines.push('')
-  lines.push(...onHammeredFunctionBlock())
+  lines.push(...(isDeployableItem(structure) ? onDismantledFunctionBlock(structure) : onHammeredFunctionBlock()))
   if (structure.teleportPair) {
     lines.push(...teleportPairFunctionBlock())
   }
@@ -262,7 +295,76 @@ export function generateStructurePlacerPrefab(structure: StructureDef): string {
   return lines.join('\n') + '\n'
 }
 
+// Confirmed in Original/prefabs/prefabs/portablecookpot.lua's itemfn/ondeploy:
+// the inventory half of a deployableItem structure — MakeInventoryPhysics +
+// AddComponent("deployable"), whose ondeploy spawns the real structure prefab
+// at the target point and removes itself.
+export function generateStructureItemPrefab(structure: StructureDef): string {
+  const lines: string[] = []
+  const build = resolveAnimationBuild(structure)
+  const id = itemId(structure)
+
+  lines.push('local assets =')
+  lines.push('{')
+  if (isVanillaAnimation(structure)) {
+    lines.push(`    -- Build "${build}" reaproveitado do jogo base, sem asset próprio necessário.`)
+  } else {
+    lines.push(`    Asset("ANIM", "anim/${structure.id}.zip"), -- PLACEHOLDER: mesmo build da estrutura, ver README`)
+  }
+  lines.push(`    Asset("INV_IMAGE", "${id}"),`)
+  lines.push('}')
+  lines.push('')
+  lines.push('local function ondeploy(inst, pt)')
+  lines.push(`    local placed = SpawnPrefab(${luaString(structure.id)})`)
+  lines.push('    if placed ~= nil then')
+  lines.push('        placed.Transform:SetPosition(pt:Get())')
+  lines.push('    end')
+  lines.push('    inst:Remove()')
+  lines.push('end')
+  lines.push('')
+  lines.push(`local prefabs = { ${luaString(structure.id)} }`)
+  lines.push('')
+  lines.push('local function fn()')
+  lines.push('    local inst = CreateEntity()')
+  lines.push('')
+  lines.push('    inst.entity:AddTransform()')
+  lines.push('    inst.entity:AddAnimState()')
+  lines.push('    inst.entity:AddNetwork()')
+  lines.push('')
+  lines.push('    MakeInventoryPhysics(inst)')
+  lines.push('')
+  lines.push(`    inst.AnimState:SetBank(${luaString(build)})`)
+  lines.push(`    inst.AnimState:SetBuild(${luaString(build)})`)
+  lines.push('    inst.AnimState:PlayAnimation("idle")')
+  lines.push('')
+  lines.push('    inst:AddTag("item")')
+  lines.push('')
+  lines.push('    inst.entity:SetPristine()')
+  lines.push('    if not TheWorld.ismastersim then')
+  lines.push('        return inst')
+  lines.push('    end')
+  lines.push('')
+  lines.push('    inst:AddComponent("inspectable")')
+  lines.push('    inst:AddComponent("inventoryitem")')
+  lines.push('')
+  lines.push('    inst:AddComponent("deployable")')
+  lines.push('    inst.components.deployable.ondeploy = ondeploy')
+  lines.push('')
+  lines.push('    return inst')
+  lines.push('end')
+  lines.push('')
+  lines.push(`return Prefab(${luaString(id)}, fn, assets, prefabs)`)
+
+  return lines.join('\n') + '\n'
+}
+
 export function generateStructureFiles(structure: StructureDef): Record<string, string> {
+  if (isDeployableItem(structure)) {
+    return {
+      [`scripts/prefabs/${structure.id}.lua`]: generateStructurePrefab(structure),
+      [`scripts/prefabs/${itemId(structure)}.lua`]: generateStructureItemPrefab(structure),
+    }
+  }
   return {
     [`scripts/prefabs/${structure.id}.lua`]: generateStructurePrefab(structure),
     [`scripts/prefabs/${structure.id}_placer.lua`]: generateStructurePlacerPrefab(structure),

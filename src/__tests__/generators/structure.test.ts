@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parse } from 'luaparse'
-import { generateStructureFiles, generateStructurePrefab } from '../../generators/structure'
+import { generateStructureFiles, generateStructureItemPrefab, generateStructurePrefab } from '../../generators/structure'
 import type { StructureDef } from '../../types/modProject'
 import { sampleProject } from '../fixtures'
 
@@ -140,5 +140,71 @@ describe('generateStructureFiles', () => {
     expect(code).toContain('Asset("ANIM", "anim/teststructure.zip")')
     expect(code).toContain('inst.AnimState:SetBank("teststructure")')
     expect(code).toContain('inst.AnimState:SetBuild("teststructure")')
+  })
+})
+
+describe('generateStructureFiles (deployMode: deployableItem)', () => {
+  const portable: StructureDef = { ...sampleProject.structures[0], id: 'testportable', deployMode: 'deployableItem' }
+
+  it('generates the item prefab instead of a placer', () => {
+    const files = generateStructureFiles(portable)
+    expect(Object.keys(files).sort()).toEqual(
+      ['scripts/prefabs/testportable.lua', 'scripts/prefabs/testportable_item.lua'].sort(),
+    )
+  })
+
+  it('dismantles back into the item instead of dropping loot (portablecookpot.lua ChangeToItem)', () => {
+    const code = generateStructurePrefab(portable)
+    expect(code).toContain('local function onhammered(inst)')
+    expect(code).toContain('local item = SpawnPrefab("testportable_item")')
+    expect(code).toContain('item.Transform:SetPosition(inst.Transform:GetWorldPosition())')
+    expect(code).toContain('inst:Remove()')
+    expect(code).not.toContain('inst:AddComponent("lootdropper")')
+    expect(code).not.toContain('DropLoot()')
+    expect(code).toContain('local prefabs = { "testportable_item" }')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('does not declare its own INV_IMAGE — the item half owns the recipe icon', () => {
+    const code = generateStructurePrefab(portable)
+    expect(code).not.toContain('Asset("INV_IMAGE"')
+  })
+
+  it('generates an inventory item that deploys back into the structure', () => {
+    const code = generateStructureItemPrefab(portable)
+    expect(code).toContain('MakeInventoryPhysics(inst)')
+    expect(code).toContain('inst:AddComponent("inventoryitem")')
+    expect(code).toContain('inst:AddComponent("deployable")')
+    expect(code).toContain('inst.components.deployable.ondeploy = ondeploy')
+    expect(code).toContain('local function ondeploy(inst, pt)')
+    expect(code).toContain('local placed = SpawnPrefab("testportable")')
+    expect(code).toContain('placed.Transform:SetPosition(pt:Get())')
+    expect(code).toContain('Asset("INV_IMAGE", "testportable_item")')
+    expect(code).toContain('return Prefab("testportable_item", fn, assets, prefabs)')
+    expect(code).toContain('local prefabs = { "testportable" }')
+    expect(code).not.toContain('MakeObstaclePhysics')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('still wires a container on the structure half (the real Portable Crock Pot is exactly this combo)', () => {
+    const withContainer: StructureDef = {
+      ...portable,
+      id: 'testportablebag',
+      container: { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: false },
+    }
+    const code = generateStructurePrefab(withContainer)
+    expect(code).toContain('inst:AddComponent("container")')
+    expect(code).toContain('inst.components.container:WidgetSetup("testportablebag")')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('ignores configured loot entirely — hammering returns the item, never drops materials', () => {
+    const withLoot: StructureDef = { ...portable, id: 'testportableloot', loot: [{ prefab: 'boards', chance: 0.5 }] }
+    const code = generateStructurePrefab(withLoot)
+    expect(code).not.toContain('AddChancedLoot')
+    expect(code).not.toContain('inst:AddComponent("lootdropper")')
   })
 })
