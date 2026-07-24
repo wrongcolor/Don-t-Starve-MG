@@ -12,6 +12,32 @@ describe('buildModFiles', () => {
     expect(files['README.md']).toBeTruthy()
   })
 
+  it('does not declare a mod_dependencies on "Above the Clouds" when no structure has an interior', () => {
+    expect(files['modinfo.lua']).not.toContain('mod_dependencies')
+  })
+
+  it('declares a mod_dependencies on "Above the Clouds" end-to-end when a structure has an interior', () => {
+    const withInterior = {
+      ...sampleProject,
+      structures: [{ ...sampleProject.structures[0], interior: { size: 'tiny' as const } }],
+    }
+    const modinfo = buildModFiles(withInterior)['modinfo.lua']
+    expect(modinfo).toContain('workshop = "workshop-3322803908"')
+  })
+
+  it('warns in the README about the "Above the Clouds" dependency when a structure has an interior, and stays silent otherwise', () => {
+    expect(files['README.md']).not.toContain('Above the Clouds')
+
+    const withInterior = {
+      ...sampleProject,
+      structures: [{ ...sampleProject.structures[0], interior: { size: 'tiny' as const } }],
+    }
+    const readme = buildModFiles(withInterior)['README.md']
+    expect(readme).toContain('Dependência obrigatória')
+    expect(readme).toContain('Above the Clouds')
+    expect(readme).toContain('Inscreva-se e ative **"Above the Clouds"** primeiro')
+  })
+
   it('places every prefab script under scripts/prefabs/', () => {
     expect(files['scripts/prefabs/testsword.lua']).toBeTruthy()
     expect(files['scripts/prefabs/teststructure.lua']).toBeTruthy()

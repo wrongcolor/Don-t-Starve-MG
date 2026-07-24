@@ -159,6 +159,56 @@ describe('generateStructureFiles', () => {
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
+  // Confirmed directly in a real published Workshop mod ("Above the Clouds" —
+  // read scripts/components/interiorspawner.lua and scripts/prefabs/
+  // playerhouse_city.lua/prop_door.lua in full, see docs/dst-knowledge/
+  // patterns.md's interior section). interiorID must persist across save/load
+  // so CreateRoom only ever runs once per structure instance.
+  it('wires a fresh interior room (door component, EnsureInterior, OnSave/OnLoad, deferred creation)', () => {
+    const hut: StructureDef = { ...structure, id: 'testhut', interior: { size: 'tiny' } }
+    const code = generateStructurePrefab(hut)
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+
+    expect(code).toContain('inst:AddComponent("door")')
+    expect(code).toContain('local function EnsureInterior(inst)')
+    expect(code).toContain('TUNING.ROOM_TINY_WIDTH')
+    expect(code).toContain('TUNING.ROOM_TINY_DEPTH')
+    expect(code).toContain('TheWorld.components.interiorspawner:CreateRoom({')
+    expect(code).toContain('name = "prop_door"')
+    expect(code).toContain('is_exit = true')
+    expect(code).toContain('inst.OnSave = OnSave')
+    expect(code).toContain('inst.OnLoad = OnLoad')
+    expect(code).toContain('inst:DoTaskInTime(0, function() EnsureInterior(inst) end)')
+  })
+
+  it('reuses the persisted interiorID instead of building a second room when one already exists', () => {
+    const hut: StructureDef = { ...structure, id: 'testhut2', interior: { size: 'large' } }
+    const code = generateStructurePrefab(hut)
+
+    const reuseIdx = code.indexOf('if inst.interiorID ~= nil then')
+    const createIdx = code.indexOf('local id = TheWorld.components.interiorspawner:GetNewID()')
+    expect(reuseIdx).toBeGreaterThan(-1)
+    expect(createIdx).toBeGreaterThan(reuseIdx)
+
+    const reuseBranch = code.slice(reuseIdx, createIdx)
+    expect(reuseBranch).toContain('TheWorld.components.interiorspawner:AddDoor(inst, {')
+    expect(reuseBranch).not.toContain('CreateRoom')
+  })
+
+  it('maps each room size to its own real TUNING constants', () => {
+    const medium: StructureDef = { ...structure, id: 'testhutmedium', interior: { size: 'medium' } }
+    const code = generateStructurePrefab(medium)
+    expect(code).toContain('TUNING.ROOM_MEDIUM_WIDTH')
+    expect(code).toContain('TUNING.ROOM_MEDIUM_DEPTH')
+  })
+
+  it('does not touch OnSave/OnLoad/door for a structure with no interior', () => {
+    const code = generateStructurePrefab(structure)
+    expect(code).not.toContain('EnsureInterior')
+    expect(code).not.toContain('inst.OnSave')
+    expect(code).not.toContain('inst:AddComponent("door")')
+  })
+
   it('reuses a vanilla build without declaring an ANIM asset when animation.source is vanilla', () => {
     const vanilla: StructureDef = { ...structure, id: 'testvanillastructure', animation: { source: 'vanilla', build: 'researchlab' } }
     const code = generateStructurePrefab(vanilla)

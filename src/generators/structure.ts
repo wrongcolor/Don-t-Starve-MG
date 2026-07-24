@@ -1,4 +1,4 @@
-import type { StructureDef } from '../types/modProject'
+import type { StructureDef, RoomSize } from '../types/modProject'
 import { luaString, toUpperSnake } from './luaUtils'
 import { containerCustomWidgetBuild } from './item'
 
@@ -103,6 +103,91 @@ function teleportPairFunctionBlock(): string[] {
 
 function needsDaySpawner(structure: StructureDef): boolean {
   return structure.daySpawner !== undefined
+}
+
+function needsInterior(structure: StructureDef): boolean {
+  return structure.interior !== undefined
+}
+
+const ROOM_SIZE_TUNING: Record<RoomSize, string> = {
+  tiny: 'TINY',
+  small: 'SMALL',
+  medium: 'MEDIUM',
+  large: 'LARGE',
+}
+
+// Confirmed directly in a real published Workshop mod ("Above the Clouds",
+// docs/dst-knowledge/patterns.md's interior section) — read
+// scripts/components/interiorspawner.lua, scripts/prefabs/playerhouse_city.lua
+// and prop_door.lua in full. The structure itself IS the exterior door (no
+// separate door prop outside); CreateRoom builds the whole interior room in
+// one call, including a single "prop_door" addprops entry for the return
+// trip (its own initInteriorPrefab registers the door pairing itself, no
+// second manual AddDoor call needed on our side). interiorID must persist
+// across save/load so CreateRoom only ever runs once per structure instance
+// — deferred one tick (DoTaskInTime(0, ...)) so a same-tick OnLoad has
+// already restored interiorID before this checks it.
+function interiorFunctionBlock(structure: StructureDef): string[] {
+  const size = ROOM_SIZE_TUNING[structure.interior?.size ?? 'tiny']
+  return [
+    'local function OnSave(inst, data)',
+    '    data.interiorID = inst.interiorID',
+    'end',
+    '',
+    'local function OnLoad(inst, data)',
+    '    if data and data.interiorID then',
+    '        inst.interiorID = data.interiorID',
+    '    end',
+    'end',
+    '',
+    'local function EnsureInterior(inst)',
+    '    if inst.interiorID ~= nil then',
+    '        TheWorld.components.interiorspawner:AddDoor(inst, {',
+    '            my_door_id = inst.prefab .. "_door",',
+    '            target_door_id = inst.interiorID .. "_exit",',
+    '            target_interior = inst.interiorID,',
+    '        })',
+    '        return',
+    '    end',
+    '',
+    '    local id = TheWorld.components.interiorspawner:GetNewID()',
+    '    inst.interiorID = id',
+    '',
+    '    local exterior_door_def = {',
+    '        my_door_id = inst.prefab .. "_door",',
+    '        target_door_id = id .. "_exit",',
+    '        target_interior = id,',
+    '    }',
+    '    TheWorld.components.interiorspawner:AddDoor(inst, exterior_door_def)',
+    '    TheWorld.components.interiorspawner:CreateRoom({',
+    `        width = TUNING.ROOM_${size}_WIDTH,`,
+    `        depth = TUNING.ROOM_${size}_DEPTH,`,
+    '        group_id = id,',
+    '        roomindex = id,',
+    '        interior_coordinate_x = 0,',
+    '        interior_coordinate_y = 0,',
+    '        walltexture = "levels/textures/interiors/shop_wall_woodwall.tex",',
+    '        floortexture = "levels/textures/noise_woodfloor.tex",',
+    '        minimaptexture = "levels/textures/map_interior/mini_floor_wood.tex",',
+    '        colour_cube = "images/colour_cubes/pigshop_interior_cc.tex",',
+    '        footstep_tile = WORLD_TILES.WOODFLOOR,',
+    '        playerroom = true,',
+    '        addprops = {',
+    '            {',
+    '                name = "prop_door",',
+    '                x_offset = 5,',
+    '                z_offset = 0,',
+    '                animdata = { bank = "pig_shop_doormats", build = "pig_shop_doormats", anim = "idle_old", background = true },',
+    '                my_door_id = exterior_door_def.target_door_id,',
+    '                target_door_id = exterior_door_def.my_door_id,',
+    '                is_exit = true,',
+    '            },',
+    '        },',
+    '        exits = {},',
+    '    })',
+    'end',
+    '',
+  ]
 }
 
 // Every other prefab a structure might reference at runtime (SpawnPrefab calls
@@ -218,6 +303,11 @@ function componentBlock(structure: StructureDef): string {
     }
   }
 
+  if (needsInterior(structure)) {
+    lines.push('')
+    lines.push('    inst:AddComponent("door")')
+  }
+
   return lines.join('\n')
 }
 
@@ -258,6 +348,9 @@ export function generateStructurePrefab(structure: StructureDef): string {
   if (needsDaySpawner(structure)) {
     lines.push(...daySpawnerFunctionBlock(structure))
   }
+  if (needsInterior(structure)) {
+    lines.push(...interiorFunctionBlock(structure))
+  }
   const prefabs = referencedPrefabs(structure)
   lines.push(prefabs.length > 0 ? `local prefabs = { ${prefabs.map(luaString).join(', ')} }` : 'local prefabs = {}')
   lines.push('')
@@ -282,6 +375,12 @@ export function generateStructurePrefab(structure: StructureDef): string {
   lines.push('    end')
   lines.push('')
   lines.push(componentBlock(structure))
+  if (needsInterior(structure)) {
+    lines.push('')
+    lines.push('    inst.OnSave = OnSave')
+    lines.push('    inst.OnLoad = OnLoad')
+    lines.push('    inst:DoTaskInTime(0, function() EnsureInterior(inst) end)')
+  }
   lines.push('')
   lines.push('    return inst')
   lines.push('end')

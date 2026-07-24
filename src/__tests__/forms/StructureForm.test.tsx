@@ -64,4 +64,26 @@ describe('StructureForm', () => {
     const saved = onSave.mock.calls[0][0]
     expect(saved.restStation.maxUses).toBe(15)
   })
+
+  it('enabling the interior checkbox reveals a room size picker, and submits the chosen size', async () => {
+    const onSave = vi.fn()
+    render(<StructureForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_structure'), { target: { value: 'coolhut' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Cool Hut' } })
+    fireEvent.change(screen.getByLabelText('Description (inspect)'), { target: { value: 'Enter it' } })
+
+    expect(screen.queryByLabelText('Room size')).toBeNull()
+
+    fireEvent.click(screen.getByText('Walking through its door leads to a separate interior room'))
+    expect((screen.getByLabelText('Room size') as HTMLSelectElement).value).toBe('tiny')
+
+    fireEvent.change(screen.getByLabelText('Room size'), { target: { value: 'large' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add structure' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.interior).toEqual({ size: 'large' })
+  })
 })

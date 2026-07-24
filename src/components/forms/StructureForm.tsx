@@ -7,9 +7,10 @@ import {
   RECIPE_FILTERS,
   VANILLA_ITEM_BUILDS,
   PROTOTYPER_CATEGORIES,
+  ROOM_SIZES,
   type StructureDef,
 } from '../../types/modProject'
-import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
+import { FormField, Fieldset, FormHeader, FormFooter, InfoTip, inputClass, btnDanger } from './FormField'
 import { StructurePreview } from './StructurePreview'
 import { PrefabPickerButton } from './PrefabPicker'
 
@@ -58,6 +59,7 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
   const enablePrototyper = watched.prototyper !== undefined
   const enableRestStation = watched.restStation !== undefined
   const enableRestStationUses = watched.restStation?.maxUses !== undefined
+  const enableInterior = watched.interior !== undefined
 
   const onSubmit = (data: StructureDef) => onSave(data)
 
@@ -485,6 +487,29 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
                   </FormField>
                 )}
               </>
+            )}
+
+            <div className="checks" style={{ marginTop: 12 }}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableInterior}
+                  onChange={(e) => setValue('interior', e.target.checked ? { size: 'tiny' } : undefined)}
+                />
+                Walking through its door leads to a separate interior room
+                <InfoTip text="Real mechanism from the published mod 'Above the Clouds' (interiorspawner) — the generated mod will declare a dependency on it (mod_dependencies), so players need it installed too." />
+              </label>
+            </div>
+            {enableInterior && (
+              <FormField label="Room size">
+                <select className={inputClass} {...register('interior.size')}>
+                  {ROOM_SIZES.map((size) => (
+                    <option key={size} value={size}>
+                      {size[0].toUpperCase() + size.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
             )}
           </Fieldset>
         </div>

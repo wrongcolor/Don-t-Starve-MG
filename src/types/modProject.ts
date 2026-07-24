@@ -573,6 +573,14 @@ export const PROTOTYPER_CATEGORIES = [
   'SCULPTING',
 ] as const
 
+// Confirmed directly in a real published Workshop mod ("Above the Clouds",
+// which ports Hamlet into DST — read its own scripts/components/
+// interiorspawner.lua, scripts/prefabs/playerhouse_city.lua and prop_door.lua
+// — see docs/dst-knowledge/patterns.md's interior section). This mod's own
+// TUNING.ROOM_{TINY,SMALL,MEDIUM,LARGE}_{WIDTH,DEPTH} are the only sizes
+// CreateRoom accepts without a console warning.
+export const ROOM_SIZES = ['tiny', 'small', 'medium', 'large'] as const
+
 export const structureDefSchema = z.object({
   id: luaIdentifier,
   displayName: z.string().min(1, 'Required'),
@@ -656,6 +664,15 @@ export const structureDefSchema = z.object({
       maxUses: z.number().int().min(1).optional(),
     })
     .optional(),
+  // Walking through this structure's own door teleports the player to a
+  // small separate room and back — real mechanism from "Above the Clouds"
+  // (see the ROOM_SIZES comment above and patterns.md). Requires the
+  // generated mod to depend on that mod at runtime (src/generators/
+  // modinfo.ts derives mod_dependencies automatically from this field, no
+  // separate toggle). Only the room size is exposed — wall/floor/door look
+  // is a single confirmed preset (the real mod's own "wood house" set),
+  // curated rather than exposing unconfirmed texture paths.
+  interior: z.object({ size: z.enum(ROOM_SIZES) }).optional(),
   recipe: z.object({
     ingredients: z.array(ingredientSchema).min(1, 'Add at least 1 ingredient'),
     techLevel: z.enum(TECH_LEVELS),
@@ -932,6 +949,7 @@ export const modProjectSchema = z.object({
 
 export type TechLevel = (typeof TECH_LEVELS)[number]
 export type RecipeFilter = (typeof RECIPE_FILTERS)[number]
+export type RoomSize = (typeof ROOM_SIZES)[number]
 export type FoodType = (typeof FOOD_TYPES)[number]
 export type OnEatBuff = z.infer<typeof onEatBuffSchema>
 export type CharacterGender = (typeof CHARACTER_GENDERS)[number]

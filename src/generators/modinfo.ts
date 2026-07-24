@@ -1,10 +1,17 @@
-import type { ModMeta } from '../types/modProject'
+import type { ModProject } from '../types/modProject'
 import { luaString } from './luaUtils'
+
+// Confirmed in real published Workshop mods that depend on "Above the Clouds"
+// (its own addons declare `mod_dependencies = {{ workshop = "workshop-3322803908" }}`
+// — see docs/dst-knowledge/patterns.md's interior section). Any structure with
+// `.interior` set needs that mod's real interiorspawner component at runtime.
+const ABOVE_THE_CLOUDS_WORKSHOP_ID = 'workshop-3322803908'
 
 // api_version = 10 and dst_compatible = true are required for the mod to be picked up
 // by DST at all — see plan notes. dont_starve_compatible / shipwrecked / hamlet are left
 // false since this generator only targets DST.
-export function generateModInfo(meta: ModMeta): string {
+export function generateModInfo(project: ModProject): string {
+  const meta = project.meta
   const lines: string[] = []
 
   lines.push(`name = ${luaString(meta.name)}`)
@@ -28,6 +35,17 @@ export function generateModInfo(meta: ModMeta): string {
   lines.push('')
   lines.push('forumthread = ""')
   lines.push('priority = 0')
+
+  // Derived from usage, not a separate toggle — an interior structure needs
+  // the real dependency mod's interiorspawner component at runtime, so this
+  // can never drift out of sync with whether the feature is actually used.
+  if (project.structures.some((s) => s.interior)) {
+    lines.push('')
+    lines.push('mod_dependencies =')
+    lines.push('{')
+    lines.push(`    { workshop = ${luaString(ABOVE_THE_CLOUDS_WORKSHOP_ID)} }, -- Above the Clouds (interiorspawner)`)
+    lines.push('}')
+  }
 
   if (meta.configOptions.length > 0) {
     lines.push('')

@@ -114,11 +114,30 @@ function generateReadme(project: ModProject): string {
   lines.push('Fala de personagem (`speech_<id>.lua`) usa fallback para `speech_wilson` — só as')
   lines.push('falas customizadas no formulário foram sobrescritas; o resto herda do Wilson.')
   lines.push('')
+  const usesAboveTheClouds = project.structures.some((s) => s.interior)
+  if (usesAboveTheClouds) {
+    lines.push('## Dependência obrigatória')
+    lines.push('')
+    lines.push('Este mod usa `StructureDef.interior` (patterns.md#64), que depende do')
+    lines.push('componente `interiorspawner` do mod publicado **"Above the Clouds"**')
+    lines.push('(Workshop id `workshop-3322803908`, já declarado em `mod_dependencies` no')
+    lines.push('`modinfo.lua` gerado). Sem ele ativo, as estruturas com interior não vão')
+    lines.push('conseguir criar a sala/porta ao serem construídas.')
+    lines.push('')
+  }
+
   lines.push('## Como instalar')
   lines.push('')
-  lines.push('1. Copie esta pasta inteira para `Documents/Klei/DoNotStarveTogether/mods/`.')
-  lines.push('2. Abra o jogo, vá em "Mods" e ative o mod.')
-  lines.push('3. Reinicie o jogo se solicitado.')
+  if (usesAboveTheClouds) {
+    lines.push('1. Inscreva-se e ative **"Above the Clouds"** primeiro (ver "Dependência obrigatória" acima).')
+    lines.push('2. Copie esta pasta inteira para `Documents/Klei/DoNotStarveTogether/mods/`.')
+    lines.push('3. Abra o jogo, vá em "Mods" e ative este mod.')
+    lines.push('4. Reinicie o jogo se solicitado.')
+  } else {
+    lines.push('1. Copie esta pasta inteira para `Documents/Klei/DoNotStarveTogether/mods/`.')
+    lines.push('2. Abra o jogo, vá em "Mods" e ative o mod.')
+    lines.push('3. Reinicie o jogo se solicitado.')
+  }
   lines.push('')
   lines.push('## Checklist de verificação manual')
   lines.push('')
@@ -129,6 +148,11 @@ function generateReadme(project: ModProject): string {
   }
   if (project.structures.length > 0) {
     lines.push('- [ ] Para cada estrutura: craftar e posicionar no mundo, e martelar pra confirmar que ela sai (hammer-destroy).')
+  }
+  if (usesAboveTheClouds) {
+    lines.push(
+      '- [ ] Para cada estrutura com interior: com "Above the Clouds" ativo, usar a estrutura (ela é a própria porta) e confirmar que entra na salinha e consegue sair de volta.',
+    )
   }
   if (project.characters.length > 0) {
     lines.push('- [ ] Para cada personagem: aparece na tela de seleção e carrega sem crash.')
@@ -207,7 +231,7 @@ export function buildModFiles(project: ModProject): Record<string, string> {
   }
 
   const files: Record<string, string> = {
-    'modinfo.lua': generateModInfo(project.meta),
+    'modinfo.lua': generateModInfo(project),
     'modmain.lua': generateModMain(project),
     'README.md': generateReadme(project),
   }

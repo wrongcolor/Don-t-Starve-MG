@@ -3093,3 +3093,95 @@ mais um novo campo de texto pro clipe.
 (trinket_1-5/goldnugget/nightmarefuel) e os mods que já as usam — precisa de
 uma sessão própria pra conferir cada uma contra o jogo real e decidir se
 migra os mods existentes.
+
+## 64. Estrutura com "interior" (entrar e ter um espaço separado dentro) — **implementado, depende de mod real**
+
+Motivação: o usuário lembrava de uma mecânica de um mod real — construir uma
+estrutura, entrar por ela e aparecer numa salinha separada, sem tela de
+carregamento. Não é nativo do DST — é um componente próprio do mod publicado
+"Above the Clouds" (que porta o conteúdo de Hamlet pro DST). Fonte: leitura
+direta e completa de `scripts/components/interiorspawner.lua` (1240 linhas),
+`scripts/prefabs/playerhouse_city.lua` e `scripts/prefabs/prop_door.lua`, na
+cópia local em
+`C:\Users\pablo.pires\source\repos\wrongcolor\DST_Mods_20260719_0250\Above the Clouds - Chinese Edition\`
+(essa pasta, apesar do nome, é o mod BASE completo — as outras duas pastas
+"Above the Clouds - Expert Mode"/"Chinese Edition" na verdade são só addons
+que dependem dele).
+
+**Confirmado, mecanismo real:**
+- **Não é troca de shard/mapa** — os "interiores" são salas físicas
+  construídas numa região do MESMO mapa, num offset de até 2000 tiles longe
+  da área jogável normal. Mover entre exterior/interior é só
+  `entity.Transform:SetPosition(...)`/`Physics:Teleport(...)` +
+  `SnapCamera()` (função local `teleport()` em `interiorspawner.lua`) —
+  instantâneo, sem loading.
+- **Uma chamada monta a sala inteira**: `TheWorld.components.interiorspawner
+  :CreateRoom(params)` recebe `width`/`depth` (só aceita os pares reais
+  `TUNING.ROOM_{TINY,SMALL,MEDIUM,LARGE}_{WIDTH,DEPTH}` — 15×10, 18×12,
+  24×16, 26×18, definidos no `main/tuning.lua` do próprio mod),
+  `group_id`/`roomindex` (id único da sala), `interior_coordinate_x/y` (`0`
+  pra uma sala avulsa, sem rede de múltiplas salas),
+  `walltexture`/`floortexture`/`minimaptexture`/`colour_cube` (paths de
+  textura já carregados pelo mod dependência — reaproveitamos exatamente o
+  conjunto "casa de madeira" confirmado em `playerhouse_city.lua`:
+  `levels/textures/interiors/shop_wall_woodwall.tex` /
+  `levels/textures/noise_woodfloor.tex` /
+  `levels/textures/map_interior/mini_floor_wood.tex` /
+  `images/colour_cubes/pigshop_interior_cc.tex`) e `addprops` (lista de
+  `{name, x_offset, z_offset, animdata, ...}` spawnados dentro da sala).
+  `CreateRoom` já chama `AddInterior`+`SpawnInterior` sozinho — a sala é
+  construída na hora, síncrono.
+- **A própria estrutura É a porta exterior** — confirmado em
+  `playerhouse_city.lua`: nenhum prop de porta separado é spawnado do lado
+  de fora. A estrutura ganha `AddComponent("door")` e é registrada via
+  `interior_spawner:AddDoor(inst, { my_door_id = ..., target_door_id = ...,
+  target_interior = id })`.
+- **O lado de dentro só precisa de UM `addprops`**: o prefab genérico
+  `prop_door` (já real, já existe no mod dependência — confirmado em
+  `prop_door.lua` e `interior_prop_defs.lua`'s `PROP_DEFS.playerhouse_city`),
+  com `my_door_id`/`target_door_id` invertidos em relação à porta exterior e
+  `is_exit = true`. O próprio `initInteriorPrefab` do `prop_door` chama
+  `AddDoor` sozinho quando é spawnado — não precisa de uma segunda chamada
+  manual.
+- **Persistência entre save/load é complexidade real, não invenção**:
+  `CreateRoom` só pode rodar uma vez por instância. Padrão confirmado
+  (`playerhouse_city.lua`): salvar/restaurar `inst.interiorID` via
+  `OnSave`/`OnLoad`, e rodar a lógica de criar-ou-reaproveitar dentro de
+  `inst:DoTaskInTime(0, function() ... end)` — adiado um tick pra dar tempo
+  do `OnLoad` (que roda no mesmo tick, logo após a construção) já ter
+  restaurado `interiorID` antes da checagem decidir entre criar (`nil` =
+  instância nova) ou só re-registrar a porta (id já existe = veio de save).
+
+**Implementado:**
+- `StructureDef.interior: { size: 'tiny'|'small'|'medium'|'large' }`
+  (`src/types/modProject.ts`, novo `ROOM_SIZES`) — só o tamanho é
+  configurável; a aparência (parede/chão/porta) é um único preset
+  confirmado, curado e não exaustivo (mesmo espírito de
+  `VANILLA_HAT_BUILDS` começando com uma entrada só).
+- `src/generators/structure.ts`: `interiorFunctionBlock` gera
+  `OnSave`/`OnLoad` + `EnsureInterior(inst)` (cria ou reaproveita, replica o
+  mecanismo acima); `componentBlock` adiciona `AddComponent("door")`;
+  `fn()` liga `inst.OnSave`/`inst.OnLoad` e o `DoTaskInTime(0, ...)`. Mapa
+  `size -> TUNING.ROOM_<SIZE>_WIDTH/DEPTH` é só um lookup local — essas
+  constantes TUNING são do mod dependência, referenciadas direto (mesma
+  lógica de qualquer TUNING vanilla/de terceiros já usado nesta ferramenta).
+- **Primeira dependência de mod de terceiros gerada por esta ferramenta**:
+  `src/generators/modinfo.ts`'s `generateModInfo` agora recebe o
+  `ModProject` inteiro (antes só `meta`) e, quando qualquer estrutura tem
+  `.interior`, emite `mod_dependencies = {{ workshop = "workshop-3322803908"
+  }}` — id confirmado lendo os `modinfo.lua` reais dos addons "Above the
+  Clouds - Expert Mode"/"Skilltrees Above the Clouds" (ambos dependem do
+  mesmo id). Derivado 100% do uso — sem toggle separado, não tem como ficar
+  fora de sincronia.
+- UI (`StructureForm.tsx`): checkbox + seletor de tamanho na seção "Special
+  mechanics", com aviso de que o jogador precisa ter "Above the Clouds"
+  instalado também.
+
+**Fora de escopo:** múltiplas salas conectadas (rede de direções
+norte/sul/leste/oeste — só usamos o registro de porta única, mais simples,
+do próprio `playerhouse_city.lua`); mobília/decoração automática dentro da
+sala (o `addprops` real de `playerhouse_city` inclui prateleiras, luz,
+cortina — pulado, só o essencial pra funcionar); customizar a
+parede/chão/textura da porta (um preset único confirmado por enquanto).
+Verificação em jogo (andar pela porta de verdade) não foi possível nesta
+sessão — só a geração do Lua foi conferida (luaparse + leitura manual).
