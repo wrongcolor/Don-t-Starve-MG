@@ -243,6 +243,32 @@ describe('generateItemFiles', () => {
     expect(code).toContain('inventory:CastSpellBookFromInv(inst)')
   })
 
+  // Confirmed against a real published character mod's own resource
+  // component — see characterManaSchema. A caster with no `mana` component
+  // (i.e. not the character that has CharacterDef.mana) always casts for
+  // free, same as before manaCost existed.
+  it('checks and spends mana before casting a spell with a manaCost, only for spells that set one', () => {
+    const spellbookItem: ItemDef = {
+      ...trinket,
+      id: 'testmanastaff',
+      spellbook: {
+        spells: [
+          { label: 'Sunbeam', summonPrefab: 'stafflight', manaCost: 10 },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(spellbookItem)
+    expect(code).toContain('if user.components.mana ~= nil and not user.components.mana:Spend(10) then')
+    expect(code).toContain('local function spellbook_cast_1(inst, user)')
+
+    const cast1End = code.indexOf('local function spellbook_cast_2')
+    expect(code.slice(0, cast1End)).toContain('return false')
+
+    const cast2Body = code.slice(cast1End)
+    expect(cast2Body).not.toContain('user.components.mana')
+  })
+
   it('rejects an item with both spellbook and spellEffect set', () => {
     const both: ItemDef = {
       ...trinket,

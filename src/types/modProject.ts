@@ -207,6 +207,18 @@ export const SPELL_EFFECTS = ['createLight'] as const
 export const spellbookSpellSchema = z.object({
   label: z.string().min(1, 'Required'),
   summonPrefab: z.string().min(1, 'Enter the prefab to spawn (e.g. a light, creature, or projectile id)'),
+  // Only meaningful when the caster has CharacterDef.mana (see characterManaSchema)
+  // — checked and spent before the spell casts; a caster with no mana component
+  // (i.e. not that character) casts for free, same as today.
+  // react-hook-form's valueAsNumber reads the live DOM value at submit time for
+  // uncontrolled inputs, so an untouched blank field submits NaN, not undefined —
+  // accept it and fold it back to undefined instead of failing validation.
+  manaCost: z
+    .number()
+    .min(0)
+    .or(z.nan())
+    .transform((v) => (Number.isNaN(v) ? undefined : v))
+    .optional(),
 })
 
 export const spellbookSchema = z.object({
@@ -650,6 +662,48 @@ export const skillTreeSchema = z
     },
   )
 
+// Confirmed in Original/prefabs/prefabs/global.lua: every vanilla character's
+// build is preloaded globally (Asset("PKGREF", "anim/<id>.zip")) — reusing one
+// for a new custom character needs no Asset() declaration at all, just
+// overriding AnimState:SetBuild after MakePlayerCharacter's own default
+// SetBuild(name) call. Confirmed in player_common.lua that common_postinit
+// runs strictly after that default SetBuild, so the override sticks. A
+// curated subset of the base roster (not every DLC character) — same
+// "curated, not exhaustive" call as VANILLA_CREATURE_BUILDS.
+export const VANILLA_CHARACTER_BUILDS = [
+  { build: 'wilson', label: 'Wilson' },
+  { build: 'willow', label: 'Willow' },
+  { build: 'wolfgang', label: 'Wolfgang' },
+  { build: 'wendy', label: 'Wendy' },
+  { build: 'wx78', label: 'WX-78' },
+  { build: 'wickerbottom', label: 'Wickerbottom' },
+  { build: 'woodie', label: 'Woodie' },
+  { build: 'wathgrithr', label: 'Wigfrid' },
+  { build: 'webber', label: 'Webber' },
+  { build: 'waxwell', label: 'Maxwell' },
+] as const
+
+// A character has no swap-build / hat-build concerns like items do (see
+// itemAnimationSchema) — just whether it's a from-scratch custom build or a
+// reused vanilla one.
+export const characterAnimationSchema = z.discriminatedUnion('source', [
+  z.object({ source: z.literal('custom') }),
+  z.object({ source: z.literal('vanilla'), build: z.string().min(1, 'Choose a character build') }),
+])
+
+// Confirmed against a real published character mod's own from-scratch resource
+// bar (a "fear" meter, not a vanilla mechanic) — same spirit as Wigfrid's
+// Inspiration but far simpler to build: no player_classified.lua patch needed.
+// AddPlayerPostInit (filtered to this character's prefab id) declares a plain
+// net_int synced off a custom "mana" component (src/generators/mana.ts), and
+// AddClassPostConstruct("widgets/statusdisplays", ...) injects a badge that
+// reuses the base game's own generic widgets/badge (just a custom tint — no
+// art required). See docs/dst-knowledge/patterns.md#61.
+export const characterManaSchema = z.object({
+  max: z.number().min(1),
+  regenPerSecond: z.number().min(0).optional(),
+})
+
 export const characterDefSchema = z.object({
   id: luaIdentifier,
   gender: z.enum(CHARACTER_GENDERS),
@@ -657,6 +711,7 @@ export const characterDefSchema = z.object({
   name: z.string().min(1, 'Required'),
   description: z.string().min(1, 'Required'),
   quote: z.string().min(1, 'Required'),
+  animation: characterAnimationSchema.optional(),
   stats: z.object({
     health: z.number().int().min(1),
     hunger: z.number().int().min(1),
@@ -670,6 +725,7 @@ export const characterDefSchema = z.object({
   walkSpeedMultiplier: z.number().min(0.1).max(5).optional(),
   foodTypeAffinities: z.array(foodTypeAffinitySchema),
   skillTree: skillTreeSchema.optional(),
+  mana: characterManaSchema.optional(),
 })
 
 // Unlike items (where "idle" is near-universal across every inventory build), creature
@@ -823,6 +879,8 @@ export type SkillTreeNode = z.infer<typeof skillTreeNodeSchema>
 export type SkillTreeBranch = z.infer<typeof skillTreeBranchSchema>
 export type SkillTree = z.infer<typeof skillTreeSchema>
 export type CreatureAnimation = z.infer<typeof creatureAnimationSchema>
+export type CharacterAnimation = z.infer<typeof characterAnimationSchema>
+export type CharacterMana = z.infer<typeof characterManaSchema>
 export type ModMeta = z.infer<typeof modMetaSchema>
 export type Ingredient = z.infer<typeof ingredientSchema>
 export type GroundAttackConfig = z.infer<typeof groundAttackSchema>

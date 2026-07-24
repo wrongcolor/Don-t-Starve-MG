@@ -37,6 +37,38 @@ describe('generateModMain', () => {
     expect(code).toContain('STRINGS.CHARACTERS.TESTCHAR = require("speech_testchar")')
   })
 
+  describe('mana HUD (docs/dst-knowledge/patterns.md#61)', () => {
+    const mageProject = {
+      ...sampleProject,
+      characters: [{ ...sampleProject.characters[0], mana: { max: 100, regenPerSecond: 2 } }],
+    }
+    const mageCode = generateModMain(mageProject)
+
+    it('requires the mana badge widget once and sets its TUNING values', () => {
+      expect(mageCode).toContain('local ManaBadge = require("widgets/manabadge")')
+      expect(mageCode).toContain('GLOBAL.TUNING.TESTCHAR_MANA_MAX = 100')
+      expect(mageCode).toContain('GLOBAL.TUNING.TESTCHAR_MANA_REGEN = 2')
+    })
+
+    it('syncs a net_int off the manadelta event, filtered to this character\'s own prefab', () => {
+      expect(mageCode).toContain('AddPlayerPostInit(TestcharPlayerPostInit)')
+      expect(mageCode).toContain('if inst.prefab ~= "testchar" then')
+      expect(mageCode).toContain('inst.testchar_mana_percent = GLOBAL.net_int(inst.GUID, "testchar.manapercent", "testchar_manaisdirty")')
+      expect(mageCode).toContain('inst:ListenForEvent("manadelta", OnTestcharManaUpdate)')
+    })
+
+    it('injects a ManaBadge into widgets/statusdisplays, positioned relative to the real hunger badge field (self.stomach)', () => {
+      expect(mageCode).toContain('AddClassPostConstruct("widgets/statusdisplays", TestcharStatusPostConstruct)')
+      expect(mageCode).toContain('self.testcharmana = self:AddChild(ManaBadge(self.owner))')
+      expect(mageCode).toContain('local stomachpos = self.stomach:GetPosition()')
+    })
+
+    it('does not wire any mana HUD code when no character has mana', () => {
+      expect(code).not.toContain('ManaBadge')
+      expect(code).not.toContain('AddPlayerPostInit')
+    })
+  })
+
   it('sets TUNING values for items, characters and creatures', () => {
     expect(code).toContain('GLOBAL.TUNING.TESTSWORD_DAMAGE = 34')
     expect(code).toContain('GLOBAL.TUNING.TESTCHAR_HEALTH = 150')

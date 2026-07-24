@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useState } from 'react'
+import { useForm, useFieldArray, type Control, type UseFormRegister, type UseFormSetValue } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   itemDefSchema,
@@ -51,20 +51,67 @@ const ITEM_TEMPLATES: { key: string; label: string; icon: string; patch: Partial
   { key: 'other', label: 'Other', icon: '✨', patch: { category: 'generic' } },
 ]
 
+interface SpellbookEditorProps {
+  control: Control<ItemDef>
+  register: UseFormRegister<ItemDef>
+  setValue: UseFormSetValue<ItemDef>
+  errorMessage?: string
+}
+
+// Owns the spells field array itself, mounted only while the spellbook is
+// enabled — same dodge as CharacterForm's SkillTreeEditor. A useFieldArray
+// started before its value exists won't pick up a plain setValue() write to
+// that same path (RHF tracks array mutations through its own append/remove/
+// replace, not generic setValue): mounted unconditionally at the top of
+// ItemForm, the checkbox's setValue('spellbook', {spells: [...]})} silently
+// left `.fields` empty — the 2 default spells existed in the raw form value
+// but never rendered as rows, and the first "+ Add spell" click produced 3
+// rows (2 phantom + 1 appended) instead of 1. Mounting fresh here means
+// useFieldArray reads the already-updated value at construction time instead.
+function SpellbookEditor({ control, register, setValue, errorMessage }: SpellbookEditorProps) {
+  const spells = useFieldArray({ control, name: 'spellbook.spells' as never })
+
+  return (
+    <>
+      {spells.fields.map((field, index) => (
+        <div key={field.id} className="ingredient-row">
+          <input
+            className={inputClass}
+            placeholder="Spell label (e.g. Summon Light)"
+            {...register(`spellbook.spells.${index}.label` as const)}
+          />
+          <input
+            className={inputClass}
+            placeholder="prefab to spawn (e.g. stafflight)"
+            {...register(`spellbook.spells.${index}.summonPrefab` as const)}
+          />
+          <PrefabPickerButton
+            onSelect={(id) => setValue(`spellbook.spells.${index}.summonPrefab` as const, id, { shouldDirty: true })}
+          />
+          <input
+            type="number"
+            min="0"
+            step="1"
+            className="qty-input"
+            placeholder="Mana cost"
+            title="Mana cost (only matters for a caster with a mana pool — see the character's Mana section)"
+            {...register(`spellbook.spells.${index}.manaCost` as const, { valueAsNumber: true })}
+          />
+          <button type="button" className={btnDanger} onClick={() => spells.remove(index)}>
+            Remove
+          </button>
+        </div>
+      ))}
+      <button type="button" className="add-ingredient" onClick={() => spells.append({ label: '', summonPrefab: '' })}>
+        + Add spell
+      </button>
+      {errorMessage && <p className="field error">{errorMessage}</p>}
+    </>
+  )
+}
+
 export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
-  // useFieldArray for spellbook.spells must run unconditionally (rules of hooks), which
-  // makes react-hook-form materialize `spellbook: { spells: [] }` in the form's raw
-  // values even when the "Spellbook" checkbox is off — including in `watch()`, so this
-  // can't be tracked with a value derived from `watched` (that's equally corrupted).
-  // A plain state toggle, driven only by the checkbox itself, is the actual signal;
-  // zodResolver validates RAW values before onSubmit ever runs, so a submit-time fix is
-  // too late — stripping `spellbook` here, inside the resolver, fixes it at the point
-  // that matters (same pattern as RoomForm's `scatter`).
   const [enableSpellbook, setEnableSpellbook] = useState((initialItem ?? emptyItem).spellbook !== undefined)
-  const enableSpellbookRef = useRef(enableSpellbook)
-  useEffect(() => {
-    enableSpellbookRef.current = enableSpellbook
-  }, [enableSpellbook])
 
   const {
     register,
@@ -74,13 +121,11 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
     setValue,
     formState: { errors },
   } = useForm<ItemDef>({
-    resolver: (values, context, options) =>
-      zodResolver(itemDefSchema)(enableSpellbookRef.current ? values : { ...values, spellbook: undefined }, context, options),
+    resolver: zodResolver(itemDefSchema),
     defaultValues: initialItem ?? emptyItem,
   })
 
   const { fields, append, remove } = useFieldArray({ control, name: 'recipe.ingredients' })
-  const spellbookSpells = useFieldArray({ control, name: 'spellbook.spells' as never })
 
   const [animationSource, setAnimationSource] = useState<'custom' | 'vanilla' | 'vanillaHat'>(
     (initialItem ?? emptyItem).animation?.source ?? 'custom',
@@ -618,36 +663,12 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                 </label>
               </div>
               {enableSpellbook && (
-                <>
-                  {spellbookSpells.fields.map((field, index) => (
-                    <div key={field.id} className="ingredient-row">
-                      <input
-                        className={inputClass}
-                        placeholder="Spell label (e.g. Summon Light)"
-                        {...register(`spellbook.spells.${index}.label` as const)}
-                      />
-                      <input
-                        className={inputClass}
-                        placeholder="prefab to spawn (e.g. stafflight)"
-                        {...register(`spellbook.spells.${index}.summonPrefab` as const)}
-                      />
-                      <PrefabPickerButton
-                        onSelect={(id) => setValue(`spellbook.spells.${index}.summonPrefab` as const, id, { shouldDirty: true })}
-                      />
-                      <button type="button" className={btnDanger} onClick={() => spellbookSpells.remove(index)}>
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    className="add-ingredient"
-                    onClick={() => spellbookSpells.append({ label: '', summonPrefab: '' })}
-                  >
-                    + Add spell
-                  </button>
-                  {errors.spellbook?.spells?.message && <p className="field error">{errors.spellbook.spells.message}</p>}
-                </>
+                <SpellbookEditor
+                  control={control}
+                  register={register}
+                  setValue={setValue}
+                  errorMessage={errors.spellbook?.spells?.message}
+                />
               )}
 
               {canRecharge && (

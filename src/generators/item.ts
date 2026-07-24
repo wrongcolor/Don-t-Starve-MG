@@ -217,6 +217,15 @@ function spellbookFunctionBlock(item: ItemDef): string[] {
 
   spells.forEach((spell, index) => {
     lines.push(`local function spellbook_cast_${index + 1}(inst, user)`)
+    // Only meaningful for a caster with CharacterDef.mana (see
+    // characterManaSchema) — anyone else has no `mana` component, so the
+    // check is skipped and the spell always casts, same as before this field
+    // existed.
+    if (spell.manaCost !== undefined && spell.manaCost > 0) {
+      lines.push(`    if user.components.mana ~= nil and not user.components.mana:Spend(${spell.manaCost}) then`)
+      lines.push('        return false')
+      lines.push('    end')
+    }
     lines.push(`    local fx = SpawnPrefab(${luaString(spell.summonPrefab)})`)
     lines.push('    if fx ~= nil then')
     lines.push('        fx.Transform:SetPosition(user.Transform:GetWorldPosition())')

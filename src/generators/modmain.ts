@@ -205,11 +205,18 @@ function creatureStringsBlock(creature: CreatureDef): string[] {
 
 function characterTuningBlock(character: CharacterDef): string[] {
   const upper = toUpperSnake(character.id)
-  return [
+  const lines = [
     `GLOBAL.TUNING.${upper}_HEALTH = ${character.stats.health}`,
     `GLOBAL.TUNING.${upper}_HUNGER = ${character.stats.hunger}`,
     `GLOBAL.TUNING.${upper}_SANITY = ${character.stats.sanity}`,
   ]
+  if (character.mana !== undefined) {
+    lines.push(`GLOBAL.TUNING.${upper}_MANA_MAX = ${character.mana.max}`)
+    if (character.mana.regenPerSecond !== undefined) {
+      lines.push(`GLOBAL.TUNING.${upper}_MANA_REGEN = ${character.mana.regenPerSecond}`)
+    }
+  }
+  return lines
 }
 
 function needsContainerParams(project: ModProject): boolean {
@@ -341,6 +348,67 @@ function skillTreeRegistrationBlock(character: CharacterDef): string[] {
   ]
 }
 
+function capitalize(id: string): string {
+  return id.charAt(0).toUpperCase() + id.slice(1)
+}
+
+// Confirmed in a real published character mod's modmain.lua (see
+// characterManaSchema for the full source breakdown): AddPlayerPostInit
+// (filtered to this character's own prefab) declares a single net_int percent
+// synced off the "manadelta" event the mana component pushes, and
+// AddClassPostConstruct("widgets/statusdisplays", ...) injects a ManaBadge
+// next to health/hunger/sanity, positioned relative to the real hunger
+// badge's own field name (self.stomach — confirmed in widgets/statusdisplays.lua).
+function characterManaHudBlock(character: CharacterDef): string[] {
+  const id = character.id
+  const capId = capitalize(id)
+  const dirtyEvent = luaString(`${id}_manaisdirty`)
+  return [
+    `local function on${capId}ManaDirty(inst)`,
+    `    if GLOBAL.ThePlayer and GLOBAL.ThePlayer.Update${capId}ManaBadge then`,
+    `        GLOBAL.ThePlayer.Update${capId}ManaBadge()`,
+    '    end',
+    'end',
+    '',
+    `local function On${capId}ManaUpdate(inst)`,
+    `    inst.${id}_mana_percent:set(math.floor(inst.components.mana:GetPercent() * 100))`,
+    'end',
+    '',
+    `local function ${capId}PlayerPostInit(inst)`,
+    `    if inst.prefab ~= ${luaString(id)} then`,
+    '        return',
+    '    end',
+    '',
+    `    inst.${id}_mana_percent = GLOBAL.net_int(inst.GUID, ${luaString(`${id}.manapercent`)}, ${dirtyEvent})`,
+    '',
+    '    if GLOBAL.TheWorld.ismastersim then',
+    `        inst:ListenForEvent("manadelta", On${capId}ManaUpdate)`,
+    '    end',
+    '',
+    '    if not GLOBAL.TheNet:IsDedicated() then',
+    `        inst:ListenForEvent(${dirtyEvent}, on${capId}ManaDirty)`,
+    '    end',
+    'end',
+    `AddPlayerPostInit(${capId}PlayerPostInit)`,
+    '',
+    `local function ${capId}StatusPostConstruct(self)`,
+    `    if self.owner.prefab ~= ${luaString(id)} then`,
+    '        return',
+    '    end',
+    '',
+    `    self.${id}mana = self:AddChild(ManaBadge(self.owner))`,
+    '    local stomachpos = self.stomach:GetPosition()',
+    `    self.${id}mana:SetPosition(stomachpos.x - 65, stomachpos.y, stomachpos.z)`,
+    '',
+    `    self.owner.Update${capId}ManaBadge = function()`,
+    `        local percent = self.owner.${id}_mana_percent and (self.owner.${id}_mana_percent:value() / 100) or 0`,
+    `        self.${id}mana:SetPercent(percent, 100)`,
+    '    end',
+    'end',
+    `AddClassPostConstruct("widgets/statusdisplays", ${capId}StatusPostConstruct)`,
+  ]
+}
+
 // modmain.lua is the only file with access to mod-registration functions
 // (AddRecipe2, AddModCharacter, PrefabFiles, STRINGS, TUNING) — prefab scripts
 // just read the TUNING/STRINGS values this file sets up.
@@ -450,6 +518,17 @@ export function generateModMain(project: ModProject): string {
     sections.push('local skilltree_defs = require("prefabs/skilltree_defs")')
     for (const character of charactersWithSkillTree) {
       sections.push(...skillTreeRegistrationBlock(character))
+    }
+  }
+
+  const charactersWithMana = project.characters.filter((character) => character.mana)
+  if (charactersWithMana.length > 0) {
+    sections.push('')
+    sections.push('-- Mana HUD badges (docs/dst-knowledge/patterns.md#61)')
+    sections.push('local ManaBadge = require("widgets/manabadge")')
+    for (const character of charactersWithMana) {
+      sections.push('')
+      sections.push(...characterManaHudBlock(character))
     }
   }
 

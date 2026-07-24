@@ -47,4 +47,62 @@ describe('CharacterForm', () => {
     const saved = onSave.mock.calls[0][0]
     expect(saved.skillTree).toBeUndefined()
   })
+
+  it('reuses an existing character\'s build when chosen, and submits that choice', async () => {
+    const onSave = vi.fn()
+    render(<CharacterForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_char'), { target: { value: 'viana' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Viana' } })
+    fireEvent.change(screen.getByLabelText('Description (selection screen)'), { target: { value: 'A sun-touched witch' } })
+    fireEvent.change(screen.getByLabelText('Catchphrase'), { target: { value: 'The sun lends its light.' } })
+
+    fireEvent.click(screen.getByText('Reuse an existing character\'s build'))
+    fireEvent.change(screen.getByLabelText('Build'), { target: { value: 'wendy' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add character' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.animation).toEqual({ source: 'vanilla', build: 'wendy' })
+  })
+
+  it('enabling the mana checkbox reveals its fields with sane defaults, and submits a custom value with regen', async () => {
+    const onSave = vi.fn()
+    render(<CharacterForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_char'), { target: { value: 'viana' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Viana' } })
+    fireEvent.change(screen.getByLabelText('Description (selection screen)'), { target: { value: 'A sun-touched witch' } })
+    fireEvent.change(screen.getByLabelText('Catchphrase'), { target: { value: 'The sun lends its light.' } })
+
+    fireEvent.click(screen.getByText('This character has a mana pool'))
+    expect((screen.getByLabelText('Max mana') as HTMLInputElement).value).toBe('100')
+
+    fireEvent.change(screen.getByLabelText('Max mana'), { target: { value: '150' } })
+    fireEvent.click(screen.getByText('Regenerates over time'))
+    fireEvent.change(screen.getByLabelText('Mana per second'), { target: { value: '2' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add character' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.mana).toEqual({ max: 150, regenPerSecond: 2 })
+  })
+
+  it('submits a plain character successfully without ever touching the mana checkbox', async () => {
+    const onSave = vi.fn()
+    render(<CharacterForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_char'), { target: { value: 'plainchar' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Plain Char' } })
+    fireEvent.change(screen.getByLabelText('Description (selection screen)'), { target: { value: 'Nothing magic' } })
+    fireEvent.change(screen.getByLabelText('Catchphrase'), { target: { value: '...' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add character' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.mana).toBeUndefined()
+  })
 })

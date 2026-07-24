@@ -1,6 +1,14 @@
+import { useState } from 'react'
 import { useForm, useFieldArray, type Control, type UseFormRegister, type UseFormSetValue } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { characterDefSchema, CHARACTER_GENDERS, CHARACTER_PERKS, FOOD_TYPES, type CharacterDef } from '../../types/modProject'
+import {
+  characterDefSchema,
+  CHARACTER_GENDERS,
+  CHARACTER_PERKS,
+  FOOD_TYPES,
+  VANILLA_CHARACTER_BUILDS,
+  type CharacterDef,
+} from '../../types/modProject'
 import { FormField, Fieldset, FormHeader, FormFooter, inputClass, btnDanger } from './FormField'
 import { CharacterPreview } from './CharacterPreview'
 import { PrefabPickerButton } from './PrefabPicker'
@@ -216,11 +224,16 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
 
   const inventory = useFieldArray({ control, name: 'startingInventory' as never })
   const affinities = useFieldArray({ control, name: 'foodTypeAffinities' })
+  const [animationSource, setAnimationSource] = useState<'custom' | 'vanilla'>(
+    (initialCharacter ?? emptyCharacter).animation?.source ?? 'custom',
+  )
   const watched = watch()
   const enableDamageMultiplier = watched.damageMultiplier !== undefined
   const enableHungerRateMultiplier = watched.hungerRateMultiplier !== undefined
   const enableWalkSpeedMultiplier = watched.walkSpeedMultiplier !== undefined
   const enableSkillTree = watched.skillTree !== undefined
+  const enableMana = watched.mana !== undefined
+  const enableManaRegen = watched.mana?.regenPerSecond !== undefined
 
   const onSubmit = (data: CharacterDef) => onSave(data)
 
@@ -267,8 +280,52 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
             </Fieldset>
           </div>
 
+          <Fieldset legend="Appearance" step={3}>
+            <div className="checks">
+              <label>
+                <input
+                  type="radio"
+                  name="character-animation-source"
+                  checked={animationSource === 'custom'}
+                  onChange={() => {
+                    setAnimationSource('custom')
+                    setValue('animation', { source: 'custom' })
+                  }}
+                />
+                I'll create my own animation (own build, anim/&lt;id&gt;.zip)
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="character-animation-source"
+                  checked={animationSource === 'vanilla'}
+                  onChange={() => {
+                    setAnimationSource('vanilla')
+                    setValue('animation', { source: 'vanilla', build: VANILLA_CHARACTER_BUILDS[0].build })
+                  }}
+                />
+                Reuse an existing character's build
+              </label>
+            </div>
+
+            {animationSource === 'vanilla' && (
+              <FormField
+                label="Build"
+                error={(errors.animation as { build?: { message?: string } } | undefined)?.build?.message}
+              >
+                <select className={inputClass} {...register('animation.build' as const)}>
+                  {VANILLA_CHARACTER_BUILDS.map((b) => (
+                    <option key={b.build} value={b.build}>
+                      {b.label}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            )}
+          </Fieldset>
+
           <div className="grid-3">
-            <Fieldset legend="Stats" step={3}>
+            <Fieldset legend="Stats" step={4}>
               <div className="row-2">
                 <FormField label="Health">
                   <input type="number" className={inputClass} {...register('stats.health', { valueAsNumber: true })} />
@@ -282,7 +339,7 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
               </FormField>
             </Fieldset>
 
-            <Fieldset legend="Perks" step={4}>
+            <Fieldset legend="Perks" step={5}>
               <div className="tag-grid">
                 {CHARACTER_PERKS.map((perk) => (
                   <label key={perk} className={`tag-opt ${watched.perks?.includes(perk) ? 'selected' : ''}`}>
@@ -293,7 +350,7 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
               </div>
             </Fieldset>
 
-            <Fieldset legend="Starting inventory" step={5}>
+            <Fieldset legend="Starting inventory" step={6}>
               {inventory.fields.map((field, index) => (
                 <div key={field.id} className="ingredient-row">
                   <input className={inputClass} placeholder="prefab id (e.g. torch)" {...register(`startingInventory.${index}` as const)} />
@@ -309,7 +366,7 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
             </Fieldset>
           </div>
 
-          <Fieldset legend="Stat multipliers (optional)" step={6}>
+          <Fieldset legend="Stat multipliers (optional)" step={7}>
             <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
               Sourced from a real character mod's master_postinit (see docs/dst-knowledge/patterns.md#21) — a static
               multiplier applied once at spawn, independent of any skill tree.
@@ -400,7 +457,51 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
             </button>
           </Fieldset>
 
-          <Fieldset legend="Skill tree (optional)" step={7}>
+          <Fieldset legend="Mana (optional)" step={8}>
+            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+              Sourced from a real published character mod's own from-scratch resource bar (see
+              docs/dst-knowledge/patterns.md#61) — same spirit as Wigfrid's Inspiration, but far simpler: no shared
+              game file is patched, just a custom "mana" component and a badge next to health/hunger/sanity that
+              reuses the game's own generic bar (a color tint, no art required). Spellbook spells can each cost mana
+              (set per spell in an item's Spellbook section) — a caster without this component always casts for free.
+            </p>
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableMana}
+                  onChange={(e) => setValue('mana', e.target.checked ? { max: 100 } : undefined)}
+                />
+                This character has a mana pool
+              </label>
+            </div>
+            {enableMana && (
+              <div className="row-2">
+                <FormField label="Max mana">
+                  <input type="number" min="1" className={inputClass} {...register('mana.max', { valueAsNumber: true })} />
+                </FormField>
+                <div>
+                  <div className="checks">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={enableManaRegen}
+                        onChange={(e) => setValue('mana.regenPerSecond', e.target.checked ? 1 : undefined)}
+                      />
+                      Regenerates over time
+                    </label>
+                  </div>
+                  {enableManaRegen && (
+                    <FormField label="Mana per second">
+                      <input type="number" step="0.1" min="0" className={inputClass} {...register('mana.regenPerSecond', { valueAsNumber: true })} />
+                    </FormField>
+                  )}
+                </div>
+              </div>
+            )}
+          </Fieldset>
+
+          <Fieldset legend="Skill tree (optional)" step={9}>
             <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
               Sourced from the base game's own skilltree_defs.lua and skilltree_wilson.lua (see
               docs/dst-knowledge/patterns.md#28) — skilltreeupdater is already on every character, this just registers

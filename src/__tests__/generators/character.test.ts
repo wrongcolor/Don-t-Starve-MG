@@ -37,6 +37,39 @@ describe('generateCharacterPrefab', () => {
     expect(plainCode).not.toContain('SetExternalSpeedMultiplier')
     expect(plainCode).not.toContain('foodaffinity')
   })
+
+  it('defaults to a custom build named after its own id when no animation is chosen, with real ghost-build naming (global.lua)', () => {
+    expect(code).toContain('Asset("ANIM", "anim/testchar.zip")')
+    expect(code).toContain('Asset("ANIM", "anim/ghost_testchar_build.zip")')
+    expect(code).not.toContain('SetBuild(')
+  })
+
+  it('reuses a vanilla build without declaring an ANIM asset, overriding SetBuild after MakePlayerCharacter\'s own default', () => {
+    const wendy = { ...character, animation: { source: 'vanilla' as const, build: 'wendy' } }
+    const wendyCode = generateCharacterPrefab(wendy)
+    expect(wendyCode).not.toContain('Asset("ANIM"')
+    expect(wendyCode).toContain('inst.AnimState:SetBuild("wendy")')
+  })
+
+  // Confirmed against a real published character mod's own "fear" resource —
+  // see characterManaSchema for the full source breakdown.
+  it('wires the mana component with SetMax when mana is set, without a regen rate by default', () => {
+    const mage = { ...character, mana: { max: 100 } }
+    const manaCode = generateCharacterPrefab(mage)
+    expect(manaCode).toContain('inst:AddComponent("mana")')
+    expect(manaCode).toContain('inst.components.mana:SetMax(TUNING.TESTCHAR_MANA_MAX)')
+    expect(manaCode).not.toContain('SetRegenRate')
+  })
+
+  it('wires SetRegenRate only when a regen rate is configured', () => {
+    const mage = { ...character, mana: { max: 100, regenPerSecond: 2 } }
+    const manaCode = generateCharacterPrefab(mage)
+    expect(manaCode).toContain('inst.components.mana:SetRegenRate(TUNING.TESTCHAR_MANA_REGEN)')
+  })
+
+  it('does not add the mana component when mana is not set', () => {
+    expect(code).not.toContain('mana')
+  })
 })
 
 describe('generateSpeechFile', () => {

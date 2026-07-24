@@ -16,6 +16,11 @@ export function CharacterPreview({ character }: { character: Partial<CharacterDe
         <h2 className="preview-name">{character.name || 'No name'}</h2>
         <div className="preview-art">{characterVisual()}</div>
         <div className="preview-cat">{character.title || '—'}</div>
+        {character.animation?.source === 'vanilla' && (
+          <div className="preview-tag" style={{ marginBottom: 8 }}>
+            🎭 Reuses {character.animation.build}'s build
+          </div>
+        )}
         <div className="preview-stats">
           <div className="preview-stat">
             <span className="lbl">❤️ Health</span>
@@ -45,6 +50,15 @@ export function CharacterPreview({ character }: { character: Partial<CharacterDe
             <div className="preview-stat">
               <span className="lbl">🏃 Walk speed x</span>
               <span className="val">{character.walkSpeedMultiplier}</span>
+            </div>
+          )}
+          {character.mana !== undefined && (
+            <div className="preview-stat">
+              <span className="lbl">🔷 Max mana</span>
+              <span className="val">
+                {character.mana.max}
+                {character.mana.regenPerSecond !== undefined ? ` (+${character.mana.regenPerSecond}/s)` : ''}
+              </span>
             </div>
           )}
         </div>

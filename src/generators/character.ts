@@ -1,6 +1,17 @@
 import type { CharacterDef } from '../types/modProject'
-import { luaStringArray, toUpperSnake } from './luaUtils'
+import { luaString, luaStringArray, toUpperSnake } from './luaUtils'
 import { generateSkillTreeFile } from './skillTree'
+
+// Custom keeps the character's own id as the build name — the same name
+// MakePlayerCharacter's internal SetBuild(name) already defaults to, so no
+// override is needed there, just the placeholder art the user must supply.
+function resolveAnimationBuild(character: CharacterDef): string {
+  return character.animation?.source === 'vanilla' ? character.animation.build : character.id
+}
+
+function isVanillaAnimation(character: CharacterDef): boolean {
+  return character.animation?.source === 'vanilla'
+}
 
 // Best-effort perk snippets using real, documented component APIs. These are starting
 // points — exact balance values are meant to be tweaked by the user, not final tuning.
@@ -51,19 +62,26 @@ function statMultiplierLines(character: CharacterDef): string[] {
   return lines
 }
 
-// PLACEHOLDER assets: reuses Wilson's build/bank as a fallback so the character loads
-// without crashing before the user swaps in real Spriter-produced art — see README.
+// Assets: when the character reuses a vanilla build (animation.source ===
+// 'vanilla'), no Asset() is declared at all — that build is already
+// preloaded globally by the base game (global.lua's own Asset("PKGREF",
+// "anim/<id>.zip") list). Otherwise this is a PLACEHOLDER: the user must
+// supply anim/<id>.zip (and a matching ghost build) themselves — see README.
 export function generateCharacterPrefab(character: CharacterDef): string {
   const upper = toUpperSnake(character.id)
+  const build = resolveAnimationBuild(character)
   const lines: string[] = []
 
   lines.push('local MakePlayerCharacter = require("prefabs/player_common")')
   lines.push('')
   lines.push('local assets =')
   lines.push('{')
-  lines.push('    Asset("ANIM", "anim/player_wilson.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)')
-  lines.push('    Asset("ANIM", "anim/player_wilson_none.zip"), -- PLACEHOLDER')
-  lines.push('    Asset("ANIM", "anim/ghost_wilson_build.zip"), -- PLACEHOLDER')
+  if (isVanillaAnimation(character)) {
+    lines.push(`    -- Build "${build}" reaproveitado do jogo base, sem asset próprio necessário.`)
+  } else {
+    lines.push(`    Asset("ANIM", "anim/${character.id}.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)`)
+    lines.push(`    Asset("ANIM", "anim/ghost_${character.id}_build.zip"), -- PLACEHOLDER: build do fantasma`)
+  }
   lines.push('}')
   lines.push('')
   lines.push('local prefabs = {}')
@@ -72,6 +90,9 @@ export function generateCharacterPrefab(character: CharacterDef): string {
   lines.push('')
   lines.push('local function common_postinit(inst)')
   lines.push(`    inst.MiniMapEntity:SetIcon("${character.id}.tex") -- PLACEHOLDER: ícone do minimapa`)
+  if (isVanillaAnimation(character)) {
+    lines.push(`    inst.AnimState:SetBuild(${luaString(build)}) -- reaproveita o visual de "${build}" em vez do build próprio`)
+  }
   lines.push('end')
   lines.push('')
   lines.push('local function master_postinit(inst)')
@@ -87,6 +108,14 @@ export function generateCharacterPrefab(character: CharacterDef): string {
   if (multipliers.length > 0) {
     lines.push('')
     lines.push(...multipliers)
+  }
+  if (character.mana !== undefined) {
+    lines.push('')
+    lines.push('    inst:AddComponent("mana")')
+    lines.push(`    inst.components.mana:SetMax(TUNING.${upper}_MANA_MAX)`)
+    if (character.mana.regenPerSecond !== undefined) {
+      lines.push(`    inst.components.mana:SetRegenRate(TUNING.${upper}_MANA_REGEN)`)
+    }
   }
   lines.push('end')
   lines.push('')

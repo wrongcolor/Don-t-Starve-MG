@@ -2851,3 +2851,107 @@ sobrepor espetos) nem o timing exato de animação — o espalhamento aqui é
 puramente aleatório dentro do raio, podendo ocasionalmente falhar em achar
 um ponto andável (`FindWalkableOffset` retornando `nil`, nesse caso o
 espeto/bloco simplesmente não nasce naquela iteração).
+
+## 60. Reaproveitar o build de um personagem vanilla (ex.: Wendy) pra um personagem novo — **bug real corrigido + implementado**
+
+Fonte: `Original/prefabs/prefabs/global.lua` (lista `Asset("PKGREF", ...)`) e
+`Original/prefabs/prefabs/player_common.lua` (`MakePlayerCharacter`, função
+`fn()`).
+
+**Bug real encontrado e corrigido:** `CharacterDef` não tinha NENHUM campo
+de animação — o gerador sempre cravava `Asset("ANIM", "anim/player_wilson.zip")`
+(+ `player_wilson_none.zip` + `ghost_wilson_build.zip`) pra **qualquer**
+personagem novo, mesmo o do próprio usuário. Esses nomes não são reais:
+conferido em `global.lua`, o build de cada personagem vanilla é pré-carregado
+globalmente como `Asset("PKGREF", "anim/<id>.zip")` (ex.: `anim/wendy.zip`,
+`anim/wilson.zip`), sem prefixo `player_` nenhum — e `player_wilson_none.zip`
+não é um asset confirmado em lugar nenhum do jogo real.
+
+**Confirmado:** `MakePlayerCharacter`'s `fn()` sempre roda
+`inst.AnimState:SetBank("wilson")` (o esqueleto é compartilhado por todo
+personagem) e `inst.AnimState:SetBuild(name)` — `name` sendo o id do PRÓPRIO
+personagem novo, sempre. `common_postinit(inst)` (passado pelo mod) é chamado
+bem depois desse `SetBuild` (confirmado pela ordem das chamadas dentro do
+arquivo), então um mod pode reverter/trocar o build ali dentro sem conflito:
+```lua
+inst.AnimState:SetBank("wilson")
+inst.AnimState:SetBuild(name) -- ex.: "viana" — sempre o próprio id, incondicional
+...
+common_postinit(inst) -- chamado bem depois — dá pra sobrescrever aqui
+```
+
+**Implementado:** `CharacterDef.animation?: { source: 'custom' } | { source:
+'vanilla', build }` (`src/types/modProject.ts`, mesmo padrão discriminated
+union de `itemAnimationSchema`/`structureAnimationSchema`), com
+`VANILLA_CHARACTER_BUILDS` curado (10 personagens da base, mesmo espírito
+"curado, não exaustivo" de `VANILLA_CREATURE_BUILDS`). Em
+`src/generators/character.ts`: modo `vanilla` não declara nenhum `Asset()`
+(o build já está carregado globalmente) e adiciona
+`inst.AnimState:SetBuild("<build>")` dentro do `common_postinit` gerado,
+sobrescrevendo o padrão do `MakePlayerCharacter`. Modo `custom` (padrão)
+continua gerando um placeholder, mas agora corretamente nomeado a partir do
+PRÓPRIO id do personagem (`anim/<id>.zip` + `anim/ghost_<id>_build.zip`),
+não mais fixado em "wilson". UI em `CharacterForm.tsx` (novo fieldset
+"Appearance", mesmo rádio custom/vanilla já usado em Item/Structure/Creature)
+e `CharacterPreview.tsx`.
+
+**Não modelado (fora de escopo desta seção):** a forma real do jogo NÃO
+troca só o build — cada personagem vanilla tem animações EXCLUSIVAS próprias
+(ex.: os canais/vínculos da Wendy com a Abigail) que um build reaproveitado
+sozinho não replica; reaproveitar um build serve como visual provisório
+(placeholder melhor que o Wilson genérico), não como "virar aquele
+personagem" de verdade.
+
+## 61. Recurso custom por personagem, com barra própria no HUD (mana) — **implementado**
+
+Fonte: mod real publicado na Workshop ("Luke") — lemos `scripts/components/fear.lua`,
+o bloco relevante de `modmain.lua` (registro do componente + hook de HUD) e
+`widgets/badge.lua`/`widgets/statusdisplays.lua` (arquivos do próprio jogo
+base, não do mod) pra confirmar como uma barra de status nova se encaixa ao
+lado de vida/fome/sanidade.
+
+**Confirmado:** um "recurso" novo (o mod usa "medo", nós usamos "mana") não
+precisa de nenhum registro especial pra existir como componente — qualquer
+arquivo em `scripts/components/<nome>.lua` que retorna `Class(...)` já fica
+disponível via `inst:AddComponent("<nome>")`, exatamente como um componente
+nativo do jogo. O componente do mod (`fear.lua`) implementa seu próprio
+`SetMax`/`DoDelta`/`GetPercent`/`OnSave`/`OnLoad`, sem herdar de nada — é
+Lua puro, não uma classe do motor.
+
+**Confirmado (badge de HUD):** a própria barra de sanidade/fome/vida do jogo
+é construída a partir de uma classe genérica reaproveitável,
+`widgets/badge.lua`:
+```lua
+local Badge = require("widgets/badge")
+local ManaBadge = Class(Badge, function(self, owner)
+    Badge._ctor(self, nil, owner, {0.3, 0.5, 1, 1}, nil, nil, nil, true)
+    -- anim=nil reaproveita a moldura "status_meter" padrão sem arte própria
+    -- iconbuild=nil também dispensa arte de ícone
+    -- tint={r,g,b,a} pinta a barra com uma cor customizada, sem precisar de asset novo
+end)
+function ManaBadge:SetPercent(val, max) ... end -- 0..1
+```
+E o ponto de injeção real no HUD é `AddClassPostConstruct("widgets/statusdisplays", fn)`,
+que expõe os três badges nativos por nome de campo confirmado:
+`self.heart` (vida), `self.stomach` (fome), `self.brain` (sanidade) — um
+badge novo se posiciona relativo a qualquer um desses via `self.stomach:GetPosition()`,
+sem precisar recriar o layout do HUD inteiro.
+
+**Implementado** (`CharacterDef.mana`, `src/generators/mana.ts` +
+`src/generators/character.ts` + `src/generators/modmain.ts` +
+`src/generators/item.ts`): `mana` como componente compartilhado (gerado uma
+única vez por mod, igual ao padrão de `AddAction`/`container` das seções 19/20),
+com `max`/`regenPerSecond` opcionais em `CharacterDef`, uma badge própria
+(`ManaBadge`, clone do padrão acima) injetada via `AddClassPostConstruct`
+posicionada ao lado de `self.stomach`, sincronização de rede via um evento
+custom (`"manadelta"`) escutado em `AddPlayerPostInit`, e
+`spellbookSpellSchema.manaCost` opcional que gera uma checagem
+`user.components.mana:Spend(N)` (aborta o cast, retornando `false`, se
+insuficiente) antes de `SpawnPrefab` no `spellbook_cast_N` (seção 29).
+
+**Fora de escopo:** UI de barra "circular" (`circular_meter` do `Badge._ctor`,
+usado por outros badges do jogo, ex. armadura) — sempre geramos a barra
+retangular padrão (`status_meter`); regeneração condicionada a estar em luz
+solar/sombra ou qualquer outra condição contextual (o mod de origem, sendo
+sobre medo, teria a lógica inversa disso, mas não confirmamos nenhum exemplo
+real de regen condicional pra copiar com segurança).

@@ -9,6 +9,7 @@ import { generateSpeechFile } from './speech'
 import { generateCreatureFiles } from './creature'
 import { resolveCreatureAnimation, isVanillaCreatureAnimation } from './creatureAnimation'
 import { generateWorldContentFiles } from './worldContent'
+import { generateManaComponentFile, generateManaBadgeWidgetFile } from './mana'
 
 function generateReadme(project: ModProject): string {
   const lines: string[] = []
@@ -174,6 +175,14 @@ export function buildModFiles(project: ModProject): Record<string, string> {
     Object.assign(files, generateCreatureFiles(creature))
   }
   Object.assign(files, generateWorldContentFiles(project))
+
+  // Shared by every character with .mana set (see character.ts/modmain.ts) —
+  // generated once regardless of how many characters use it, same as the
+  // Combine action/container params being wired once in modmain.ts.
+  if (project.characters.some((c) => c.mana)) {
+    files['scripts/components/mana.lua'] = generateManaComponentFile()
+    files['scripts/widgets/manabadge.lua'] = generateManaBadgeWidgetFile()
+  }
 
   return files
 }

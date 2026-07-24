@@ -47,6 +47,21 @@ describe('buildModFiles', () => {
     expect(readme).toContain('confirme em-jogo')
   })
 
+  it('does not include the shared mana component/widget files when no character has mana', () => {
+    expect(files['scripts/components/mana.lua']).toBeUndefined()
+    expect(files['scripts/widgets/manabadge.lua']).toBeUndefined()
+  })
+
+  it('includes the shared mana component/widget files once when a character has mana', () => {
+    const mageProject = {
+      ...sampleProject,
+      characters: [{ ...sampleProject.characters[0], mana: { max: 100 } }],
+    }
+    const mageFiles = buildModFiles(mageProject)
+    expect(mageFiles['scripts/components/mana.lua']).toBeTruthy()
+    expect(mageFiles['scripts/widgets/manabadge.lua']).toBeTruthy()
+  })
+
   it('rejects a project where an item and a character share the same id (they would overwrite the same prefab file)', () => {
     const colliding = {
       ...sampleProject,

@@ -132,6 +132,35 @@ describe('ItemForm', () => {
     expect(saved.spellbook).toBeUndefined()
   })
 
+  it('sets an optional mana cost per spell in the spellbook, leaving it out when left blank', async () => {
+    const onSave = vi.fn()
+    render(<ItemForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_item'), { target: { value: 'testmanastaff' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Test Mana Staff' } })
+    fireEvent.change(screen.getByLabelText('Description (crafting + inspect)'), { target: { value: 'A staff' } })
+
+    fireEvent.click(screen.getByText('Spellbook (menu of spells to pick from)'))
+
+    const labels = screen.getAllByPlaceholderText('Spell label (e.g. Summon Light)')
+    const prefabs = screen.getAllByPlaceholderText('prefab to spawn (e.g. stafflight)')
+    const manaCosts = screen.getAllByPlaceholderText('Mana cost')
+
+    fireEvent.change(labels[0], { target: { value: 'Sunbeam' } })
+    fireEvent.change(prefabs[0], { target: { value: 'stafflight' } })
+    fireEvent.change(manaCosts[0], { target: { value: '10' } })
+
+    fireEvent.change(labels[1], { target: { value: 'Free Spark' } })
+    fireEvent.change(prefabs[1], { target: { value: 'firefly' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.spellbook.spells[0]).toEqual({ label: 'Sunbeam', summonPrefab: 'stafflight', manaCost: 10 })
+    expect(saved.spellbook.spells[1].manaCost).toBeUndefined()
+  })
+
   // applyTemplate only ever patches the fields ITS OWN archetype cares about —
   // the Armor template's patch never mentions `weapon`. Before the fix, a
   // previously-applied Sword template's `weapon` stayed on the item, invisible
