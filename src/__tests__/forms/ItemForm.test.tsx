@@ -85,4 +85,50 @@ describe('ItemForm', () => {
     const saved = onSave.mock.calls[0][0]
     expect(saved.onEatBuff).toBeUndefined()
   })
+
+  // useFieldArray for spellbook.spells must run unconditionally (rules of hooks) —
+  // its mere presence makes react-hook-form materialize a phantom
+  // `spellbook: { spells: [] }` in the form's raw values from the very first
+  // render, even though emptyItem has no `spellbook` and the checkbox was never
+  // touched. zodResolver validates that phantom value (spellbookSchema requires
+  // 2+ spells) before onSubmit ever runs, which used to silently block EVERY
+  // item submission, not just ones that touch the spellbook checkbox — fixed by
+  // stripping `spellbook` in the resolver unless `enableSpellbookRef` says it's
+  // really on (see the comment on that ref in ItemForm). This test pins down
+  // that the fix holds for the plain, spellbook-untouched case.
+  it('submits a plain item successfully without ever touching the spellbook checkbox', async () => {
+    const onSave = vi.fn()
+    render(<ItemForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_item'), { target: { value: 'plainitem' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Plain Item' } })
+    fireEvent.change(screen.getByLabelText('Description (crafting + inspect)'), { target: { value: 'Nothing magic' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.spellbook).toBeUndefined()
+  })
+
+  it('submits successfully after enabling and then disabling the spellbook before save', async () => {
+    const onSave = vi.fn()
+    render(<ItemForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_item'), { target: { value: 'testtome' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Test Tome' } })
+    fireEvent.change(screen.getByLabelText('Description (crafting + inspect)'), { target: { value: 'A test tome' } })
+
+    fireEvent.click(screen.getByText('Spellbook (menu of spells to pick from)'))
+    expect(screen.getByText('+ Add spell')).toBeDefined()
+
+    fireEvent.click(screen.getByText('Spellbook (menu of spells to pick from)'))
+    expect(screen.queryByText('+ Add spell')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.spellbook).toBeUndefined()
+  })
 })
