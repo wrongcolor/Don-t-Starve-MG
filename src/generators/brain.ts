@@ -105,6 +105,17 @@ export function generateBrain(creature: CreatureDef): string {
     requires.push('require "behaviours/chaseandattack"')
     localConstants.push(`local SEE_TARGET_DIST = ${creature.stats.aggroRange ?? DEFAULT_SEE_TARGET_DIST}`)
 
+    // Confirmed in hound.lua/spider.lua: a hostile creature that's been given
+    // a follower leader (e.g. by ItemDef.tameBomb's tame cloud) never fights
+    // that leader — same real, unconditional check those two already ship
+    // with (they carry `follower` from spawn, tamed or not). Only relevant
+    // for `hostile` — only hostile creatures get the "hostile" tag the tame
+    // cloud searches for, so `neutral` never needs this.
+    const hasTarget =
+      creature.behavior === 'hostile'
+        ? 'self.inst.components.combat:HasTarget() and self.inst.components.combat.target ~= (self.inst.components.follower ~= nil and self.inst.components.follower:GetLeader() or nil)'
+        : 'self.inst.components.combat:HasTarget()'
+
     if (creature.kiting) {
       // Confirmed independently in bee/pig/merm brains (docs/dst-knowledge/
       // patterns.md#46) — the #1 transversal finding of the brain sweep
@@ -114,14 +125,12 @@ export function generateBrain(creature: CreatureDef): string {
       localConstants.push(`local RUN_AWAY_DIST = ${creature.kiting.runDistance}`)
       localConstants.push(`local STOP_RUN_AWAY_DIST = ${creature.kiting.safeDistance}`)
       behaviorNodes.push(
-        `        WhileNode(function() return self.inst.components.combat:HasTarget() and not self.inst.components.combat:InCooldown() end, "${attackLabel}", ChaseAndAttack(self.inst, SEE_TARGET_DIST)),`,
-        '        WhileNode(function() return self.inst.components.combat:HasTarget() and self.inst.components.combat:InCooldown() end, "Dodge",',
+        `        WhileNode(function() return ${hasTarget} and not self.inst.components.combat:InCooldown() end, "${attackLabel}", ChaseAndAttack(self.inst, SEE_TARGET_DIST)),`,
+        `        WhileNode(function() return ${hasTarget} and self.inst.components.combat:InCooldown() end, "Dodge",`,
         '            RunAway(self.inst, function() return self.inst.components.combat.target end, RUN_AWAY_DIST, STOP_RUN_AWAY_DIST)),',
       )
     } else {
-      behaviorNodes.push(
-        `        WhileNode(function() return self.inst.components.combat:HasTarget() end, "${attackLabel}", ChaseAndAttack(self.inst, SEE_TARGET_DIST)),`,
-      )
+      behaviorNodes.push(`        WhileNode(function() return ${hasTarget} end, "${attackLabel}", ChaseAndAttack(self.inst, SEE_TARGET_DIST)),`)
     }
   }
 

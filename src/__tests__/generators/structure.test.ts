@@ -127,6 +127,38 @@ describe('generateStructureFiles', () => {
     expect(code).not.toContain('require("techtree")')
   })
 
+  it('wires a sleepingbag rest station via the real components/sleepingbag.lua tick fields', () => {
+    const bed: StructureDef = {
+      ...structure,
+      id: 'testbed',
+      restStation: { sleepPhase: 'night', healthPerTick: 1, hungerPerTick: -1, sanityPerTick: 1 },
+    }
+    const code = generateStructurePrefab(bed)
+    expect(code).toContain('inst:AddComponent("sleepingbag")')
+    expect(code).toContain('inst.components.sleepingbag:SetSleepPhase("night")')
+    expect(code).toContain('inst.components.sleepingbag.health_tick = TUNING.TESTBED_HEALTH_PER_TICK')
+    expect(code).toContain('inst.components.sleepingbag.hunger_tick = TUNING.TESTBED_HUNGER_PER_TICK')
+    expect(code).toContain('inst.components.sleepingbag.sanity_tick = TUNING.TESTBED_SANITY_PER_TICK')
+    expect(code).not.toContain('inst:AddComponent("finiteuses")')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('wires finiteuses for a rest station with limited uses, removing it once exhausted', () => {
+    const wornBed: StructureDef = {
+      ...structure,
+      id: 'testwornbed',
+      restStation: { sleepPhase: 'day', healthPerTick: 2, hungerPerTick: -1, sanityPerTick: 1, maxUses: 15 },
+    }
+    const code = generateStructurePrefab(wornBed)
+    expect(code).toContain('inst:AddComponent("finiteuses")')
+    expect(code).toContain('inst.components.finiteuses:SetMaxUses(TUNING.TESTWORNBED_USES)')
+    expect(code).toContain('inst.components.finiteuses:SetUses(TUNING.TESTWORNBED_USES)')
+    expect(code).toContain('inst.components.finiteuses:SetOnFinished(inst.Remove)')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
   it('reuses a vanilla build without declaring an ANIM asset when animation.source is vanilla', () => {
     const vanilla: StructureDef = { ...structure, id: 'testvanillastructure', animation: { source: 'vanilla', build: 'researchlab' } }
     const code = generateStructurePrefab(vanilla)

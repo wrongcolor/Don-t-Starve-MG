@@ -187,4 +187,37 @@ describe('generateCreatureFiles', () => {
     expect(collectCode).toContain('inst:AddComponent("inventory")')
     expect(collectCode).not.toContain('inst:AddComponent("worker")')
   })
+
+  // Confirmed against Original/stategraphs/stategraphs/SGantlion_angry.lua's
+  // SpawnSpikes/SpawnBlocks — reuses the real sandspike_*/sandblock hazard
+  // prefabs, fired periodically (not frame-perfect stategraph timing like the
+  // real Antlion) while the creature has a combat target.
+  it('wires a periodic ground attack (sandspike/sandblock) while the creature has a combat target', () => {
+    const spiky: CreatureDef = { ...creature, groundAttack: { spikeCount: 5, wallCount: 2, radius: 6, cooldownSeconds: 20 } }
+    const code = generateCreaturePrefab(spiky)
+    expect(code).toContain('local function dogroundattack(pos)')
+    expect(code).toContain('for i = 1, TUNING.TESTMOB_SPIKE_COUNT do')
+    expect(code).toContain('SpawnPrefab("sandspike_" .. SPIKE_SIZES[math.random(#SPIKE_SIZES)]).Transform:SetPosition(pos.x + offset.x, 0, pos.z + offset.z)')
+    expect(code).toContain('for i = 1, TUNING.TESTMOB_WALL_COUNT do')
+    expect(code).toContain('SpawnPrefab("sandblock").Transform:SetPosition(pos.x + offset.x, 0, pos.z + offset.z)')
+    expect(code).toContain('local function TryGroundAttack(inst)')
+    expect(code).toContain('if inst.components.combat:HasTarget() then')
+    expect(code).toContain('dogroundattack(Vector3(x, y, z))')
+    expect(code).toContain('inst:DoPeriodicTask(TUNING.TESTMOB_GROUNDATTACK_COOLDOWN, TryGroundAttack)')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('omits the wall loop entirely when wallCount is 0', () => {
+    const spikesOnly: CreatureDef = { ...creature, groundAttack: { spikeCount: 5, wallCount: 0, radius: 6, cooldownSeconds: 20 } }
+    const code = generateCreaturePrefab(spikesOnly)
+    expect(code).not.toContain('sandblock')
+    expect(code).not.toContain('WALL_COUNT')
+  })
+
+  it('does not wire a ground attack when it is not set', () => {
+    const code = generateCreaturePrefab(creature)
+    expect(code).not.toContain('dogroundattack')
+    expect(code).not.toContain('TryGroundAttack')
+  })
 })

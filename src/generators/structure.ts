@@ -201,6 +201,23 @@ function componentBlock(structure: StructureDef): string {
     )
   }
 
+  if (structure.restStation) {
+    const upper = toUpperSnake(structure.id)
+    lines.push('')
+    lines.push('    inst:AddComponent("sleepingbag")')
+    lines.push(`    inst.components.sleepingbag:SetSleepPhase(${luaString(structure.restStation.sleepPhase)})`)
+    lines.push(`    inst.components.sleepingbag.health_tick = TUNING.${upper}_HEALTH_PER_TICK`)
+    lines.push(`    inst.components.sleepingbag.hunger_tick = TUNING.${upper}_HUNGER_PER_TICK`)
+    lines.push(`    inst.components.sleepingbag.sanity_tick = TUNING.${upper}_SANITY_PER_TICK`)
+    if (structure.restStation.maxUses !== undefined) {
+      lines.push('')
+      lines.push('    inst:AddComponent("finiteuses")')
+      lines.push(`    inst.components.finiteuses:SetMaxUses(TUNING.${upper}_USES)`)
+      lines.push(`    inst.components.finiteuses:SetUses(TUNING.${upper}_USES)`)
+      lines.push('    inst.components.finiteuses:SetOnFinished(inst.Remove)')
+    }
+  }
+
   return lines.join('\n')
 }
 

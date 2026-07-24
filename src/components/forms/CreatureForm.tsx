@@ -71,6 +71,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   const enableCookable = watched.cookable !== undefined
   const enableHerd = watched.herd !== undefined
   const enableKiting = watched.kiting !== undefined
+  const enableGroundAttack = watched.groundAttack !== undefined
   const canFight = watched.behavior !== 'passive'
   const panicCauses = watched.panicCauses ?? []
   const enableCompanion = watched.companion !== undefined
@@ -90,6 +91,9 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   const onBehaviorChange = (nextBehavior: CreatureDef['behavior']) => {
     if (nextBehavior === 'passive' && watched.kiting) {
       setValue('kiting', undefined, { shouldValidate: true })
+    }
+    if (nextBehavior === 'passive' && watched.groundAttack) {
+      setValue('groundAttack', undefined, { shouldValidate: true })
     }
     if (nextBehavior === 'hostile' && watched.companion) {
       setValue('companion', undefined, { shouldValidate: true })
@@ -420,6 +424,37 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                 </FormField>
                 <FormField label="Safe distance (stop retreating)" error={errors.kiting?.safeDistance?.message}>
                   <input type="number" min="1" className={inputClass} {...register('kiting.safeDistance', { valueAsNumber: true })} />
+                </FormField>
+              </div>
+            )}
+
+            <div className="checks" style={{ marginTop: 12 }}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableGroundAttack}
+                  disabled={!canFight}
+                  onChange={(e) =>
+                    setValue('groundAttack', e.target.checked ? { spikeCount: 5, wallCount: 0, radius: 6, cooldownSeconds: 20 } : undefined)
+                  }
+                />
+                Ground attack (erupts sand spikes/walls around itself while fighting — like the Antlion)
+                {!canFight ? ' — requires neutral or hostile behavior' : ''}
+              </label>
+            </div>
+            {enableGroundAttack && (
+              <div className="row-2">
+                <FormField label="Spikes">
+                  <input type="number" min="1" max="20" className={inputClass} {...register('groundAttack.spikeCount', { valueAsNumber: true })} />
+                </FormField>
+                <FormField label="Walls (0 = none)">
+                  <input type="number" min="0" max="20" className={inputClass} {...register('groundAttack.wallCount', { valueAsNumber: true })} />
+                </FormField>
+                <FormField label="Radius">
+                  <input type="number" min="1" max="20" className={inputClass} {...register('groundAttack.radius', { valueAsNumber: true })} />
+                </FormField>
+                <FormField label="Cooldown (seconds)">
+                  <input type="number" min="1" className={inputClass} {...register('groundAttack.cooldownSeconds', { valueAsNumber: true })} />
                 </FormField>
               </div>
             )}

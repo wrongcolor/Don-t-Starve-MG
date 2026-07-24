@@ -141,6 +141,86 @@ describe('generateItemFiles', () => {
     expect(code).toContain('SpawnPrefab("stafflight")')
   })
 
+  it('wires a tameBomb via the same reticule + spellcaster aim-a-point mechanism as spellEffect', () => {
+    const bomb: ItemDef = {
+      ...trinket,
+      id: 'testtamebomb',
+      tameBomb: { radius: 4, cloudDurationSeconds: 10, tameDurationSeconds: 60 },
+    }
+    const code = generateItemPrefab(bomb)
+    expect(code).toContain('inst:AddComponent("reticule")')
+    expect(code).toContain('inst:AddComponent("spellcaster")')
+    expect(code).toContain('inst.components.spellcaster:SetSpellFn(throwtamecloud)')
+    expect(code).toContain('local function throwtamecloud(staff, target, pos)')
+    expect(code).toContain('local cloud = SpawnPrefab("testtamebomb_cloud")')
+    expect(code).toContain('cloud:SetOwner(staff.components.inventoryitem.owner)')
+    expect(code).toContain('local prefabs = { "testtamebomb_cloud" }')
+    expect(code).not.toContain('createlight')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('rejects an item with both tameBomb and spellEffect set (both need the same spellcaster slot)', () => {
+    const both: ItemDef = { ...trinket, tameBomb: { radius: 4, cloudDurationSeconds: 10, tameDurationSeconds: 60 }, spellEffect: 'createLight' }
+    expect(itemDefSchema.safeParse(both).success).toBe(false)
+  })
+
+  it('generates a separate tame cloud prefab file that scans for hostile-tagged entities and tames them temporarily', () => {
+    const bomb: ItemDef = {
+      ...trinket,
+      id: 'testtamebomb',
+      tameBomb: { radius: 4, cloudDurationSeconds: 10, tameDurationSeconds: 60 },
+    }
+    const files = generateItemFiles(bomb)
+    expect(Object.keys(files).sort()).toEqual(['scripts/prefabs/testtamebomb.lua', 'scripts/prefabs/testtamebomb_cloud.lua'].sort())
+
+    const cloudCode = files['scripts/prefabs/testtamebomb_cloud.lua']
+    expect(cloudCode).toContain('TheSim:FindEntities(x, y, z, TUNING.TESTTAMEBOMB_CLOUD_RADIUS, { "hostile" })')
+    expect(cloudCode).toContain('ent:AddComponent("follower")')
+    expect(cloudCode).toContain('ent.components.follower:SetLeader(inst.owner)')
+    expect(cloudCode).toContain('ent.components.follower:AddLoyaltyTime(TUNING.TESTTAMEBOMB_CLOUD_TAME_DURATION)')
+    expect(cloudCode).toContain('inst:DoTaskInTime(TUNING.TESTTAMEBOMB_CLOUD_DURATION, inst.Remove)')
+    expect(cloudCode).toContain('return Prefab("testtamebomb_cloud", fn, assets)')
+
+    expect(() => parse(cloudCode, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  // Confirmed against Original/stategraphs/stategraphs/SGantlion_angry.lua's
+  // SpawnSpikes/SpawnBlocks — same reticule + spellcaster mechanism as
+  // spellEffect/tameBomb, thrown at a point instead of at the caster.
+  it('wires a groundAttack via the same reticule + spellcaster aim-a-point mechanism as spellEffect/tameBomb', () => {
+    const bomb: ItemDef = {
+      ...trinket,
+      id: 'testgroundattack',
+      groundAttack: { spikeCount: 5, wallCount: 2, radius: 6 },
+    }
+    const code = generateItemPrefab(bomb)
+    expect(code).toContain('inst:AddComponent("reticule")')
+    expect(code).toContain('inst:AddComponent("spellcaster")')
+    expect(code).toContain('inst.components.spellcaster:SetSpellFn(throwgroundattack)')
+    expect(code).toContain('local function dogroundattack(pos)')
+    expect(code).toContain('for i = 1, TUNING.TESTGROUNDATTACK_SPIKE_COUNT do')
+    expect(code).toContain('for i = 1, TUNING.TESTGROUNDATTACK_WALL_COUNT do')
+    expect(code).toContain('local function throwgroundattack(staff, target, pos)')
+    expect(code).toContain('dogroundattack(pos)')
+    expect(code).not.toContain('createlight')
+    expect(code).not.toContain('throwtamecloud')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('rejects an item with groundAttack alongside spellEffect or tameBomb (all three need the same spellcaster slot)', () => {
+    const withSpellEffect: ItemDef = { ...trinket, groundAttack: { spikeCount: 5, wallCount: 0, radius: 6 }, spellEffect: 'createLight' }
+    expect(itemDefSchema.safeParse(withSpellEffect).success).toBe(false)
+
+    const withTameBomb: ItemDef = {
+      ...trinket,
+      groundAttack: { spikeCount: 5, wallCount: 0, radius: 6 },
+      tameBomb: { radius: 4, cloudDurationSeconds: 10, tameDurationSeconds: 60 },
+    }
+    expect(itemDefSchema.safeParse(withTameBomb).success).toBe(false)
+  })
+
   it('wires a spellbook item with multiple spells, each spawning its own prefab', () => {
     const spellbookItem: ItemDef = {
       ...trinket,

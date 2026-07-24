@@ -115,6 +115,8 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const enableSanityCost = watched.weapon?.sanityCostOnUse !== undefined
   const enableWalkSpeedMult = watched.equipWalkSpeedMult !== undefined
   const enableSpellEffect = watched.spellEffect !== undefined
+  const enableTameBomb = watched.tameBomb !== undefined
+  const enableGroundAttack = watched.groundAttack !== undefined
   const enableRechargeable = watched.rechargeable !== undefined
   const canRecharge = enableWeapon || enableSpellEffect
   const enableDapperness = watched.armor?.dapperness !== undefined
@@ -516,7 +518,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   <input
                     type="checkbox"
                     checked={enableSpellEffect}
-                    disabled={enableSpellbook}
+                    disabled={enableSpellbook || enableTameBomb || enableGroundAttack}
                     onChange={(e) => {
                       setValue('spellEffect', e.target.checked ? SPELL_EFFECTS[0] : undefined)
                       if (!e.target.checked && !enableWeapon) setValue('rechargeable', undefined)
@@ -524,6 +526,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   />
                   Magic effect (use on a map point)
                   {enableSpellbook && ' (turn off spellbook first)'}
+                  {(enableTameBomb || enableGroundAttack) && ' (turn off tame cloud/ground attack first)'}
                 </label>
               </div>
               {enableSpellEffect && (
@@ -532,6 +535,65 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     <option value="createLight">Create light at the point</option>
                   </select>
                 </FormField>
+              )}
+
+              <div className="checks">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={enableTameBomb}
+                    disabled={enableSpellEffect || enableGroundAttack}
+                    onChange={(e) =>
+                      setValue('tameBomb', e.target.checked ? { radius: 4, cloudDurationSeconds: 10, tameDurationSeconds: 60 } : undefined)
+                    }
+                  />
+                  Tame cloud (thrown at a point, temporarily tames nearby hostile creatures)
+                  {enableSpellEffect && ' (turn off magic effect first)'}
+                  {enableGroundAttack && ' (turn off ground attack first)'}
+                  <InfoTip text="Only affects hostile creatures whose own AI already respects a follower leader — true for tameable-style mobs (and any hostile creature you make with this tool), but not bosses or other uniquely-scripted hostiles." />
+                </label>
+              </div>
+              {enableTameBomb && (
+                <div className="row-2">
+                  <FormField label="Radius">
+                    <input type="number" min="1" max="20" className={inputClass} {...register('tameBomb.radius', { valueAsNumber: true })} />
+                  </FormField>
+                  <FormField label="Cloud lasts (seconds)">
+                    <input type="number" step="1" min="1" className={inputClass} {...register('tameBomb.cloudDurationSeconds', { valueAsNumber: true })} />
+                  </FormField>
+                  <FormField label="Tamed for (seconds)">
+                    <input type="number" step="1" min="1" className={inputClass} {...register('tameBomb.tameDurationSeconds', { valueAsNumber: true })} />
+                  </FormField>
+                </div>
+              )}
+
+              <div className="checks">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={enableGroundAttack}
+                    disabled={enableSpellEffect || enableTameBomb}
+                    onChange={(e) =>
+                      setValue('groundAttack', e.target.checked ? { spikeCount: 5, wallCount: 0, radius: 6 } : undefined)
+                    }
+                  />
+                  Ground attack (thrown at a point, erupts sand spikes/walls — like the Antlion)
+                  {enableSpellEffect && ' (turn off magic effect first)'}
+                  {enableTameBomb && ' (turn off tame cloud first)'}
+                </label>
+              </div>
+              {enableGroundAttack && (
+                <div className="row-2">
+                  <FormField label="Spikes">
+                    <input type="number" min="1" max="20" className={inputClass} {...register('groundAttack.spikeCount', { valueAsNumber: true })} />
+                  </FormField>
+                  <FormField label="Walls (0 = none)">
+                    <input type="number" min="0" max="20" className={inputClass} {...register('groundAttack.wallCount', { valueAsNumber: true })} />
+                  </FormField>
+                  <FormField label="Radius">
+                    <input type="number" min="1" max="20" className={inputClass} {...register('groundAttack.radius', { valueAsNumber: true })} />
+                  </FormField>
+                </div>
               )}
 
               <div className="checks">

@@ -19,6 +19,7 @@ export function StructurePreview({ structure }: { structure: Partial<StructureDe
   if (structure.daySpawner) tags.push('🌙 Chance to spawn a mob each day')
   if (structure.resident) tags.push('🐷 Houses a resident')
   if (structure.prototyper) tags.push('🔬 Crafting station')
+  if (structure.restStation) tags.push(`😴 Rest station (${structure.restStation.sleepPhase})`)
 
   return (
     <div className="preview">
@@ -61,6 +62,14 @@ export function StructurePreview({ structure }: { structure: Partial<StructureDe
               <span className="lbl">🔬 Unlocks</span>
               <span className="val">
                 {structure.prototyper.category} {structure.prototyper.tier}
+              </span>
+            </div>
+          )}
+          {structure.restStation && (
+            <div className="preview-stat">
+              <span className="lbl">😴 HP/Hunger/Sanity per tick</span>
+              <span className="val">
+                {structure.restStation.healthPerTick}/{structure.restStation.hungerPerTick}/{structure.restStation.sanityPerTick}
               </span>
             </div>
           )}

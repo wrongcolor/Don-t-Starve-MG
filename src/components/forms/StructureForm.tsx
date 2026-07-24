@@ -56,6 +56,8 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
   const enableDaySpawner = watched.daySpawner !== undefined
   const enableResident = watched.resident !== undefined
   const enablePrototyper = watched.prototyper !== undefined
+  const enableRestStation = watched.restStation !== undefined
+  const enableRestStationUses = watched.restStation?.maxUses !== undefined
 
   const onSubmit = (data: StructureDef) => onSave(data)
 
@@ -431,6 +433,58 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
                   <input type="number" min="1" max="4" className={inputClass} {...register('prototyper.tier', { valueAsNumber: true })} />
                 </FormField>
               </div>
+            )}
+
+            <div className="checks" style={{ marginTop: 12 }}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableRestStation}
+                  onChange={(e) =>
+                    setValue(
+                      'restStation',
+                      e.target.checked ? { sleepPhase: 'night', healthPerTick: 1, hungerPerTick: -1, sanityPerTick: 1 } : undefined,
+                    )
+                  }
+                />
+                Players can sleep here to recover health/hunger/sanity (like a Tent)
+              </label>
+            </div>
+            {enableRestStation && (
+              <>
+                <div className="row-2">
+                  <FormField label="Only usable at">
+                    <select className={inputClass} {...register('restStation.sleepPhase')}>
+                      <option value="night">Night</option>
+                      <option value="day">Day</option>
+                    </select>
+                  </FormField>
+                  <FormField label="Health per tick (1 tick = 1s asleep)">
+                    <input type="number" step="0.1" className={inputClass} {...register('restStation.healthPerTick', { valueAsNumber: true })} />
+                  </FormField>
+                  <FormField label="Hunger per tick (negative = costs hunger)">
+                    <input type="number" step="0.1" className={inputClass} {...register('restStation.hungerPerTick', { valueAsNumber: true })} />
+                  </FormField>
+                  <FormField label="Sanity per tick">
+                    <input type="number" step="0.1" className={inputClass} {...register('restStation.sanityPerTick', { valueAsNumber: true })} />
+                  </FormField>
+                </div>
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableRestStationUses}
+                      onChange={(e) => setValue('restStation.maxUses', e.target.checked ? 15 : undefined)}
+                    />
+                    Wears out after a limited number of uses
+                  </label>
+                </div>
+                {enableRestStationUses && (
+                  <FormField label="Max uses">
+                    <input type="number" min="1" className={inputClass} {...register('restStation.maxUses', { valueAsNumber: true })} />
+                  </FormField>
+                )}
+              </>
             )}
           </Fieldset>
         </div>

@@ -16,3 +16,5 @@ Cada entrada é um `ModProject` real em `mods/<nome>.ts`, gerado e validado via
 | 8 | `meadowHopper` | Criatura amigável (companion): build "pigman" padrão (sem arte própria), segue o jogador, corta árvores e coleta itens perto de si, além de manada e aura de sanidade positiva | Gerado |
 | 9 | `portalIdolHelm` | Capacete (armadura de cabeça, `EQUIPSLOTS.HEAD`, reaproveita o build vanilla "football helmet") que também é um ídolo: pode ser entregue ao Portal Celestial (`moonrelic`) pra trocar de personagem | Gerado |
 | 10 | `deerclopsAlarm` | Estrutura que, a cada início de dia, tem uma chance de invocar um Deerclops num ponto aleatório dentro de um raio grande ao redor de si (`daySpawner`) | Gerado |
+| 11 | `duneStalker` | Criatura hostil (build "spider" reaproveitado) que arremessa espetos e paredes de areia ao redor de si enquanto luta (`groundAttack`, patterns.md#58) | Gerado |
+| 12 | `spikeRod` | Item (build "rocks" reaproveitado) que arremessa espetos e paredes de areia num ponto mirado, mesma mira reticule+spellcaster do `spellEffect`/`tameBomb` (`groundAttack`, patterns.md#58) | Gerado |

@@ -1,4 +1,4 @@
-import type { ModProject, ItemDef, StructureDef, CharacterDef, CreatureDef, Container } from '../types/modProject'
+import type { ModProject, ItemDef, StructureDef, CharacterDef, CreatureDef, Container, GroundAttackConfig } from '../types/modProject'
 import { luaString, luaStringArray, toUpperSnake } from './luaUtils'
 import { containerColumns, containerSlotCount, containerCustomWidgetBuild } from './item'
 
@@ -58,6 +58,14 @@ function structureTuningBlock(structure: StructureDef): string[] {
   if (structure.resident) {
     lines.push(`GLOBAL.TUNING.${upper}_RESPAWN_DELAY = TUNING.TOTAL_DAY_TIME * ${structure.resident.respawnDelayDays}`)
   }
+  if (structure.restStation) {
+    lines.push(`GLOBAL.TUNING.${upper}_HEALTH_PER_TICK = ${structure.restStation.healthPerTick}`)
+    lines.push(`GLOBAL.TUNING.${upper}_HUNGER_PER_TICK = ${structure.restStation.hungerPerTick}`)
+    lines.push(`GLOBAL.TUNING.${upper}_SANITY_PER_TICK = ${structure.restStation.sanityPerTick}`)
+    if (structure.restStation.maxUses !== undefined) {
+      lines.push(`GLOBAL.TUNING.${upper}_USES = ${structure.restStation.maxUses}`)
+    }
+  }
   return lines
 }
 
@@ -86,6 +94,15 @@ function structureStringsBlock(structure: StructureDef): string[] {
     `STRINGS.RECIPE_DESC.${upper} = ${desc}`,
     `STRINGS.CHARACTERS.GENERIC.DESCRIBE.${upper} = ${desc}`,
   ]
+}
+
+// Shared by items (thrown at a point) and creatures (fired around the
+// creature itself) — both just need SPIKE_COUNT/RADIUS, and WALL_COUNT only
+// when walls are actually part of the attack.
+function groundAttackTuningLines(upper: string, config: GroundAttackConfig): string[] {
+  const lines = [`GLOBAL.TUNING.${upper}_SPIKE_COUNT = ${config.spikeCount}`, `GLOBAL.TUNING.${upper}_RADIUS = ${config.radius}`]
+  if (config.wallCount > 0) lines.push(`GLOBAL.TUNING.${upper}_WALL_COUNT = ${config.wallCount}`)
+  return lines
 }
 
 function itemTuningBlock(item: ItemDef): string[] {
@@ -130,6 +147,15 @@ function itemTuningBlock(item: ItemDef): string[] {
   if (item.rechargeable) {
     lines.push(`GLOBAL.TUNING.${upper}_COOLDOWN = ${item.rechargeable.cooldownSeconds}`)
   }
+  if (item.tameBomb) {
+    const cloudUpper = toUpperSnake(`${item.id}_cloud`)
+    lines.push(`GLOBAL.TUNING.${cloudUpper}_RADIUS = ${item.tameBomb.radius}`)
+    lines.push(`GLOBAL.TUNING.${cloudUpper}_DURATION = ${item.tameBomb.cloudDurationSeconds}`)
+    lines.push(`GLOBAL.TUNING.${cloudUpper}_TAME_DURATION = ${item.tameBomb.tameDurationSeconds}`)
+  }
+  if (item.groundAttack) {
+    lines.push(...groundAttackTuningLines(upper, item.groundAttack))
+  }
   return lines
 }
 
@@ -161,6 +187,10 @@ function creatureTuningBlock(creature: CreatureDef): string[] {
     lines.push(`GLOBAL.TUNING.${upper}HERD_GATHER_RANGE = ${creature.herd.gatherRange}`)
     lines.push(`GLOBAL.TUNING.${upper}HERD_SPAWN_MIN = TUNING.TOTAL_DAY_TIME * ${creature.herd.spawnIntervalDays.min}`)
     lines.push(`GLOBAL.TUNING.${upper}HERD_SPAWN_MAX = TUNING.TOTAL_DAY_TIME * ${creature.herd.spawnIntervalDays.max}`)
+  }
+  if (creature.groundAttack !== undefined) {
+    lines.push(...groundAttackTuningLines(upper, creature.groundAttack))
+    lines.push(`GLOBAL.TUNING.${upper}_GROUNDATTACK_COOLDOWN = ${creature.groundAttack.cooldownSeconds}`)
   }
   return lines
 }
@@ -318,6 +348,7 @@ export function generateModMain(project: ModProject): string {
   const prefabFiles: string[] = []
   for (const item of project.items) {
     prefabFiles.push(item.id)
+    if (item.tameBomb) prefabFiles.push(`${item.id}_cloud`)
   }
   for (const structure of project.structures) {
     prefabFiles.push(structure.id, structure.deployMode === 'deployableItem' ? `${structure.id}_item` : `${structure.id}_placer`)

@@ -3,6 +3,7 @@ import { luaString, toUpperSnake } from './luaUtils'
 import { generateStategraph } from './stategraph'
 import { generateBrain } from './brain'
 import { resolveCreatureAnimation, isVanillaCreatureAnimation } from './creatureAnimation'
+import { groundAttackFunctionBlock } from './groundAttack'
 
 function needsHerd(creature: CreatureDef): boolean {
   return creature.herd !== undefined
@@ -90,6 +91,18 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   lines.push('')
   lines.push('local prefabs = {}')
   lines.push('')
+  if (creature.groundAttack !== undefined) {
+    lines.push(...groundAttackFunctionBlock(creature.id, creature.groundAttack))
+    lines.push(
+      'local function TryGroundAttack(inst)',
+      '    if inst.components.combat:HasTarget() then',
+      '        local x, y, z = inst.Transform:GetWorldPosition()',
+      '        dogroundattack(Vector3(x, y, z))',
+      '    end',
+      'end',
+      '',
+    )
+  }
   lines.push('local function fn()')
   lines.push('    local inst = CreateEntity()')
   lines.push('')
@@ -126,6 +139,9 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
     lines.push(`    inst.components.combat:SetRange(TUNING.${upper}_ATTACK_RANGE)`)
   } else {
     lines.push('    inst.components.combat:SetRange(2)')
+  }
+  if (creature.groundAttack !== undefined) {
+    lines.push(`    inst:DoPeriodicTask(TUNING.${upper}_GROUNDATTACK_COOLDOWN, TryGroundAttack)`)
   }
   lines.push(...lootBlock(creature))
 

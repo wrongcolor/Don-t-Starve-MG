@@ -27,6 +27,8 @@ export function ItemPreview({ item }: { item: Partial<ItemDef> }) {
   if (item.weapon?.ranged?.onHitEffect === 'freeze') tags.push('❄️ Freezes')
   if (item.spellEffect) tags.push('✨ Magic')
   if (item.spellbook) tags.push('📖 Spellbook')
+  if (item.tameBomb) tags.push('☁️ Tame cloud')
+  if (item.groundAttack) tags.push('🌵 Ground attack')
   if (item.stackable) tags.push('📦 Stackable')
   if (item.edible) tags.push('🍖 Edible')
   if (item.onEatBuff) tags.push('💪 Combat buff on eat')
@@ -108,6 +110,22 @@ export function ItemPreview({ item }: { item: Partial<ItemDef> }) {
               <span className="lbl">💪 Damage buff</span>
               <span className="val">
                 +{Math.round(item.onEatBuff.damageMultiplier * 100)}% ({item.onEatBuff.durationSeconds}s)
+              </span>
+            </div>
+          )}
+          {item.tameBomb && (
+            <div className="preview-stat">
+              <span className="lbl">☁️ Radius / cloud / tamed for</span>
+              <span className="val">
+                {item.tameBomb.radius} / {item.tameBomb.cloudDurationSeconds}s / {item.tameBomb.tameDurationSeconds}s
+              </span>
+            </div>
+          )}
+          {item.groundAttack && (
+            <div className="preview-stat">
+              <span className="lbl">🌵 Spikes / walls / radius</span>
+              <span className="val">
+                {item.groundAttack.spikeCount} / {item.groundAttack.wallCount} / {item.groundAttack.radius}
               </span>
             </div>
           )}

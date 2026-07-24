@@ -157,6 +157,21 @@ export const ingredientSchema = z.object({
   amount: z.number().int().min(1),
 })
 
+// Confirmed in Original/stategraphs/stategraphs/SGantlion_angry.lua's
+// SpawnSpikes/SpawnBlocks — reuses the real vanilla sandspike_short/med/tall
+// and sandblock hazard prefabs directly (already-loaded assets, no art
+// needed) instead of replicating Antlion's own frame-perfect CanSpawnSpikeAt
+// spacing checks. Shared between ItemDef (thrown at a reticule point, same
+// mechanism as spellEffect/tameBomb) and CreatureDef (a periodic special
+// attack around the creature itself) — both just scatter these two prefabs
+// within a radius, so the generator logic (src/generators/groundAttack.ts)
+// and this shape are shared rather than duplicated per entity.
+export const groundAttackSchema = z.object({
+  spikeCount: z.number().int().min(1).max(20),
+  wallCount: z.number().int().min(0).max(20),
+  radius: z.number().min(1).max(20),
+})
+
 // 'vanilla' reuses an existing base-game build (no art required from the user).
 // 'custom' keeps the previous behavior: bank/build named after the item's own id,
 // which the user must supply as anim/<id>.zip (see README). 'vanillaHat' is a THIRD,
@@ -365,6 +380,34 @@ export const itemDefSchema = z
     // a cooldown and becomes usable again on its own. SetChargeTime/Discharge
     // confirmed across two mods (this one, and "Renameable Watches").
     rechargeable: z.object({ cooldownSeconds: z.number().min(1) }).optional(),
+    // Confirmed in components/combat_replica.lua's Combat:CanBeAlly — a
+    // creature with a `follower` component whose leader is set is treated as
+    // an ally by ANY other creature's own combat targeting that checks it
+    // (confirmed directly in hound.lua/spider.lua: both already ship with
+    // `follower` and their own retarget functions already exclude
+    // `follower:GetLeader()`, which is exactly how Webber's spider-whisperer
+    // effect and tamed pet hounds work). Reuses the same reticule+spellcaster
+    // aim-a-point mechanism as spellEffect (docs/dst-knowledge/patterns.md#7)
+    // to throw a cloud that periodically finds nearby "hostile"-tagged
+    // entities and calls AddComponent("follower") + SetLeader(thrower) +
+    // AddLoyaltyTime(tameDurationSeconds) on each — the real, temporary
+    // tame mechanism, not something invented for this tool. Only affects
+    // creatures whose OWN targeting logic already respects a follower leader
+    // (true for vanilla "pack"/tameable mobs, and for any hostile creature
+    // this tool itself generates — see brain.ts) — bosses and other
+    // uniquely-scripted hostiles were never designed to check this and won't
+    // react.
+    tameBomb: z
+      .object({
+        radius: z.number().min(1).max(20),
+        cloudDurationSeconds: z.number().min(1),
+        tameDurationSeconds: z.number().min(1),
+      })
+      .optional(),
+    // Thrown at a reticule point via the same spellcaster mechanism as
+    // spellEffect/tameBomb (mutually exclusive with both — see the refines
+    // below) — see groundAttackSchema for the real source.
+    groundAttack: groundAttackSchema.optional(),
     recipe: z.object({
       ingredients: z.array(ingredientSchema).min(1, 'Add at least 1 ingredient'),
       techLevel: z.enum(TECH_LEVELS),
@@ -405,6 +448,18 @@ export const itemDefSchema = z
   .refine((item) => item.spellbook === undefined || item.spellEffect === undefined, {
     message: 'A spellbook already lets the item cast multiple spells — turn off the single magic effect first',
     path: ['spellbook'],
+  })
+  .refine((item) => item.tameBomb === undefined || item.spellEffect === undefined, {
+    message: 'A tame cloud already uses the same aim-and-throw mechanism (spellcaster) as the magic effect — turn that off first',
+    path: ['tameBomb'],
+  })
+  .refine((item) => item.groundAttack === undefined || item.spellEffect === undefined, {
+    message: 'A ground attack already uses the same aim-and-throw mechanism (spellcaster) as the magic effect — turn that off first',
+    path: ['groundAttack'],
+  })
+  .refine((item) => item.groundAttack === undefined || item.tameBomb === undefined, {
+    message: 'A ground attack and a tame cloud both use the same aim-and-throw mechanism (spellcaster) — turn one off first',
+    path: ['groundAttack'],
   })
 
 // A structure is never handheld/wearable/edible — it's always a placed prefab
@@ -492,6 +547,29 @@ export const structureDefSchema = z.object({
     .object({
       category: z.enum(PROTOTYPER_CATEGORIES),
       tier: z.number().int().min(1).max(4),
+    })
+    .optional(),
+  // Confirmed in Original/prefabs/prefabs/tent.lua (Tent + Siesta Hut) and
+  // components/sleepingbag.lua/sleepingbaguser.lua — a structure a player can
+  // "sleep in" to restore health/hunger/sanity over time. AddComponent
+  // ("sleepingbag") is the entire mechanic: componentactions.lua already offers
+  // ACTIONS.SLEEPIN against anything with this component, and every player
+  // character already has the matching sleepingbaguser (player_common.lua) — no
+  // extra wiring needed. Also confirmed composing with deployMode above (the
+  // real Portable Tent is both a deployableItem AND a restStation at once).
+  // Dropped: onsleep/onwake animation+sound callbacks and temperature
+  // normalization (cosmetic on top of the same tick loop) — the player still
+  // sleeps and recovers stats, just without the tent-specific presentation.
+  restStation: z
+    .object({
+      sleepPhase: z.enum(['night', 'day']),
+      healthPerTick: z.number(),
+      hungerPerTick: z.number(),
+      sanityPerTick: z.number(),
+      // Mirrors the same finiteuses durability model items already use — the
+      // real Tent/Siesta Hut/Portable Tent all wear out after N sleeps.
+      // Omitting it keeps the structure usable forever.
+      maxUses: z.number().int().min(1).optional(),
     })
     .optional(),
   recipe: z.object({
@@ -691,10 +769,18 @@ export const creatureDefSchema = z
         tasks: z.array(z.enum(COMPANION_TASKS)),
       })
       .optional(),
+    // A periodic special attack around the creature itself while it has a
+    // combat target — see groundAttackSchema for the real source (Antlion's
+    // spike/wall attack). Requires combat, same as kiting below.
+    groundAttack: groundAttackSchema.extend({ cooldownSeconds: z.number().min(1) }).optional(),
   })
   .refine((creature) => creature.kiting === undefined || creature.behavior !== 'passive', {
     message: 'Kiting requires neutral or hostile behavior — a passive creature never fights',
     path: ['kiting'],
+  })
+  .refine((creature) => creature.groundAttack === undefined || creature.behavior !== 'passive', {
+    message: 'A ground attack requires neutral or hostile behavior — a passive creature never fights',
+    path: ['groundAttack'],
   })
   .refine((creature) => !creature.panicCauses.includes('onFire') || creature.flammable === true, {
     message: 'The "catches fire" panic cause requires the creature to be flammable — enable that trait first',
@@ -739,6 +825,7 @@ export type SkillTree = z.infer<typeof skillTreeSchema>
 export type CreatureAnimation = z.infer<typeof creatureAnimationSchema>
 export type ModMeta = z.infer<typeof modMetaSchema>
 export type Ingredient = z.infer<typeof ingredientSchema>
+export type GroundAttackConfig = z.infer<typeof groundAttackSchema>
 export type ItemDef = z.infer<typeof itemDefSchema>
 export type StructureDef = z.infer<typeof structureDefSchema>
 export type CharacterDef = z.infer<typeof characterDefSchema>

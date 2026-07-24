@@ -2662,3 +2662,192 @@ integrar com skins/toss/queima) — o ciclo item↔estrutura aqui é só os dois
 `resident` (sem fila de respawn) e `daySpawner` (sem ciclo dia/noite
 visual): cobre o mecanismo central, não os extras cosméticos/skin do jogo
 real.
+
+## 57. "Entrar" numa estrutura pra recuperar status — a Tenda/Barraca de Sesta, `sleepingbag` — **implementado**
+
+Fonte: `Original/prefabs/prefabs/tent.lua` (Tenda + Barraca de Sesta) e
+`Original/components/components/sleepingbag.lua`/`sleepingbaguser.lua`.
+
+**Confirmado:** `AddComponent("sleepingbag")` numa estrutura é o mecanismo
+inteiro por trás de "dormir" nela pra recuperar vida/fome/sanidade ao
+longo do tempo — nenhuma ação nova precisa ser registrada:
+`componentactions.lua` já oferece `ACTIONS.SLEEPIN` contra qualquer
+entidade com esse componente, e `sleepingbaguser` (o componente do lado do
+jogador, com o loop de tick real) já vem em **todo** personagem via
+`player_common.lua` — mesmo padrão do `skilltreeupdater` (seção 28).
+
+```lua
+inst:AddComponent("sleepingbag")
+inst.components.sleepingbag:SetSleepPhase("night") -- ou "day" (Barraca de Sesta)
+inst.components.sleepingbag.health_tick = TUNING.SLEEP_HEALTH_PER_TICK * 2
+inst.components.sleepingbag.hunger_tick = TUNING.SLEEP_HUNGER_PER_TICK
+-- sanity_tick já é TUNING.SLEEP_SANITY_PER_TICK por padrão no construtor do componente
+```
+O tick real (`SleepingBagUser:SleepTick`, em `sleepingbaguser.lua`) aplica
+os três deltas a cada `tick_period` segundos (1s por padrão) enquanto o
+jogador dorme, acorda sozinho se ficar faminto ou se a fase do mundo não
+bater mais com `sleep_phase`. `finiteuses` (mesmo modelo de durabilidade
+que os itens já usam) limita quantos usos antes de quebrar — Tenda: 15,
+Barraca de Sesta: 15, Tenda Portátil: 10 (`TUNING.TENT_USES` etc.).
+
+**Confirmado compondo com a seção 56:** `Original/prefabs/prefabs/
+portabletent.lua` é ao mesmo tempo `deployableItem` (craft vira item,
+implanta separado) E rest station (`AddComponent("sleepingbag")`) — os
+dois traços são genuinamente independentes no jogo real, não uma
+combinação forçada.
+
+**Implementado:** `StructureDef.restStation?: { sleepPhase: 'night' |
+'day', healthPerTick, hungerPerTick, sanityPerTick, maxUses? }`
+(`src/types/modProject.ts`). Gerador em `src/generators/structure.ts`
+(`componentBlock`) e tuning em `src/generators/modmain.ts`
+(`structureTuningBlock`). UI em `StructureForm.tsx`/`StructurePreview.tsx`.
+
+**Simplificação assumida, não confirmada:** dropados os callbacks
+`onsleep`/`onwake` (animação + som de dormir) e a normalização de
+temperatura (`SetTemperatureTickFn`) — cosméticos por cima do mesmo loop
+de tick; o jogador ainda dorme e recupera status, só sem a apresentação
+específica da Tenda.
+
+## 58. "Domesticar" temporariamente criaturas hostis com um item arremessável — `follower`/`leader`, `combat:CanBeAlly` — **implementado**
+
+Fonte: `Original/components/components/follower.lua`,
+`Original/components/components/combat.lua` e `combat_replica.lua`
+(`Combat:CanBeAlly`), e confirmado em três prefabs reais —
+`Original/prefabs/prefabs/hound.lua`, `spider.lua` e `tallbird.lua`
+(este último usado como contraexemplo, ver abaixo).
+
+**Confirmado:** `AddComponent("follower")` + `follower:SetLeader(dono)` +
+`follower:AddLoyaltyTime(segundos)` é o mecanismo real e genuinamente
+TEMPORÁRIO por trás de "dar comida pro porco e ele te segue por um
+tempo" — depois do tempo expirar, `StopFollowing()` roda sozinho e solta
+o líder.
+
+**Correção importante (a primeira leitura desta sessão estava incompleta):**
+existe uma parte GENUINAMENTE UNIVERSAL do efeito, embutida no próprio
+componente `combat` base, não em código específico de mob nenhum.
+Todo `combat` já constrói, incondicionalmente:
+```lua
+self.allycheckcallback = function(target)
+    if self:CanBeAlly(target) then
+        self:DropTarget()
+    end
+end
+```
+E `Combat:StartTrackingTarget` (chamado sempre que QUALQUER combate engata
+um alvo, via `EngageTarget`) liga isso automaticamente a um evento:
+```lua
+self.inst:ListenForEvent("leaderchanged", self.allycheckcallback, target)
+```
+Ou seja: assim que `follower:SetLeader` dispara `"leaderchanged"` no alvo,
+**qualquer** atacante que já estivesse perseguindo aquele alvo o solta na
+hora — isso vale pra qualquer criatura com `combat`, domesticável por
+design ou não.
+
+**Mas isso só resolve metade do problema.** Largar o alvo atual não
+impede a criatura de escolher esse MESMO alvo de novo no próximo ciclo de
+retarget — isso depende da função de retarget PRÓPRIA daquele mob excluir
+aliados. Confirmado que hound.lua e spider.lua fazem essa exclusão
+explicitamente (`guy ~= leader`/`IsSpiderAlly` → `combat:IsAlly`), e é
+exatamente esse mecanismo, sem nenhum código extra, que faz o efeito
+"aranha-sussurro" do Webber funcionar (`spider.lua:392`:
+`follower:GetLeader():HasTag("spiderwhisperer")`). Já o contraexemplo real
+confirmado — `tallbird.lua`'s `Retarget`/`IsValidTarget` — só checa
+`combat:CanTarget(guy)` + tags, sem nenhuma menção a `follower`/aliado:
+um Tallbird largaria o alvo domesticado na hora (efeito universal), mas
+provavelmente o reengataria de novo quase em seguida, porque nada no
+próprio código dele exclui esse alvo de ser escolhido de novo.
+
+**Limite real, não uma limitação da ferramenta:** "parar de atacar agora"
+é universal. "Continuar domesticado e não ser reatacado" só é garantido
+em criaturas cuja PRÓPRIA função de retarget já exclui líder/aliado —
+confirmado em mobs "domesticáveis" reais (aranha, cão de caça — e por
+extensão porco/bunnyman/mermo, que seguem o mesmo padrão de "dar comida,
+ele te segue"). Bosses e outros hostis com IA própria (Deerclops, Bearger,
+Krampus, e — confirmado agora — o Tallbird) não fazem essa segunda parte,
+então o efeito não "gruda" de verdade neles — não porque não sabemos
+fazer, mas porque a IA original deles nunca foi escrita pra considerar um
+líder na hora de ESCOLHER um alvo novo (só o drop automático do combate
+já em andamento é garantido).
+
+**Implementado:** `ItemDef.tameBomb?: { radius, cloudDurationSeconds,
+tameDurationSeconds }` (`src/types/modProject.ts`), mutuamente exclusivo
+com `spellEffect` (`.refine`) — os dois disputam o mesmo componente
+`spellcaster`. Reaproveita o mecanismo de mira já usado por `spellEffect`
+(seção 7: `reticule` + `spellcaster` + `SpawnPrefab` num ponto), só que
+lançando um prefab de nuvem novo (`src/generators/item.ts`,
+`generateTameCloudPrefab`) em vez de uma luz. A nuvem escaneia
+`TheSim:FindEntities(..., {"hostile"})` a cada segundo e aplica
+`AddComponent("follower")` (idempotente) + `SetLeader` + `AddLoyaltyTime`
+em cada uma, depois se autodestrói (`DoTaskInTime`). Tuning em
+`src/generators/modmain.ts` (`itemTuningBlock`), UI em `ItemForm.tsx`/
+`ItemPreview.tsx`.
+
+**Mudança necessária em `brain.ts`:** o drop automático via `"leaderchanged"`
+já aconteceria de graça mesmo sem tocar no brain (é comportamento do
+`combat` base) — mas sozinho isso só solta o alvo atual uma vez; sem
+excluir o líder da PRÓPRIA lógica de retarget, a criatura reengataria ele
+de novo, igual o Tallbird faria. Pra criaturas hostis criadas pelo
+próprio usuário deste tool realmente ficarem domesticadas (não só soltar
+e reatacar em seguida), o `WhileNode` de ataque de toda criatura
+`hostile` agora também exige `combat.target ~= (follower e
+follower:GetLeader())` — mesma checagem que hound.lua/spider.lua já fazem
+de fábrica, só que agora emitida pelo nosso próprio gerador de brain, não
+copiada de um arquivo vanilla específico. `neutral` não precisa disso: só
+criaturas `hostile` ganham a tag `"hostile"` que a nuvem procura.
+
+**Simplificação assumida, não confirmada:** não modelamos a nuvem visual
+completa de `sleepcloud.lua` (overlay de sprites sincronizado por netvar,
+efeitos de sono/grogginess, PvP) — nossa nuvem é só um FX simples com um
+`DoPeriodicTask` de varredura, sem nenhuma apresentação própria. Também
+não replicamos o `KeepTarget`/limpeza de alvo mais elaborados de
+hound.lua — se o alvo atual vira o líder, o `WhileNode` simplesmente para
+de entrar (a criatura para de atacar), mas `combat.target` pode continuar
+apontando pro líder internamente em vez de ser explicitamente limpo.
+
+## 59. Espetos e paredes de areia do Antlion, capturados como `groundAttack` — em item E criatura — **implementado**
+
+Fonte: `Original/stategraphs/stategraphs/SGantlion_angry.lua` (`SpawnSpikes`/
+`SpawnBlocks`) e `Original/prefabs/prefabs/sand_spike.lua` (os prefabs reais
+`sandspike_short/med/tall` e `sandblock`).
+
+**O boss inteiro não é generalizável:** `antlion.lua` tem timer de fúria
+(`worldsettingstimer`), sistema de tributo/comércio, spawner de sinkhole, e
+transição entre dois stategraphs — um script de boss único, não modelado
+aqui. Mas as duas habilidades pontuais (espetos, paredes) são só
+`SpawnPrefab` dos prefabs reais acima, disparados por frames específicos de
+animação no stategraph do Antlion — a MECÂNICA (espalhar N espetos + M
+blocos ao redor de um ponto), não a apresentação exata, é o que foi
+capturado.
+
+**Implementado como um schema compartilhado** (`groundAttackSchema` em
+`src/types/modProject.ts`: `{ spikeCount, wallCount, radius }`), usado em
+dois lugares:
+
+- `ItemDef.groundAttack` — arremessado num ponto mirado, reaproveitando o
+  MESMO mecanismo `reticule`+`spellcaster` já usado por `spellEffect`
+  (seção 7) e `tameBomb` (seção 58) — os três são mutuamente exclusivos via
+  `.refine()` (disputam o mesmo `spellcaster`).
+- `CreatureDef.groundAttack` (com um `cooldownSeconds` a mais) — disparado
+  periodicamente (`inst:DoPeriodicTask`) ao redor da própria criatura
+  enquanto ela tiver um alvo de combate (`combat:HasTarget()`). Mesma regra
+  de `kiting`: exige `behavior` não-`passive` (precisa de `combat`).
+
+A geração da lógica de espalhamento (`src/generators/groundAttack.ts`,
+`groundAttackFunctionBlock`) é escrita **uma única vez** e reaproveitada
+pelos dois lados (`item.ts` e `creature.ts`) em vez de duplicada — cada
+espeto/bloco usa um ângulo e distância aleatórios dentro do raio via
+`FindWalkableOffset`, o mesmo idioma de "espalhar dentro de um alcance" já
+usado por `daySpawner` (seção — ver `structure.ts`).
+
+**Dois mods de demonstração** (`mods/README.md` #11/#12, geradas e
+validadas via `npm run build-test-mods`): `duneStalker` (criatura hostil,
+build "spider" reaproveitado, `groundAttack` com espetos+paredes) e
+`spikeRod` (item, build "rocks" reaproveitado, mesmo `groundAttack` via
+`spellcaster`).
+
+**Simplificação assumida, não confirmada:** não replicamos
+`CanSpawnSpikeAt` (checagem de espaçamento real do Antlion pra não
+sobrepor espetos) nem o timing exato de animação — o espalhamento aqui é
+puramente aleatório dentro do raio, podendo ocasionalmente falhar em achar
+um ponto andável (`FindWalkableOffset` retornando `nil`, nesse caso o
+espeto/bloco simplesmente não nasce naquela iteração).

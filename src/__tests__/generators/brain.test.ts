@@ -13,7 +13,7 @@ describe('generateBrain', () => {
     expect(code).not.toContain('require "behaviours/runaway"')
     expect(code).toContain('local SEE_TARGET_DIST = 10')
     expect(code).toContain(
-      'WhileNode(function() return self.inst.components.combat:HasTarget() end, "AttackTarget", ChaseAndAttack(self.inst, SEE_TARGET_DIST)),',
+      'WhileNode(function() return self.inst.components.combat:HasTarget() and self.inst.components.combat.target ~= (self.inst.components.follower ~= nil and self.inst.components.follower:GetLeader() or nil) end, "AttackTarget", ChaseAndAttack(self.inst, SEE_TARGET_DIST)),',
     )
     expect(code).toContain('Wander(self.inst),')
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
@@ -46,12 +46,32 @@ describe('generateBrain', () => {
     expect(code).toContain('local RUN_AWAY_DIST = 6')
     expect(code).toContain('local STOP_RUN_AWAY_DIST = 10')
     expect(code).toContain(
-      'WhileNode(function() return self.inst.components.combat:HasTarget() and not self.inst.components.combat:InCooldown() end, "AttackTarget", ChaseAndAttack(self.inst, SEE_TARGET_DIST)),',
+      'WhileNode(function() return self.inst.components.combat:HasTarget() and self.inst.components.combat.target ~= (self.inst.components.follower ~= nil and self.inst.components.follower:GetLeader() or nil) and not self.inst.components.combat:InCooldown() end, "AttackTarget", ChaseAndAttack(self.inst, SEE_TARGET_DIST)),',
     )
     expect(code).toContain(
       'RunAway(self.inst, function() return self.inst.components.combat.target end, RUN_AWAY_DIST, STOP_RUN_AWAY_DIST)),',
     )
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  // Confirmed in hound.lua/spider.lua: both already carry `follower` from
+  // spawn (tamed or not) and their own retarget logic already excludes
+  // attacking `follower:GetLeader()` — this is the same real mechanism that
+  // makes Webber's spider-whisperer effect and tamed pet hounds work, applied
+  // unconditionally to every hostile creature this tool generates so
+  // ItemDef.tameBomb's tame cloud has something to actually take effect on.
+  it('never fights a hostile creature\'s own follower leader (hound.lua/spider.lua)', () => {
+    const code = generateBrain(hostileMob)
+    expect(code).toContain('self.inst.components.combat.target ~= (self.inst.components.follower ~= nil and self.inst.components.follower:GetLeader() or nil)')
+  })
+
+  it('does not add the leader-exclusion check for neutral creatures (nothing tags them "hostile" for the tame cloud to find)', () => {
+    const neutral: CreatureDef = { ...hostileMob, behavior: 'neutral' }
+    const code = generateBrain(neutral)
+    expect(code).not.toContain('GetLeader()')
+    expect(code).toContain(
+      'WhileNode(function() return self.inst.components.combat:HasTarget() end, "Retaliate", ChaseAndAttack(self.inst, SEE_TARGET_DIST)),',
+    )
   })
 
   it('adds a FirePanic node driven by health.takingfiredamage when onFire is a panic cause', () => {

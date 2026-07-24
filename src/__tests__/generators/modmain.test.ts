@@ -92,6 +92,41 @@ describe('generateModMain', () => {
     expect(code).not.toContain('COMBINE_ITEM')
   })
 
+  it('sets TUNING values (keyed to the cloud id) and lists the cloud prefab for a tameBomb item', () => {
+    const withTameBomb = {
+      ...sampleProject,
+      items: [{ ...sampleProject.items[1], id: 'testtamebomb', tameBomb: { radius: 4, cloudDurationSeconds: 10, tameDurationSeconds: 60 } }],
+    }
+    const tameBombCode = generateModMain(withTameBomb)
+    expect(tameBombCode).toContain('GLOBAL.TUNING.TESTTAMEBOMB_CLOUD_RADIUS = 4')
+    expect(tameBombCode).toContain('GLOBAL.TUNING.TESTTAMEBOMB_CLOUD_DURATION = 10')
+    expect(tameBombCode).toContain('GLOBAL.TUNING.TESTTAMEBOMB_CLOUD_TAME_DURATION = 60')
+    expect(tameBombCode).toContain('"testtamebomb_cloud"')
+  })
+
+  it('sets TUNING values (keyed to the item id) for a groundAttack item, omitting WALL_COUNT when wallCount is 0', () => {
+    const withGroundAttack = {
+      ...sampleProject,
+      items: [{ ...sampleProject.items[1], id: 'testgroundattack', groundAttack: { spikeCount: 5, wallCount: 0, radius: 6 } }],
+    }
+    const groundAttackCode = generateModMain(withGroundAttack)
+    expect(groundAttackCode).toContain('GLOBAL.TUNING.TESTGROUNDATTACK_SPIKE_COUNT = 5')
+    expect(groundAttackCode).toContain('GLOBAL.TUNING.TESTGROUNDATTACK_RADIUS = 6')
+    expect(groundAttackCode).not.toContain('WALL_COUNT')
+  })
+
+  it('sets TUNING values for a creature groundAttack, including its own cooldown', () => {
+    const withGroundAttack = {
+      ...sampleProject,
+      creatures: [{ ...sampleProject.creatures[0], groundAttack: { spikeCount: 5, wallCount: 2, radius: 6, cooldownSeconds: 20 } }],
+    }
+    const groundAttackCode = generateModMain(withGroundAttack)
+    expect(groundAttackCode).toContain('GLOBAL.TUNING.TESTMOB_SPIKE_COUNT = 5')
+    expect(groundAttackCode).toContain('GLOBAL.TUNING.TESTMOB_WALL_COUNT = 2')
+    expect(groundAttackCode).toContain('GLOBAL.TUNING.TESTMOB_RADIUS = 6')
+    expect(groundAttackCode).toContain('GLOBAL.TUNING.TESTMOB_GROUNDATTACK_COOLDOWN = 20')
+  })
+
   it('sets TUNING values for a day spawner structure', () => {
     const withSpawner = {
       ...sampleProject,
@@ -109,6 +144,34 @@ describe('generateModMain', () => {
     }
     const residentCode = generateModMain(withResident)
     expect(residentCode).toContain('GLOBAL.TUNING.TESTSTRUCTURE_RESPAWN_DELAY = TUNING.TOTAL_DAY_TIME * 2')
+  })
+
+  it('sets TUNING values for a rest station structure (components/sleepingbag.lua)', () => {
+    const withRestStation = {
+      ...sampleProject,
+      structures: [
+        { ...sampleProject.structures[0], restStation: { sleepPhase: 'night' as const, healthPerTick: 1, hungerPerTick: -1, sanityPerTick: 1 } },
+      ],
+    }
+    const restCode = generateModMain(withRestStation)
+    expect(restCode).toContain('GLOBAL.TUNING.TESTSTRUCTURE_HEALTH_PER_TICK = 1')
+    expect(restCode).toContain('GLOBAL.TUNING.TESTSTRUCTURE_HUNGER_PER_TICK = -1')
+    expect(restCode).toContain('GLOBAL.TUNING.TESTSTRUCTURE_SANITY_PER_TICK = 1')
+    expect(restCode).not.toContain('GLOBAL.TUNING.TESTSTRUCTURE_USES')
+  })
+
+  it('sets a USES tuning value only when the rest station has limited uses', () => {
+    const withMaxUses = {
+      ...sampleProject,
+      structures: [
+        {
+          ...sampleProject.structures[0],
+          restStation: { sleepPhase: 'day' as const, healthPerTick: 2, hungerPerTick: -1, sanityPerTick: 1, maxUses: 15 },
+        },
+      ],
+    }
+    const usesCode = generateModMain(withMaxUses)
+    expect(usesCode).toContain('GLOBAL.TUNING.TESTSTRUCTURE_USES = 15')
   })
 
   describe('deployMode: deployableItem (Original/scripts/recipes.lua Recipe2("portablecookpot_item", ...))', () => {
