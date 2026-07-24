@@ -33,6 +33,21 @@ describe('buildModFiles', () => {
     expect(readme).toContain('testmob')
   })
 
+  // A custom container widget always needs its own UI skin (patterns.md#20)
+  // regardless of whether the item's own BODY reuses a vanilla build (e.g. a
+  // book) — the README used to only ever mention the body art, silently
+  // dropping the container art requirement whenever the body was vanilla.
+  it('mentions the container UI art requirement even when the item body reuses a vanilla build', () => {
+    const codex = {
+      ...sampleProject.items[1],
+      id: 'testcodex',
+      container: { widget: { source: 'custom' as const, slots: 3, columns: 3 }, sideWidget: true },
+    }
+    const project = { ...sampleProject, items: [...sampleProject.items, codex] }
+    const readme = buildModFiles(project)['README.md']
+    expect(readme).toContain('anim/ui_testcodex.zip')
+  })
+
   it('tells apart vanilla-build items (no anim.zip needed) from custom-build items in the README', () => {
     const readme = files['README.md']
     expect(readme).toContain('precisa de `anim/testsword.zip`')

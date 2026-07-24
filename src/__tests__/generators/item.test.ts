@@ -45,6 +45,27 @@ describe('generateItemFiles', () => {
     expect(code).toContain('Asset("INV_IMAGE", "testtrinket")')
   })
 
+  // Confirmed directly against the real game scripts (staff.lua, books.lua):
+  // a build shared across several item variants keeps bank === build but
+  // plays its OWN idle clip, never a generic "idle" — see itemAnimationSchema.
+  it('plays a custom idle clip for a shared vanilla build instead of the default "idle"', () => {
+    const staffLike: ItemDef = {
+      ...trinket,
+      id: 'testyellowstaff',
+      animation: { source: 'vanilla', build: 'staffs', idleClip: 'yellowstaff' },
+    }
+    const code = generateItemPrefab(staffLike)
+    expect(code).toContain('inst.AnimState:SetBank("staffs")')
+    expect(code).toContain('inst.AnimState:SetBuild("staffs")')
+    expect(code).toContain('inst.AnimState:PlayAnimation("yellowstaff")')
+    expect(code).not.toContain('PlayAnimation("idle")')
+  })
+
+  it('defaults to the "idle" clip for a vanilla build with no idleClip set', () => {
+    const code = generateItemPrefab(trinket)
+    expect(code).toContain('inst.AnimState:PlayAnimation("idle")')
+  })
+
   it('wires the tool component + SetAction for tool-category items, and ties finiteuses consumption to that action', () => {
     const code = generateItemPrefab(axe)
     expect(code).toContain('inst:AddComponent("tool")')

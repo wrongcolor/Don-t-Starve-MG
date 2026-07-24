@@ -24,11 +24,15 @@ export const viana: ModProject = {
   },
   items: [
     {
+      // "staffs" (Original/prefabs/prefabs/staff.lua): shared build across every
+      // vanilla staff color, each with its own clip — "yellowstaff" is the warm/
+      // light staff (Star Caller's Staff), the closest real fit for a sun-themed
+      // staff (docs/dst-knowledge/patterns.md's itemAnimationSchema idleClip).
       id: 'sunstaff',
       displayName: 'Sun Staff',
       description: 'A staff that channels whatever spells are bound in her Sun Codex.',
       category: 'generic',
-      animation: { source: 'custom' },
+      animation: { source: 'vanilla', build: 'staffs', idleClip: 'yellowstaff' },
       spellbook: { source: 'linkedContainer', containerItemId: 'suncodex' },
       recipe: {
         ingredients: [
@@ -41,11 +45,14 @@ export const viana: ModProject = {
       },
     },
     {
+      // "books" (Original/prefabs/prefabs/books.lua): shared build across every
+      // Wickerbottom book, each with its own clip — "book_light" (the light-
+      // themed tome) is the closest real fit for a Sun Codex.
       id: 'suncodex',
       displayName: 'Sun Codex',
       description: 'Holds up to 3 spells at once — whatever is bound here is what the Sun Staff can cast.',
       category: 'generic',
-      animation: { source: 'custom' },
+      animation: { source: 'vanilla', build: 'books', idleClip: 'book_light' },
       container: {
         widget: { source: 'custom', slots: 3, columns: 3 },
         sideWidget: true,
@@ -68,7 +75,10 @@ export const viana: ModProject = {
       displayName: 'Ember Wisp Spell',
       description: 'Bind this in the Sun Codex to let the Sun Staff summon a warm, floating ember of light.',
       category: 'generic',
-      animation: { source: 'custom' },
+      // "papyrus" (Original/prefabs/prefabs/papyrus.lua) already follows the
+      // simple bank=build=name convention with a real "idle" clip — no
+      // idleClip override needed, unlike sunstaff/suncodex above.
+      animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: { label: 'Ember Wisp', summonPrefab: 'emberlight', manaCost: 20 },
       recipe: {
         ingredients: [
@@ -87,7 +97,10 @@ export const viana: ModProject = {
       displayName: 'Solstice Blessing Spell',
       description: 'Bind this in the Sun Codex to let the Sun Staff mend her wounds with the sun\'s warmth.',
       category: 'generic',
-      animation: { source: 'custom' },
+      // "papyrus" (Original/prefabs/prefabs/papyrus.lua) already follows the
+      // simple bank=build=name convention with a real "idle" clip — no
+      // idleClip override needed, unlike sunstaff/suncodex above.
+      animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: { label: 'Solstice Blessing', healthDelta: 15, sanityDelta: 15, manaCost: 30 },
       recipe: {
         ingredients: [
@@ -104,7 +117,10 @@ export const viana: ModProject = {
       displayName: 'Sunfed Spell',
       description: 'Bind this in the Sun Codex to let the Sun Staff feed her on sunlight alone.',
       category: 'generic',
-      animation: { source: 'custom' },
+      // "papyrus" (Original/prefabs/prefabs/papyrus.lua) already follows the
+      // simple bank=build=name convention with a real "idle" clip — no
+      // idleClip override needed, unlike sunstaff/suncodex above.
+      animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: { label: 'Sunfed', hungerDelta: 25, manaCost: 15 },
       recipe: {
         ingredients: [

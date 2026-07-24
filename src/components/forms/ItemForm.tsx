@@ -346,18 +346,27 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
               </div>
 
               {animationSource === 'vanilla' && (
-                <FormField
-                  label="Animation"
-                  error={(errors.animation as { build?: { message?: string } } | undefined)?.build?.message}
-                >
-                  <select className={inputClass} {...register('animation.build' as const)}>
-                    {VANILLA_ITEM_BUILDS.map((b) => (
-                      <option key={b.build} value={b.build}>
-                        {b.label}
-                      </option>
-                    ))}
-                  </select>
-                </FormField>
+                <>
+                  <FormField
+                    label="Animation build"
+                    error={(errors.animation as { build?: { message?: string } } | undefined)?.build?.message}
+                  >
+                    <input className={inputClass} list="vanilla-item-build-options" {...register('animation.build' as const)} />
+                    <datalist id="vanilla-item-build-options">
+                      {VANILLA_ITEM_BUILDS.map((b) => (
+                        <option key={b.build} value={b.build}>
+                          {b.label}
+                        </option>
+                      ))}
+                    </datalist>
+                  </FormField>
+                  <FormField
+                    label='Idle animation clip (leave blank for "idle")'
+                    hint='Only needed for a build shared across several variants (e.g. "staffs", "books", "gems", "amulets", "trinkets") that plays its own clip name instead of a plain "idle" — check the real prefab source before picking one.'
+                  >
+                    <input className={inputClass} placeholder="idle" {...register('animation.idleClip' as const)} />
+                  </FormField>
+                </>
               )}
 
               {animationSource === 'vanillaHat' && (

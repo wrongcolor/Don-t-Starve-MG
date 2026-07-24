@@ -3038,3 +3038,58 @@ fazer nada". Gerado em `src/generators/item.ts` tanto no modo estático
 `spell_manacost` já gravados na instância do item-feitiço — seção acima —,
 lidos e aplicados em runtime pela função de cast genérica, incondicionalmente,
 já que o item real só é conhecido quando o slot é lido).
+
+## 63. Reaproveitar um build vanilla COMPARTILHADO por vários itens (cajado/livro/gema/amuleto/trinket) — **bug real corrigido + implementado**
+
+Motivação real: ao tentar reaproveitar o build do cajado amarelo (`yellowstaff`)
+pro Sun Staff da Viana e o build de um livro da Wickerbottom pro Sun Codex,
+descobrimos que `itemAnimationSchema`'s modo `'vanilla'` (e o gerador,
+`resolveIdleClip` em `src/generators/item.ts`) sempre cravava
+`PlayAnimation("idle")`, incondicional — funciona pra itens de build único
+(`twigs`, `log`, `cutgrass`, `flint`, `papyrus`, todos confirmados com
+`SetBank(name)`/`SetBuild(name)`/`PlayAnimation("idle")` reais), mas quebra
+pra qualquer item que reaproveite um build COMPARTILHADO entre várias
+variantes.
+
+**Confirmado direto no código-fonte real, em 5 famílias de item diferentes**
+— todas com `bank === build` (então nenhuma precisa de um campo "bank"
+separado), mas nenhuma usa `"idle"` como nome do clipe parado:
+- `staff.lua`: todo cajado vanilla (`icestaff`/`firestaff`/`yellowstaff`/etc.)
+  compartilha `SetBank("staffs")`/`SetBuild("staffs")`, com clipe próprio por
+  cor (`"yellowstaff"`, `"redstaff"`, ...).
+- `books.lua`: todo livro da Wickerbottom compartilha `"books"`, clipe =
+  `def.name` (ex.: `"book_light"`, `"book_birds"`).
+- `gem.lua`: toda gema compartilha `"gems"`, clipe `"<cor>gem_idle"`.
+- `amulet.lua`: todo amuleto compartilha `"amulets"`, clipe por cor.
+- `trinkets.lua`: todo trinket (`trinket_1`..`trinket_N`) compartilha
+  `"trinkets"`, clipe é só o número (`"1"`, `"2"`, ...) — **isso significa que
+  as entradas `trinket_1`..`trinket_5` já existentes em `VANILLA_ITEM_BUILDS`
+  eram, elas mesmas, um bug real**: o gerador cravava
+  `SetBuild("trinket_1")`/`PlayAnimation("idle")`, nenhum dos dois existe de
+  verdade (o build real é `"trinkets"`, o clipe é `"1"`). Não corrigido nesta
+  sessão (fora do escopo do pedido da Viana, e afeta mods já publicados) —
+  registrado aqui pra quem for mexer em `VANILLA_ITEM_BUILDS` depois.
+  `goldnugget` (build real `gold_nugget`, com underscore) e `nightmarefuel`
+  (clipe real `idle_loop`, não `idle`) também suspeitos pela mesma checagem,
+  não confirmados a fundo.
+
+**Implementado:** `itemAnimationSchema`'s modo `'vanilla'` ganhou
+`idleClip?: string` opcional (um campo de texto em branco vira `undefined`
+no parse, mantendo o padrão `"idle"` — mesmo truque de "campo de formulário
+opcional" já usado pra `manaCost`/os deltas, só que pra string em vez de
+número). `resolveIdleClip` (`src/generators/item.ts`) usa
+`item.animation.idleClip ?? 'idle'` em vez de sempre `'idle'`. UI
+(`ItemForm.tsx`): o campo de build deixou de ser um `<select>` travado na
+lista curada — virou `<input>` de texto livre + `<datalist>` com os presets
+(a lista curada sempre foi só sugestão, o schema já aceitava qualquer string),
+mais um novo campo de texto pro clipe.
+
+**Aplicado na Viana** (`mods/viana.ts`): `sunstaff` reaproveita `staffs` +
+`idleClip: "yellowstaff"`; `suncodex` reaproveita `books` +
+`idleClip: "book_light"`; os 3 itens-feitiço reaproveitam `papyrus` sem
+`idleClip` (já usa `"idle"` de verdade).
+
+**Fora de escopo:** corrigir as entradas já quebradas de `VANILLA_ITEM_BUILDS`
+(trinket_1-5/goldnugget/nightmarefuel) e os mods que já as usam — precisa de
+uma sessão própria pra conferir cada uma contra o jogo real e decidir se
+migra os mods existentes.

@@ -50,9 +50,13 @@ function resolveAnimationBank(item: ItemDef): string {
 }
 
 // Confirmed in hats.lua: a hat's idle animation clip is named "anim", not "idle"
-// like every other build this tool reuses.
+// like most builds this tool reuses. A shared-build 'vanilla' item (staffs,
+// books, gems, amulets, trinkets, ...) plays its own per-variant clip instead
+// of "idle" too — see itemAnimationSchema's idleClip.
 function resolveIdleClip(item: ItemDef): string {
-  return item.animation?.source === 'vanillaHat' ? 'anim' : 'idle'
+  if (item.animation?.source === 'vanillaHat') return 'anim'
+  if (item.animation?.source === 'vanilla') return item.animation.idleClip ?? 'idle'
+  return 'idle'
 }
 
 // Confirmed against axe.lua/pickaxe.lua/spear.lua/hambat.lua (docs/dst-knowledge/patterns.md#2):

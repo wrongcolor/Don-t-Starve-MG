@@ -180,7 +180,27 @@ export const groundAttackSchema = z.object({
 // this tool reuses — see VANILLA_HAT_BUILDS above.
 export const itemAnimationSchema = z.discriminatedUnion('source', [
   z.object({ source: z.literal('custom') }),
-  z.object({ source: z.literal('vanilla'), build: z.string().min(1, 'Choose an animation') }),
+  // Confirmed directly in the real game scripts (staff.lua, books.lua,
+  // gem.lua, amulet.lua, trinkets.lua — docs/dst-knowledge/patterns.md's
+  // VANILLA_ITEM_BUILDS section): a build shared by several variants of the
+  // same item family (all staffs share "staffs", all books share "books",
+  // etc.) always keeps bank === build, but each variant plays its OWN idle
+  // clip name, never the generic "idle" this tool used to hardcode.
+  // Optional so single-purpose builds that really do use "idle" (twigs, log,
+  // papyrus, ...) don't need to spell it out.
+  z.object({
+    source: z.literal('vanilla'),
+    build: z.string().min(1, 'Choose an animation'),
+    // A blank text input submits '', not undefined — fold it back to
+    // undefined (same reasoning as optionalFormNumber below, just for a
+    // string field) so leaving this blank keeps the "idle" default.
+    // .optional() must wrap the transform, not the other way around, or zod
+    // stops treating the key itself as omittable in the inferred input type.
+    idleClip: z
+      .string()
+      .transform((v) => (v ? v : undefined))
+      .optional(),
+  }),
   z.object({ source: z.literal('vanillaHat'), hatName: z.string().min(1, 'Choose a hat') }),
 ])
 

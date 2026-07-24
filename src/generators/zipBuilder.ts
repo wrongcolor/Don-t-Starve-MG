@@ -2,7 +2,7 @@ import JSZip from 'jszip'
 import type { ModProject } from '../types/modProject'
 import { generateModInfo } from './modinfo'
 import { generateModMain } from './modmain'
-import { generateItemFiles, isHandheld } from './item'
+import { generateItemFiles, isHandheld, containerCustomWidgetBuild } from './item'
 import { generateStructureFiles } from './structure'
 import { generateCharacterFiles } from './character'
 import { generateSpeechFile } from './speech'
@@ -46,6 +46,15 @@ function generateReadme(project: ModProject): string {
           )
         }
       }
+      // Independent of the item's OWN body build above — a custom container
+      // widget always needs its own separate UI skin (patterns.md#20), even
+      // when the item's body reuses a vanilla build (e.g. a book skin) with
+      // no anim/*.zip of its own.
+      if (item.container?.widget.source === 'custom') {
+        lines.push(
+          `    - Também precisa de \`anim/${containerCustomWidgetBuild(item.id)}.zip\` (arte de UI do contêiner, ${item.container.widget.slots} slots).`,
+        )
+      }
     }
   }
   if (project.structures.length > 0) {
@@ -57,6 +66,11 @@ function generateReadme(project: ModProject): string {
         )
       } else {
         lines.push(`  - \`${structure.id}\`: precisa de \`anim/${structure.id}.zip\` (build/bank "${structure.id}", animação "idle").`)
+      }
+      if (structure.container?.widget.source === 'custom') {
+        lines.push(
+          `    - Também precisa de \`anim/${containerCustomWidgetBuild(structure.id)}.zip\` (arte de UI do contêiner, ${structure.container.widget.slots} slots).`,
+        )
       }
     }
   }
