@@ -15,9 +15,12 @@ export function generateManaComponentFile(): string {
     self.regenpersecond = nil
 end)
 
+-- Fills to full: the only caller is master_postinit at spawn, so this is
+-- the character's initial mana amount, same as the game's own hunger/sanity
+-- starting full. A loaded save's real amount overrides it via OnLoad right after.
 function Mana:SetMax(max)
     self.max = max
-    self.current = math.min(self.current, self.max)
+    self.current = max
     self.inst:PushEvent("manadelta")
 end
 

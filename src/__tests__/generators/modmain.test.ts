@@ -63,6 +63,10 @@ describe('generateModMain', () => {
       expect(mageCode).toContain('local stomachpos = self.stomach:GetPosition()')
     })
 
+    it("passes the character's real TUNING max to SetPercent, not a hardcoded 100 (badge.lua's 2nd arg feeds the displayed number)", () => {
+      expect(mageCode).toContain('self.testcharmana:SetPercent(percent, TUNING.TESTCHAR_MANA_MAX)')
+    })
+
     it('does not wire any mana HUD code when no character has mana', () => {
       expect(code).not.toContain('ManaBadge')
       expect(code).not.toContain('AddPlayerPostInit')

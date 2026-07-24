@@ -24,6 +24,11 @@ describe('generateManaComponentFile', () => {
     expect(code).toContain('return false')
   })
 
+  it('SetMax fills current to the new max, so a freshly spawned character starts full', () => {
+    expect(code).toContain('self.current = max')
+    expect(code).not.toContain('math.min(self.current, self.max)')
+  })
+
   it('persists current mana across save/load', () => {
     expect(code).toContain('function Mana:OnSave()')
     expect(code).toContain('function Mana:OnLoad(data)')

@@ -362,6 +362,7 @@ function capitalize(id: string): string {
 function characterManaHudBlock(character: CharacterDef): string[] {
   const id = character.id
   const capId = capitalize(id)
+  const upper = id.toUpperCase()
   const dirtyEvent = luaString(`${id}_manaisdirty`)
   return [
     `local function on${capId}ManaDirty(inst)`,
@@ -402,7 +403,9 @@ function characterManaHudBlock(character: CharacterDef): string[] {
     '',
     `    self.owner.Update${capId}ManaBadge = function()`,
     `        local percent = self.owner.${id}_mana_percent and (self.owner.${id}_mana_percent:value() / 100) or 0`,
-    `        self.${id}mana:SetPercent(percent, 100)`,
+    // Badge:SetPercent's 2nd arg isn't a renormalization factor — it only
+    // feeds the displayed number (val * max), confirmed in widgets/badge.lua.
+    `        self.${id}mana:SetPercent(percent, TUNING.${upper}_MANA_MAX)`,
     '    end',
     'end',
     `AddClassPostConstruct("widgets/statusdisplays", ${capId}StatusPostConstruct)`,
