@@ -41,10 +41,20 @@ export function LayoutGrid({ width, tiles, objects, onTilesChange, onObjectsChan
   const [mode, setMode] = useState<'paint' | 'place'>('paint')
   const [selectedTileIndex, setSelectedTileIndex] = useState<number>(LAYOUT_TILE_PALETTE[0].index)
   const [pendingPrefab, setPendingPrefab] = useState('')
-  const [selectedObjectIndex, setSelectedObjectIndex] = useState<number | null>(null)
+  // Identifying the selection by (row, col) instead of a raw array index keeps
+  // it valid across a resize done outside this component (StaticLayoutForm's
+  // resize() drops out-of-bounds objects, reindexing the rest) — a stored
+  // index would silently point at whatever object shifted into that slot,
+  // showing/editing the wrong prefab's properties with no indication anything
+  // changed. Re-deriving the index via findIndex each render means a resize
+  // either correctly follows the same object to its new index, or (if it was
+  // the one dropped) clears the selection instead of aiming at a stranger.
+  const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null)
   const paintingRef = useRef(false)
 
-  const selectedObject = selectedObjectIndex !== null ? objects[selectedObjectIndex] : undefined
+  const selectedObjectIndex =
+    selectedCell !== null ? objects.findIndex((o) => o.row === selectedCell.row && o.col === selectedCell.col) : -1
+  const selectedObject = selectedObjectIndex !== -1 ? objects[selectedObjectIndex] : undefined
 
   function paintCell(row: number, col: number) {
     const next = tiles.map((r) => [...r])
@@ -55,7 +65,7 @@ export function LayoutGrid({ width, tiles, objects, onTilesChange, onObjectsChan
   function placeOrSelectCell(row: number, col: number) {
     const existingIndex = objects.findIndex((o) => o.row === row && o.col === col)
     if (existingIndex !== -1) {
-      setSelectedObjectIndex(existingIndex)
+      setSelectedCell({ row, col })
       return
     }
     if (!pendingPrefab.trim()) return
@@ -77,11 +87,11 @@ export function LayoutGrid({ width, tiles, objects, onTilesChange, onObjectsChan
 
   function removeObject(index: number) {
     onObjectsChange(objects.filter((_, i) => i !== index))
-    setSelectedObjectIndex(null)
+    setSelectedCell(null)
   }
 
   function updateSelectedProperties(properties: StaticLayoutObject['properties']) {
-    if (selectedObjectIndex === null) return
+    if (selectedObjectIndex === -1) return
     onObjectsChange(objects.map((o, i) => (i === selectedObjectIndex ? { ...o, properties } : o)))
   }
 
@@ -176,7 +186,7 @@ export function LayoutGrid({ width, tiles, objects, onTilesChange, onObjectsChan
         )}
       </div>
 
-      {selectedObject && selectedObjectIndex !== null && (
+      {selectedObject && selectedObjectIndex !== -1 && (
         <div className="card panel" style={{ marginTop: 10 }}>
           <div className="section-title">
             {selectedObject.prefab} ({selectedObject.col}, {selectedObject.row})

@@ -88,9 +88,19 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const [templateKey, setTemplateKey] = useState<string | null>(null)
   const watched = watch()
 
+  // A template's patch only ever sets the fields ITS OWN archetype cares about
+  // (e.g. the Armor template never mentions `weapon`) — applying one after a
+  // DIFFERENT template used to leave the previous template's weapon/armor/
+  // toolAction lingering underneath, invisible once the UI moved on to a new
+  // fieldset. Nothing in the schema forbids weapon+armor coexisting, so that
+  // stale data passed validation silently while corrupting the generated equip
+  // logic (isHandheld wins over isWearableArmor whenever a stale `weapon` is
+  // still set). Resetting exactly these three archetype fields before applying
+  // the new patch keeps every template application a clean slate.
   const applyTemplate = (key: string, patch: Partial<ItemDef>) => {
     setTemplateKey(key)
-    Object.entries(patch).forEach(([field, value]) => {
+    const reset: Partial<ItemDef> = { toolAction: undefined, weapon: undefined, armor: undefined }
+    Object.entries({ ...reset, ...patch }).forEach(([field, value]) => {
       setValue(field as keyof ItemDef, value as never, { shouldDirty: true })
     })
   }

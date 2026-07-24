@@ -131,4 +131,34 @@ describe('ItemForm', () => {
     const saved = onSave.mock.calls[0][0]
     expect(saved.spellbook).toBeUndefined()
   })
+
+  // applyTemplate only ever patches the fields ITS OWN archetype cares about —
+  // the Armor template's patch never mentions `weapon`. Before the fix, a
+  // previously-applied Sword template's `weapon` stayed on the item, invisible
+  // once the UI moved past the Combat fieldset, with nothing in the schema to
+  // reject weapon+armor coexisting — the saved item would silently carry both,
+  // corrupting the generated equip logic (item.ts picks handheld equip visuals
+  // over armor equip visuals whenever `weapon` is set, regardless of category).
+  it('applying a template clears weapon/armor/toolAction left over from a previous template', async () => {
+    const onSave = vi.fn()
+    render(<ItemForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_item'), { target: { value: 'testitem' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Test Item' } })
+    fireEvent.change(screen.getByLabelText('Description (crafting + inspect)'), { target: { value: 'A test item' } })
+
+    fireEvent.click(screen.getByText('Sword', { selector: '.tpl-card' }))
+    expect((screen.getByLabelText('Category') as HTMLSelectElement).value).toBe('weapon')
+
+    fireEvent.click(screen.getByText('Armor', { selector: '.tpl-card' }))
+    expect((screen.getByLabelText('Category') as HTMLSelectElement).value).toBe('armor')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.category).toBe('armor')
+    expect(saved.armor).toMatchObject({ condition: 100, absorption: 0.8 })
+    expect(saved.weapon).toBeUndefined()
+  })
 })
