@@ -63,9 +63,15 @@ function generateReadme(project: ModProject): string {
   if (project.characters.length > 0) {
     lines.push('- **Personagens**: builds em `anim/`, ícone de seleção e ícone de minimapa.')
     for (const character of project.characters) {
-      lines.push(
-        `  - \`${character.id}\`: por padrão usa o build do Wilson como placeholder (arquivo carrega, mas com a aparência do Wilson) — troque \`anim/player_wilson*.zip\` no prefab por um build próprio.`,
-      )
+      if (character.animation?.source === 'vanilla') {
+        lines.push(
+          `  - \`${character.id}\`: reaproveita o build "${character.animation.build}" do jogo base como placeholder visual — nenhum \`anim/*.zip\` próprio é necessário, mas a aparência final ainda será a desse personagem vanilla até você trocar por um build real.`,
+        )
+      } else {
+        lines.push(
+          `  - \`${character.id}\`: precisa de \`anim/${character.id}.zip\` (build/bank próprio) e \`anim/ghost_${character.id}_build.zip\` (build de fantasma).`,
+        )
+      }
     }
   }
   if (project.creatures.length > 0) {
@@ -147,12 +153,43 @@ function findDuplicatePrefabId(project: ModProject): string | undefined {
   return undefined
 }
 
+// A 'linkedContainer' spellbook (item.ts) reads its spells at runtime from
+// another item's container contents by prefab id — a single item's own zod
+// schema can't see its siblings, so this cross-item reference is only
+// checkable once the whole project is in hand, same reasoning as
+// findDuplicatePrefabId above. "spell" is a fixed convention (spellDef items
+// always get AddTag("spell"), see item.ts) — the referenced container must
+// actually accept them, or every codex silently rejects every spell.
+function findBrokenSpellbookContainerLink(project: ModProject): string | undefined {
+  for (const item of project.items) {
+    if (item.spellbook?.source !== 'linkedContainer') continue
+
+    const containerItemId = item.spellbook.containerItemId
+    const target = project.items.find((i) => i.id === containerItemId)
+    if (target === undefined) {
+      return `Item "${item.id}"'s spellbook points to container item "${containerItemId}", but no item with that id exists in this mod.`
+    }
+    if (target.container === undefined) {
+      return `Item "${item.id}"'s spellbook points to "${containerItemId}", but that item has no container set up.`
+    }
+    if (target.container.acceptsTag !== 'spell') {
+      return `Item "${item.id}"'s spellbook points to "${containerItemId}"'s container, but that container's "accepts tag" isn't set to "spell" — it would reject every spell item placed in it.`
+    }
+  }
+  return undefined
+}
+
 export function buildModFiles(project: ModProject): Record<string, string> {
   const duplicateId = findDuplicatePrefabId(project)
   if (duplicateId) {
     throw new Error(
       `The id "${duplicateId}" is used by more than one item/character/creature — each needs a unique id, since they all generate scripts/prefabs/${duplicateId}.lua.`,
     )
+  }
+
+  const brokenSpellbookLink = findBrokenSpellbookContainerLink(project)
+  if (brokenSpellbookLink) {
+    throw new Error(brokenSpellbookLink)
   }
 
   const files: Record<string, string> = {

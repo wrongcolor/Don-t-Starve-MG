@@ -47,6 +47,25 @@ describe('buildModFiles', () => {
     expect(readme).toContain('confirme em-jogo')
   })
 
+  it('documents a custom-build character needing its own anim/ghost zips in the README, not a hardcoded Wilson placeholder', () => {
+    const readme = files['README.md']
+    expect(readme).toContain('precisa de `anim/testchar.zip` (build/bank próprio) e `anim/ghost_testchar_build.zip`')
+    expect(readme).not.toContain('player_wilson')
+    expect(readme).not.toContain('build do Wilson')
+  })
+
+  it('tells apart a vanilla-build character (no anim.zip needed) from a custom-build one in the README', () => {
+    const vanillaCharProject = {
+      ...sampleProject,
+      characters: [
+        { ...sampleProject.characters[0], animation: { source: 'vanilla' as const, build: 'wendy' } },
+      ],
+    }
+    const readme = buildModFiles(vanillaCharProject)['README.md']
+    expect(readme).toContain('reaproveita o build "wendy" do jogo base como placeholder visual')
+    expect(readme).not.toContain('anim/testchar.zip')
+  })
+
   it('does not include the shared mana component/widget files when no character has mana', () => {
     expect(files['scripts/components/mana.lua']).toBeUndefined()
     expect(files['scripts/widgets/manabadge.lua']).toBeUndefined()
@@ -68,6 +87,46 @@ describe('buildModFiles', () => {
       characters: [{ ...sampleProject.characters[0], id: sampleProject.items[0].id }],
     }
     expect(() => buildModFiles(colliding)).toThrow(sampleProject.items[0].id)
+  })
+
+  // A linkedContainer spellbook (item.ts) reads its spells from another
+  // item's container at runtime by prefab id — none of that is checkable by
+  // a single item's own zod schema, so it's validated once here across the
+  // whole project, same as the duplicate-id check above.
+  describe('linkedContainer spellbook cross-item validation', () => {
+    const trinket = sampleProject.items[1]
+    const staff = { ...trinket, id: 'teststaff', spellbook: { source: 'linkedContainer' as const, containerItemId: 'testcodex' } }
+
+    it('rejects a spellbook pointing at an item id that does not exist in the project', () => {
+      const project = { ...sampleProject, items: [...sampleProject.items, staff] }
+      expect(() => buildModFiles(project)).toThrow('testcodex')
+    })
+
+    it('rejects a spellbook pointing at an item with no container', () => {
+      const codexWithoutContainer = { ...trinket, id: 'testcodex' }
+      const project = { ...sampleProject, items: [...sampleProject.items, staff, codexWithoutContainer] }
+      expect(() => buildModFiles(project)).toThrow('no container')
+    })
+
+    it('rejects a spellbook pointing at a container whose acceptsTag is not "spell"', () => {
+      const codexWithWrongTag = {
+        ...trinket,
+        id: 'testcodex',
+        container: { widget: { source: 'custom' as const, slots: 3, columns: 3 }, sideWidget: true, acceptsTag: 'trinket' },
+      }
+      const project = { ...sampleProject, items: [...sampleProject.items, staff, codexWithWrongTag] }
+      expect(() => buildModFiles(project)).toThrow('spell')
+    })
+
+    it('accepts a correctly wired spellbook + linked container pair', () => {
+      const codex = {
+        ...trinket,
+        id: 'testcodex',
+        container: { widget: { source: 'custom' as const, slots: 3, columns: 3 }, sideWidget: true, acceptsTag: 'spell' },
+      }
+      const project = { ...sampleProject, items: [...sampleProject.items, staff, codex] }
+      expect(() => buildModFiles(project)).not.toThrow()
+    })
   })
 })
 

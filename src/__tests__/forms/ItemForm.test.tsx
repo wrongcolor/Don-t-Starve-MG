@@ -161,6 +161,54 @@ describe('ItemForm', () => {
     expect(saved.spellbook.spells[1].manaCost).toBeUndefined()
   })
 
+  it('switching the spellbook to "read from a container" hides the spell list and submits a containerItemId instead', async () => {
+    const onSave = vi.fn()
+    render(<ItemForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_item'), { target: { value: 'sunstaff' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Sun Staff' } })
+    fireEvent.change(screen.getByLabelText('Description (crafting + inspect)'), { target: { value: 'A staff' } })
+
+    fireEvent.click(screen.getByText('Spellbook (menu of spells to pick from)'))
+    fireEvent.click(screen.getByText('Read from a container item (e.g. a codex)'))
+
+    expect(screen.queryByText('+ Add spell')).toBeNull()
+    fireEvent.change(screen.getByPlaceholderText('suncodex'), { target: { value: 'suncodex' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.spellbook).toEqual({ source: 'linkedContainer', containerItemId: 'suncodex' })
+  })
+
+  it('marking an item as a spell disables its own spellbook checkbox, and submits the spellDef', async () => {
+    const onSave = vi.fn()
+    render(<ItemForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_item'), { target: { value: 'sunbeamspell' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Sunbeam' } })
+    fireEvent.change(screen.getByLabelText('Description (crafting + inspect)'), { target: { value: 'A spell' } })
+
+    fireEvent.click(screen.getByText("It's a spell (goes inside another item's linked-container spellbook)"))
+    const spellbookCheckbox = screen
+      .getByText(/Spellbook \(menu of spells to pick from\)/)
+      .closest('label')
+      ?.querySelector('input') as HTMLInputElement
+    expect(spellbookCheckbox.disabled).toBe(true)
+
+    fireEvent.change(screen.getByPlaceholderText('Spell label (e.g. Sunbeam)'), { target: { value: 'Sunbeam' } })
+    fireEvent.change(screen.getByPlaceholderText('prefab to spawn (e.g. stafflight)'), { target: { value: 'stafflight' } })
+    fireEvent.change(screen.getByPlaceholderText('Mana cost'), { target: { value: '20' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.spellDef).toEqual({ label: 'Sunbeam', summonPrefab: 'stafflight', manaCost: 20 })
+    expect(saved.spellbook).toBeUndefined()
+  })
+
   // applyTemplate only ever patches the fields ITS OWN archetype cares about —
   // the Armor template's patch never mentions `weapon`. Before the fix, a
   // previously-applied Sword template's `weapon` stayed on the item, invisible

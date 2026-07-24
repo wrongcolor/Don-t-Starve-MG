@@ -226,6 +226,7 @@ describe('generateItemFiles', () => {
       ...trinket,
       id: 'testspellbook',
       spellbook: {
+        source: 'static',
         spells: [
           { label: 'Summon Light', summonPrefab: 'stafflight' },
           { label: 'Summon Fireflies', summonPrefab: 'firefly' },
@@ -252,6 +253,7 @@ describe('generateItemFiles', () => {
       ...trinket,
       id: 'testmanastaff',
       spellbook: {
+        source: 'static',
         spells: [
           { label: 'Sunbeam', summonPrefab: 'stafflight', manaCost: 10 },
           { label: 'Free Spark', summonPrefab: 'firefly' },
@@ -274,6 +276,7 @@ describe('generateItemFiles', () => {
       ...trinket,
       spellEffect: 'createLight',
       spellbook: {
+        source: 'static',
         spells: [
           { label: 'A', summonPrefab: 'x' },
           { label: 'B', summonPrefab: 'y' },
@@ -284,8 +287,144 @@ describe('generateItemFiles', () => {
   })
 
   it('rejects a spellbook with fewer than 2 spells', () => {
-    const oneSpell: ItemDef = { ...trinket, spellbook: { spells: [{ label: 'A', summonPrefab: 'x' }] } }
+    const oneSpell: ItemDef = {
+      ...trinket,
+      spellbook: { source: 'static', spells: [{ label: 'A', summonPrefab: 'x' }] },
+    }
     expect(itemDefSchema.safeParse(oneSpell).success).toBe(false)
+  })
+
+  // Confirmed against the real game scripts (docs/dst-knowledge/patterns.md#62):
+  // SetShouldOpenFn rebuilds the spell list from whatever sits inside the
+  // linked container's slots right before the spell wheel opens, instead of a
+  // fixed SPELLBOOK_SPELLS table baked in at generation time.
+  it('wires a linkedContainer spellbook to rebuild its spells from another item at open time', () => {
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkedstaff',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const code = generateItemPrefab(linked)
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+
+    expect(code).toContain('inst:AddComponent("spellbook")')
+    expect(code).not.toContain('SPELLBOOK_SPELLS')
+    expect(code).toContain('local function rebuild_spellbook_items(user)')
+    expect(code).toContain('return item.prefab == "testcodex"')
+    expect(code).toContain('for slot = 1, codex.components.container.numslots do')
+    expect(code).toContain('local spellitem = codex.components.container.slots[slot]')
+    expect(code).toContain('inst.components.spellbook:SetShouldOpenFn(function(inst, user)')
+    expect(code).toContain('inst.components.spellbook:SetItems(items)')
+  })
+
+  it('spends the slot item\'s own mana cost when casting a linkedContainer spell', () => {
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkedstaff2',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const code = generateItemPrefab(linked)
+    expect(code).toContain('not user.components.mana:Spend(spellitem.spell_manacost)')
+  })
+
+  // Confirmed real, always-present vanilla API (docs/dst-knowledge/patterns.md#62):
+  // health/sanity/hunger components' :DoDelta(n) — same mechanism the base game
+  // already uses everywhere for damage/healing/hunger loss. Lets a spell be a
+  // direct buff instead of only "spawn a prefab at the caster".
+  it('applies a static spell\'s health/sanity/hunger deltas to the caster, and skips SpawnPrefab when no prefab is set', () => {
+    const buffStaff: ItemDef = {
+      ...trinket,
+      id: 'testbuffstaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          { label: 'Solstice Blessing', healthDelta: 15, sanityDelta: 15 },
+          { label: 'Sunfed', hungerDelta: 25 },
+        ],
+      },
+    }
+    const code = generateItemPrefab(buffStaff)
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+
+    expect(code).not.toContain('SpawnPrefab')
+    expect(code).toContain('if user.components.health ~= nil then')
+    expect(code).toContain('user.components.health:DoDelta(15)')
+    expect(code).toContain('if user.components.sanity ~= nil then')
+    expect(code).toContain('user.components.sanity:DoDelta(15)')
+    expect(code).toContain('if user.components.hunger ~= nil then')
+    expect(code).toContain('user.components.hunger:DoDelta(25)')
+  })
+
+  it('reads the slot item\'s own stat deltas at runtime when casting a linkedContainer spell', () => {
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkedstaff3',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const code = generateItemPrefab(linked)
+    expect(code).toContain('if spellitem.spell_healthdelta ~= nil and user.components.health ~= nil then')
+    expect(code).toContain('user.components.health:DoDelta(spellitem.spell_healthdelta)')
+    expect(code).toContain('if spellitem.spell_sanitydelta ~= nil and user.components.sanity ~= nil then')
+    expect(code).toContain('if spellitem.spell_hungerdelta ~= nil and user.components.hunger ~= nil then')
+    expect(code).toContain('if spellitem.spell_summonprefab ~= nil then')
+  })
+
+  it('marks a pure stat-effect spellDef item with nil summonPrefab and the right deltas', () => {
+    const spell: ItemDef = {
+      ...trinket,
+      id: 'testblessingspell',
+      spellDef: { label: 'Solstice Blessing', healthDelta: 15, sanityDelta: 15 },
+    }
+    const code = generateItemPrefab(spell)
+    expect(code).toContain('inst.spell_summonprefab = nil')
+    expect(code).toContain('inst.spell_healthdelta = 15')
+    expect(code).toContain('inst.spell_sanitydelta = 15')
+    expect(code).toContain('inst.spell_hungerdelta = nil')
+  })
+
+  it('rejects a spell with no prefab and no stat effect at all', () => {
+    const emptySpell: ItemDef = {
+      ...trinket,
+      spellbook: {
+        source: 'static',
+        spells: [{ label: 'Nothing' }, { label: 'Sunbeam', summonPrefab: 'stafflight' }],
+      },
+    }
+    expect(itemDefSchema.safeParse(emptySpell).success).toBe(false)
+  })
+
+  it('marks a spellDef item with the "spell" tag and stores its cast data on the instance', () => {
+    const spell: ItemDef = {
+      ...trinket,
+      id: 'testspellitem',
+      spellDef: { label: 'Sunbeam', summonPrefab: 'stafflight', manaCost: 20 },
+    }
+    const code = generateItemPrefab(spell)
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+
+    expect(code).toContain('inst:AddTag("spell")')
+    expect(code).toContain('inst.spell_label = "Sunbeam"')
+    expect(code).toContain('inst.spell_summonprefab = "stafflight"')
+    expect(code).toContain('inst.spell_manacost = 20')
+  })
+
+  it('leaves spell_manacost nil for a spellDef item with no mana cost set', () => {
+    const spell: ItemDef = {
+      ...trinket,
+      id: 'testfreespellitem',
+      spellDef: { label: 'Fireflies', summonPrefab: 'firefly' },
+    }
+    const code = generateItemPrefab(spell)
+    expect(code).toContain('inst.spell_manacost = nil')
+  })
+
+  it('rejects an item that is both a spell and a spell caster', () => {
+    const both: ItemDef = {
+      ...trinket,
+      spellDef: { label: 'Sunbeam', summonPrefab: 'stafflight' },
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    expect(itemDefSchema.safeParse(both).success).toBe(false)
   })
 
   it('rejects an item with both finiteuses and perishable set as durability', () => {

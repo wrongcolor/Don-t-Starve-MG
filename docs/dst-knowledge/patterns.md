@@ -2955,3 +2955,86 @@ retangular padrão (`status_meter`); regeneração condicionada a estar em luz
 solar/sombra ou qualquer outra condição contextual (o mod de origem, sendo
 sobre medo, teria a lógica inversa disso, mas não confirmamos nenhum exemplo
 real de regen condicional pra copiar com segurança).
+
+## 62. Spellbook alimentado por outro item (livro de feitiços "de verdade") — **implementado**
+
+Motivação: até aqui, `ItemDef.spellbook.spells` (seção 29) era sempre uma
+lista fixa, decidida na hora de gerar o mod. O pedido real era um par de
+itens tipo "Grimório + Cajado": o jogador crafta itens-feitiço avulsos,
+guarda até 3 deles dentro do grimório (um `container`, seção 20), e o
+cajado deve oferecer exatamente os feitiços que estiverem, NAQUELE
+momento, dentro do grimório — sem lista fixa nenhuma.
+
+Fonte: os mesmos scripts do jogo base já lidos pra seções 20 e 29
+(`Original/components/components/{spellbook,container,inventory}.lua`,
+`Original/scripts/actions.lua`).
+
+**Confirmado, ponto-chave:** `SpellBook:SetShouldOpenFn(fn)` já existe (visto
+na seção 29, mas não usado até agora) e `ShouldOpen(user)` roda exatamente
+antes de abrir a roda de feitiços de verdade —
+`ACTIONS.USESPELLBOOK.pre_action_cb` (`actions.lua`) faz
+`if target.components.spellbook:ShouldOpen(act.doer) then
+target.components.spellbook:OpenSpellBook(act.doer) end`. Ou seja: dá pra
+reconstruir a lista de feitiços bem ali, chamando `SetItems(...)` de novo,
+sem nenhum polling por frame nem evento de rede extra.
+
+**Confirmado (ler o conteúdo do outro item):**
+- `Container:` guarda os itens em `self.slots` (tabela `slot -> item`) e
+  `self.numslots` (tamanho) — simples de iterar com um `for`.
+- `Inventory:FindItem(fn)` é uma API real e já pronta pra achar um item
+  específico carregado (checa `itemslots`, item ativo na mão, e contêiner de
+  overflow) só por um predicado — usamos `item.prefab == "<id>"`.
+
+**Implementado:**
+- `spellbookSchema` (`src/types/modProject.ts`) virou uma união discriminada
+  por `source`: `'static'` (o comportamento de sempre, lista fixa) ou
+  `'linkedContainer'` (`containerItemId`: o id de outro item do mesmo mod).
+- Novo `ItemDef.spellDef` (reaproveita o mesmo shape `spellbookSpellSchema`
+  de sempre — um "item-feitiço" é só um `{label, summonPrefab, manaCost}`
+  que mora dentro de um item em vez de dentro de uma lista) — gera
+  `inst:AddTag("spell")` + `inst.spell_label`/`spell_summonprefab`/
+  `spell_manacost` gravados na própria instância do item, pra qualquer
+  contêiner que o receba conseguir ler esses dados depois.
+- `src/generators/item.ts`: no modo `'linkedContainer'`, em vez da tabela
+  `SPELLBOOK_SPELLS` fixa, gera `rebuild_spellbook_items(user)` (acha o item
+  com `container` pelo prefab id via `Inventory:FindItem`, itera
+  `container.slots[1..numslots]`, monta uma entrada por slot ocupado lendo
+  os 3 campos `spell_*`) e liga isso via
+  `spellbook:SetShouldOpenFn(function(inst, user) ... SetItems(items) ...
+  end)`.
+- Validação cruzada (`src/generators/zipBuilder.ts`, mesmo lugar/estilo do
+  `findDuplicatePrefabId` — um item isolado não consegue validar contra seus
+  irmãos): o `containerItemId` referenciado precisa existir no projeto, ter
+  `container` configurado, e esse `container.acceptsTag` precisa ser
+  exatamente `"spell"` — convenção fixa, não configurável, já que todo item
+  `spellDef` sempre ganha essa tag.
+- UI (`ItemForm.tsx`): alterna estático/`linkedContainer` com o mesmo padrão
+  de `icon-toggle-row` já usado pro modo de `container.widget` (vanilla/
+  custom); novo checkbox "It's a spell" na seção "Special mechanics",
+  mutuamente exclusivo com ter um `spellbook` no mesmo item.
+
+**Fora de escopo:** o tamanho do grimório (quantos slots aceitam feitiço) não
+tem nenhuma regra especial — é só o `container.widget.slots` de sempre
+(seção 20), sem um teto "no máximo 3" imposto pelo schema; quem decide isso é
+quem monta o mod. Também não modelamos nenhuma prioridade/ordem especial
+entre slots — a lista gerada segue a ordem física dos slots do contêiner
+(`slot = 1, numslots`).
+
+**Extensão (mesma sessão): feitiço como efeito direto, não só "spawnar um
+prefab".** Motivação real: o mecanismo de spellbook sempre foi só
+`SpawnPrefab` no próprio personagem — não dá pra modelar algo como "cura" ou
+"restaura fome" só com isso, porque nenhum prefab vanilla simples faz esse
+tipo de auto-aplicação ao spawnar. `spellbookSpellSchema` ganhou 3 campos
+opcionais novos, `healthDelta`/`sanityDelta`/`hungerDelta`, aplicados via
+`user.components.<health|sanity|hunger>:DoDelta(n)` — a mesma API real,
+sempre presente, que o jogo inteiro já usa pra qualquer ganho/perda desses
+três stats (não é um mecanismo inventado). `summonPrefab` virou opcional
+(antes era obrigatório): um feitiço agora pode ser só um efeito de stat, só
+um summon, ou os dois juntos — um refine novo exige que pelo menos um dos
+quatro (`summonPrefab`/3 deltas) esteja setado, pra nenhum feitiço "não
+fazer nada". Gerado em `src/generators/item.ts` tanto no modo estático
+(valores literais, condicionais por spell na hora de gerar) quanto no
+`linkedContainer` (os 3 campos somam-se a `spell_summonprefab`/
+`spell_manacost` já gravados na instância do item-feitiço — seção acima —,
+lidos e aplicados em runtime pela função de cast genérica, incondicionalmente,
+já que o item real só é conhecido quando o slot é lido).

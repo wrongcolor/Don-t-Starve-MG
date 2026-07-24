@@ -1,4 +1,4 @@
-import type { ItemDef, Container } from '../types/modProject'
+import type { ItemDef, Container, SpellbookSpell } from '../types/modProject'
 import { luaString, toUpperSnake } from './luaUtils'
 import { groundAttackFunctionBlock } from './groundAttack'
 
@@ -211,8 +211,27 @@ function needsSpellbook(item: ItemDef): boolean {
   return item.spellbook !== undefined
 }
 
-function spellbookFunctionBlock(item: ItemDef): string[] {
-  const spells = item.spellbook?.spells ?? []
+// Confirmed real, always-present vanilla API (docs/dst-knowledge/patterns.md#62):
+// health/sanity/hunger components' :DoDelta(n) is the same mechanism the base
+// game already uses everywhere for damage/healing/hunger loss. Shared by both
+// the static and linkedContainer spellbook codegen below.
+function spellEffectDeltaLines(spell: SpellbookSpell, actor: string, indent: string): string[] {
+  const lines: string[] = []
+  const deltas: [string, number | undefined][] = [
+    ['health', spell.healthDelta],
+    ['sanity', spell.sanityDelta],
+    ['hunger', spell.hungerDelta],
+  ]
+  for (const [component, delta] of deltas) {
+    if (delta === undefined) continue
+    lines.push(`${indent}if ${actor}.components.${component} ~= nil then`)
+    lines.push(`${indent}    ${actor}.components.${component}:DoDelta(${delta})`)
+    lines.push(`${indent}end`)
+  }
+  return lines
+}
+
+function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   const lines: string[] = []
 
   spells.forEach((spell, index) => {
@@ -226,10 +245,13 @@ function spellbookFunctionBlock(item: ItemDef): string[] {
       lines.push('        return false')
       lines.push('    end')
     }
-    lines.push(`    local fx = SpawnPrefab(${luaString(spell.summonPrefab)})`)
-    lines.push('    if fx ~= nil then')
-    lines.push('        fx.Transform:SetPosition(user.Transform:GetWorldPosition())')
-    lines.push('    end')
+    lines.push(...spellEffectDeltaLines(spell, 'user', '    '))
+    if (spell.summonPrefab !== undefined) {
+      lines.push(`    local fx = SpawnPrefab(${luaString(spell.summonPrefab)})`)
+      lines.push('    if fx ~= nil then')
+      lines.push('        fx.Transform:SetPosition(user.Transform:GetWorldPosition())')
+      lines.push('    end')
+    }
     lines.push('    if inst.components.finiteuses ~= nil then')
     lines.push('        inst.components.finiteuses:Use(1)')
     lines.push('    end')
@@ -259,6 +281,83 @@ function spellbookFunctionBlock(item: ItemDef): string[] {
   lines.push('}')
   lines.push('')
   return lines
+}
+
+// Confirmed against the real game scripts (docs/dst-knowledge/patterns.md#62):
+// SetShouldOpenFn(fn)/ShouldOpen(user) runs right before the spell wheel
+// opens (actions.lua's USESPELLBOOK.pre_action_cb calls ShouldOpen then
+// OpenSpellBook), which is the right moment to rebuild SetItems from
+// whatever "spell"-tagged items currently sit inside the linked container —
+// container.lua's self.slots/self.numslots and inventory.lua's
+// Inventory:FindItem are both real, confirmed APIs.
+function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[] {
+  const lines: string[] = []
+  lines.push('local function spellbook_cast_from_slotitem(spellitem)')
+  lines.push('    return function(inst, user)')
+  lines.push('        if spellitem.spell_manacost ~= nil and user.components.mana ~= nil')
+  lines.push('            and not user.components.mana:Spend(spellitem.spell_manacost) then')
+  lines.push('            return false')
+  lines.push('        end')
+  lines.push('        if spellitem.spell_healthdelta ~= nil and user.components.health ~= nil then')
+  lines.push('            user.components.health:DoDelta(spellitem.spell_healthdelta)')
+  lines.push('        end')
+  lines.push('        if spellitem.spell_sanitydelta ~= nil and user.components.sanity ~= nil then')
+  lines.push('            user.components.sanity:DoDelta(spellitem.spell_sanitydelta)')
+  lines.push('        end')
+  lines.push('        if spellitem.spell_hungerdelta ~= nil and user.components.hunger ~= nil then')
+  lines.push('            user.components.hunger:DoDelta(spellitem.spell_hungerdelta)')
+  lines.push('        end')
+  lines.push('        if spellitem.spell_summonprefab ~= nil then')
+  lines.push('            local fx = SpawnPrefab(spellitem.spell_summonprefab)')
+  lines.push('            if fx ~= nil then')
+  lines.push('                fx.Transform:SetPosition(user.Transform:GetWorldPosition())')
+  lines.push('            end')
+  lines.push('        end')
+  lines.push('        if inst.components.finiteuses ~= nil then')
+  lines.push('            inst.components.finiteuses:Use(1)')
+  lines.push('        end')
+  lines.push('        return true')
+  lines.push('    end')
+  lines.push('end')
+  lines.push('')
+  lines.push('local function rebuild_spellbook_items(user)')
+  lines.push('    local codex = user.components.inventory ~= nil and user.components.inventory:FindItem(function(item)')
+  lines.push(`        return item.prefab == ${luaString(containerItemId)}`)
+  lines.push('    end)')
+  lines.push('    if codex == nil or codex.components.container == nil then')
+  lines.push('        return nil')
+  lines.push('    end')
+  lines.push('')
+  lines.push('    local items = {}')
+  lines.push('    for slot = 1, codex.components.container.numslots do')
+  lines.push('        local spellitem = codex.components.container.slots[slot]')
+  lines.push('        if spellitem ~= nil and spellitem.spell_label ~= nil then')
+  lines.push('            table.insert(items, {')
+  lines.push('                label = spellitem.spell_label,')
+  lines.push('                onselect = function(inst)')
+  lines.push('                    inst.components.spellbook:SetSpellName(spellitem.spell_label)')
+  lines.push('                    inst.components.spellbook:SetSpellFn(spellbook_cast_from_slotitem(spellitem))')
+  lines.push('                end,')
+  lines.push('                execute = function(inst)')
+  lines.push('                    local inventory = ThePlayer.replica.inventory')
+  lines.push('                    if inventory ~= nil then')
+  lines.push('                        inventory:CastSpellBookFromInv(inst)')
+  lines.push('                    end')
+  lines.push('                end,')
+  lines.push('            })')
+  lines.push('        end')
+  lines.push('    end')
+  lines.push('    return items')
+  lines.push('end')
+  lines.push('')
+  return lines
+}
+
+function spellbookFunctionBlock(item: ItemDef): string[] {
+  if (item.spellbook?.source === 'linkedContainer') {
+    return linkedContainerSpellbookFunctionBlock(item.spellbook.containerItemId)
+  }
+  return staticSpellbookFunctionBlock(item.spellbook?.source === 'static' ? item.spellbook.spells : [])
 }
 
 function needsOnEaten(item: ItemDef): boolean {
@@ -337,6 +436,16 @@ function componentBlock(item: ItemDef): string {
 
   lines.push('    inst:AddComponent("inspectable")')
   lines.push('    inst:AddComponent("inventoryitem")')
+
+  if (item.spellDef) {
+    lines.push('')
+    lines.push(`    inst.spell_label = ${luaString(item.spellDef.label)}`)
+    lines.push(`    inst.spell_summonprefab = ${item.spellDef.summonPrefab !== undefined ? luaString(item.spellDef.summonPrefab) : 'nil'}`)
+    lines.push(`    inst.spell_manacost = ${item.spellDef.manaCost ?? 'nil'}`)
+    lines.push(`    inst.spell_healthdelta = ${item.spellDef.healthDelta ?? 'nil'}`)
+    lines.push(`    inst.spell_sanitydelta = ${item.spellDef.sanityDelta ?? 'nil'}`)
+    lines.push(`    inst.spell_hungerdelta = ${item.spellDef.hungerDelta ?? 'nil'}`)
+  }
 
   if (item.category === 'tool' && item.toolAction) {
     lines.push('')
@@ -440,7 +549,18 @@ function componentBlock(item: ItemDef): string {
   if (needsSpellbook(item)) {
     lines.push('')
     lines.push('    inst:AddComponent("spellbook")')
-    lines.push('    inst.components.spellbook:SetItems(SPELLBOOK_SPELLS)')
+    if (item.spellbook?.source === 'linkedContainer') {
+      lines.push('    inst.components.spellbook:SetShouldOpenFn(function(inst, user)')
+      lines.push('        local items = rebuild_spellbook_items(user)')
+      lines.push('        if items == nil or #items == 0 then')
+      lines.push('            return false')
+      lines.push('        end')
+      lines.push('        inst.components.spellbook:SetItems(items)')
+      lines.push('        return true')
+      lines.push('    end)')
+    } else {
+      lines.push('    inst.components.spellbook:SetItems(SPELLBOOK_SPELLS)')
+    }
   }
 
   if (item.perishable) {
@@ -659,6 +779,11 @@ export function generateItemPrefab(item: ItemDef): string {
     // Needs to be visible client-side too — it's read by the USEITEM component
     // action handler in modmain.lua to decide whether to show the "Combine" action.
     lines.push('    inst:AddTag("combinable_item")')
+  }
+  if (item.spellDef) {
+    // Same reasoning as combinable_item above: a container's itemtestfn checks
+    // this tag, so it needs to be a real networked tag, not just an inst field.
+    lines.push('    inst:AddTag("spell")')
   }
   lines.push('')
   lines.push('    inst.entity:SetPristine()')

@@ -204,26 +204,69 @@ export const SPELL_EFFECTS = ['createLight'] as const
 // from the real thing (which aims at a point and is character-exclusive) to
 // a self-cast SpawnPrefab, the same generalization already used for
 // spellEffect/spellcaster above.
-export const spellbookSpellSchema = z.object({
-  label: z.string().min(1, 'Required'),
-  summonPrefab: z.string().min(1, 'Enter the prefab to spawn (e.g. a light, creature, or projectile id)'),
-  // Only meaningful when the caster has CharacterDef.mana (see characterManaSchema)
-  // — checked and spent before the spell casts; a caster with no mana component
-  // (i.e. not that character) casts for free, same as today.
-  // react-hook-form's valueAsNumber reads the live DOM value at submit time for
-  // uncontrolled inputs, so an untouched blank field submits NaN, not undefined —
-  // accept it and fold it back to undefined instead of failing validation.
-  manaCost: z
-    .number()
-    .min(0)
-    .or(z.nan())
-    .transform((v) => (Number.isNaN(v) ? undefined : v))
-    .optional(),
-})
+// react-hook-form's valueAsNumber reads the live DOM value at submit time for
+// uncontrolled inputs, so an untouched blank field submits NaN, not undefined —
+// accept it and fold it back to undefined instead of failing validation. Shared
+// by manaCost and the three stat deltas below, all of which need this same
+// blank-is-undefined behavior.
+const optionalFormNumber = z
+  .number()
+  .or(z.nan())
+  .transform((v) => (Number.isNaN(v) ? undefined : v))
+  .optional()
 
-export const spellbookSchema = z.object({
-  spells: z.array(spellbookSpellSchema).min(2, 'Add at least 2 spells — with only 1, use the simpler magic effect field instead'),
-})
+export const spellbookSpellSchema = z
+  .object({
+    label: z.string().min(1, 'Required'),
+    // Optional: a spell can be a pure stat effect (see the deltas below)
+    // instead of summoning anything.
+    summonPrefab: z.string().min(1, 'Enter the prefab to spawn (e.g. a light, creature, or projectile id)').optional(),
+    // Only meaningful when the caster has CharacterDef.mana (see characterManaSchema)
+    // — checked and spent before the spell casts; a caster with no mana component
+    // (i.e. not that character) casts for free, same as today.
+    manaCost: optionalFormNumber,
+    // Confirmed real, always-present vanilla API: health/sanity/hunger
+    // components' :DoDelta(n) is the same mechanism damage/healing/hunger loss
+    // already use everywhere in the base game — applied directly to the
+    // caster on cast, positive to restore or negative to drain. Lets a spell
+    // be a direct buff instead of only "spawn a prefab at the caster".
+    healthDelta: optionalFormNumber,
+    sanityDelta: optionalFormNumber,
+    hungerDelta: optionalFormNumber,
+  })
+  .refine(
+    (spell) =>
+      spell.summonPrefab !== undefined ||
+      spell.healthDelta !== undefined ||
+      spell.sanityDelta !== undefined ||
+      spell.hungerDelta !== undefined,
+    {
+      message: 'A spell needs to do something — set a prefab to summon and/or a health/sanity/hunger effect',
+      path: ['summonPrefab'],
+    },
+  )
+
+// 'linkedContainer' reads its spell list live from another item's container
+// contents instead of a fixed list — confirmed against the real game scripts
+// (components/spellbook.lua's SetShouldOpenFn/ShouldOpen, called right
+// before the spell wheel opens in actions.lua's USESPELLBOOK.pre_action_cb;
+// components/container.lua's self.slots/self.numslots;
+// components/inventory.lua's Inventory:FindItem — see
+// docs/dst-knowledge/patterns.md#62). The referenced item must exist in the
+// same project and have a container that accepts "spell"-tagged items
+// (checked once across the whole project in zipBuilder.ts, same place as
+// the duplicate-id check, since a single item's schema can't see its
+// siblings).
+export const spellbookSchema = z.discriminatedUnion('source', [
+  z.object({
+    source: z.literal('static'),
+    spells: z.array(spellbookSpellSchema).min(2, 'Add at least 2 spells — with only 1, use the simpler magic effect field instead'),
+  }),
+  z.object({
+    source: z.literal('linkedContainer'),
+    containerItemId: luaIdentifier,
+  }),
+])
 
 // Sourced from TWO real published Workshop mods (see docs/dst-knowledge/
 // patterns.md#20). Two different confirmed techniques for reusing a vanilla
@@ -362,6 +405,11 @@ export const itemDefSchema = z
     equipWalkSpeedMult: z.number().min(0.1).max(3).optional(),
     spellEffect: z.enum(SPELL_EFFECTS).optional(),
     spellbook: spellbookSchema.optional(),
+    // Marks this item as a "spell" that can sit inside another item's
+    // linked-container spellbook (see spellbookSchema's 'linkedContainer'
+    // mode) — reuses the same {label, summonPrefab, manaCost} shape a static
+    // spellbook entry already has, since it's the same data either way.
+    spellDef: spellbookSpellSchema.optional(),
     edible: edibleSchema.optional(),
     onEatBuff: onEatBuffSchema.optional(),
     // Sourced from a real published Workshop mod ("Repair Combine"), not a vanilla
@@ -460,6 +508,10 @@ export const itemDefSchema = z
   .refine((item) => item.spellbook === undefined || item.spellEffect === undefined, {
     message: 'A spellbook already lets the item cast multiple spells — turn off the single magic effect first',
     path: ['spellbook'],
+  })
+  .refine((item) => item.spellDef === undefined || item.spellbook === undefined, {
+    message: 'An item is either a spell (goes inside a codex) or a spell caster (has a spellbook) — turn one off first',
+    path: ['spellDef'],
   })
   .refine((item) => item.tameBomb === undefined || item.spellEffect === undefined, {
     message: 'A tame cloud already uses the same aim-and-throw mechanism (spellcaster) as the magic effect — turn that off first',

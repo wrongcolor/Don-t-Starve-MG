@@ -97,6 +97,30 @@ function SpellbookEditor({ control, register, setValue, errorMessage }: Spellboo
             title="Mana cost (only matters for a caster with a mana pool — see the character's Mana section)"
             {...register(`spellbook.spells.${index}.manaCost` as const, { valueAsNumber: true })}
           />
+          <input
+            type="number"
+            step="1"
+            className="qty-input"
+            placeholder="Health"
+            title="Instant health change on the caster (negative drains) — leave blank for none"
+            {...register(`spellbook.spells.${index}.healthDelta` as const, { valueAsNumber: true })}
+          />
+          <input
+            type="number"
+            step="1"
+            className="qty-input"
+            placeholder="Sanity"
+            title="Instant sanity change on the caster (negative drains) — leave blank for none"
+            {...register(`spellbook.spells.${index}.sanityDelta` as const, { valueAsNumber: true })}
+          />
+          <input
+            type="number"
+            step="1"
+            className="qty-input"
+            placeholder="Hunger"
+            title="Instant hunger change on the caster (negative drains) — leave blank for none"
+            {...register(`spellbook.spells.${index}.hungerDelta` as const, { valueAsNumber: true })}
+          />
           <button type="button" className={btnDanger} onClick={() => spells.remove(index)}>
             Remove
           </button>
@@ -174,6 +198,8 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const containerWidgetSource = watched.container?.widget?.source ?? 'vanilla'
   const enableAcceptsTag = watched.container?.acceptsTag !== undefined
   const enablePreservation = watched.container?.preservation !== undefined
+  const spellbookSource = watched.spellbook?.source ?? 'static'
+  const enableSpellDef = watched.spellDef !== undefined
   const handheld = category === 'tool' || enableWeapon
   const isHeadArmor = watched.armor?.equipSlot === 'head'
 
@@ -646,29 +672,65 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   <input
                     type="checkbox"
                     checked={enableSpellbook}
-                    disabled={enableSpellEffect}
+                    disabled={enableSpellEffect || enableSpellDef}
                     onChange={(e) => {
                       setEnableSpellbook(e.target.checked)
                       setValue(
                         'spellbook',
                         e.target.checked
-                          ? { spells: [{ label: '', summonPrefab: '' }, { label: '', summonPrefab: '' }] }
+                          ? { source: 'static', spells: [{ label: '', summonPrefab: '' }, { label: '', summonPrefab: '' }] }
                           : undefined,
                       )
                     }}
                   />
                   Spellbook (menu of spells to pick from)
                   {enableSpellEffect && ' (turn off magic effect first)'}
+                  {enableSpellDef && " (this item is itself a spell — turn that off first)"}
                   <InfoTip text="Opens a wheel of spells when used. Each spell just spawns a prefab at the caster — no map targeting (that would need aoetargeting, not modeled here)." />
                 </label>
               </div>
               {enableSpellbook && (
-                <SpellbookEditor
-                  control={control}
-                  register={register}
-                  setValue={setValue}
-                  errorMessage={errors.spellbook?.spells?.message}
-                />
+                <>
+                  <div className="icon-toggle-row" style={{ marginBottom: 12 }}>
+                    <div
+                      className={`icon-toggle ${spellbookSource === 'static' ? 'active' : ''}`}
+                      onClick={() =>
+                        setValue('spellbook', {
+                          source: 'static',
+                          spells: [{ label: '', summonPrefab: '' }, { label: '', summonPrefab: '' }],
+                        })
+                      }
+                    >
+                      Fixed list of spells
+                    </div>
+                    <div
+                      className={`icon-toggle ${spellbookSource === 'linkedContainer' ? 'active' : ''}`}
+                      onClick={() => setValue('spellbook', { source: 'linkedContainer', containerItemId: '' })}
+                    >
+                      Read from a container item (e.g. a codex)
+                    </div>
+                  </div>
+
+                  {spellbookSource === 'static' ? (
+                    <SpellbookEditor
+                      control={control}
+                      register={register}
+                      setValue={setValue}
+                      errorMessage={(errors.spellbook as { spells?: { message?: string } } | undefined)?.spells?.message}
+                    />
+                  ) : (
+                    <FormField
+                      label="Container item id"
+                      hint="The id of another item in this mod with a container that accepts spell items (acceptsTag: spell) — see its Container section."
+                    >
+                      <input
+                        className={inputClass}
+                        placeholder="suncodex"
+                        {...register('spellbook.containerItemId' as const)}
+                      />
+                    </FormField>
+                  )}
+                </>
               )}
 
               {canRecharge && (
@@ -1075,6 +1137,63 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
           </Fieldset>
 
           <Fieldset legend="Special mechanics" step={9}>
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableSpellDef}
+                  disabled={enableSpellbook}
+                  onChange={(e) => setValue('spellDef', e.target.checked ? { label: '', summonPrefab: '' } : undefined)}
+                />
+                It's a spell (goes inside another item's linked-container spellbook)
+                {enableSpellbook && ' (turn off this item\'s own spellbook first)'}
+              </label>
+            </div>
+            {enableSpellDef && (
+              <div className="ingredient-row">
+                <input className={inputClass} placeholder="Spell label (e.g. Sunbeam)" {...register('spellDef.label' as const)} />
+                <input
+                  className={inputClass}
+                  placeholder="prefab to spawn (e.g. stafflight)"
+                  {...register('spellDef.summonPrefab' as const)}
+                />
+                <PrefabPickerButton onSelect={(id) => setValue('spellDef.summonPrefab' as const, id, { shouldDirty: true })} />
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  className="qty-input"
+                  placeholder="Mana cost"
+                  title="Mana cost (only matters for a caster with a mana pool — see the character's Mana section)"
+                  {...register('spellDef.manaCost' as const, { valueAsNumber: true })}
+                />
+                <input
+                  type="number"
+                  step="1"
+                  className="qty-input"
+                  placeholder="Health"
+                  title="Instant health change on the caster (negative drains) — leave blank for none"
+                  {...register('spellDef.healthDelta' as const, { valueAsNumber: true })}
+                />
+                <input
+                  type="number"
+                  step="1"
+                  className="qty-input"
+                  placeholder="Sanity"
+                  title="Instant sanity change on the caster (negative drains) — leave blank for none"
+                  {...register('spellDef.sanityDelta' as const, { valueAsNumber: true })}
+                />
+                <input
+                  type="number"
+                  step="1"
+                  className="qty-input"
+                  placeholder="Hunger"
+                  title="Instant hunger change on the caster (negative drains) — leave blank for none"
+                  {...register('spellDef.hungerDelta' as const, { valueAsNumber: true })}
+                />
+              </div>
+            )}
+
             <div className="checks">
               <label>
                 <input type="checkbox" {...register('nameable')} />

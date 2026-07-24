@@ -121,6 +121,7 @@ export const sampleProject: ModProject = {
       description: 'An item with a spell wheel for testing',
       category: 'generic',
       spellbook: {
+        source: 'static',
         spells: [
           { label: 'Summon Light', summonPrefab: 'stafflight' },
           { label: 'Summon Fireflies', summonPrefab: 'firefly' },
