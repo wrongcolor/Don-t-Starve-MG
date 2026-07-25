@@ -15,6 +15,16 @@ function isVanillaAnimation(structure: StructureDef): boolean {
   return structure.animation?.source === 'vanilla'
 }
 
+// See item.ts's itemRecipeIcon for the full explanation (same recipe.lua mechanism,
+// same crash, same fix) — 'product' is the deployableItem's separate "_item" id when
+// applicable, matching structureRecipeBlock's own product resolution in modmain.ts.
+export function structureRecipeIcon(structure: StructureDef, product: string): { atlas?: string; image: string } {
+  if (isVanillaAnimation(structure)) {
+    return { image: `${resolveAnimationBuild(structure)}.tex` }
+  }
+  return { atlas: `images/inventoryimages/${product}.xml`, image: `${product}.tex` }
+}
+
 function isDeployableItem(structure: StructureDef): boolean {
   return structure.deployMode === 'deployableItem'
 }
@@ -335,8 +345,9 @@ export function generateStructurePrefab(structure: StructureDef): string {
   }
   // A deployableItem structure is never craftable/hoverable directly — the item
   // half (generateStructureItemPrefab) owns the recipe icon, so only IT declares
-  // an INV_IMAGE.
-  if (!isDeployableItem(structure)) {
+  // an INV_IMAGE. A vanilla-sourced structure has no anim/<id>.zip of its own to
+  // derive one from either — see structureRecipeIcon.
+  if (!isDeployableItem(structure) && !isVanillaAnimation(structure)) {
     lines.push(`    Asset("INV_IMAGE", "${structure.id}"),`)
   }
   lines.push('}')
@@ -427,7 +438,9 @@ export function generateStructureItemPrefab(structure: StructureDef): string {
   } else {
     lines.push(`    Asset("ANIM", "anim/${structure.id}.zip"), -- PLACEHOLDER: mesmo build da estrutura, ver README`)
   }
-  lines.push(`    Asset("INV_IMAGE", "${id}"),`)
+  if (!isVanillaAnimation(structure)) {
+    lines.push(`    Asset("INV_IMAGE", "${id}"),`)
+  }
   lines.push('}')
   lines.push('')
   lines.push('local function ondeploy(inst, pt)')

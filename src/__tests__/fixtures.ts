@@ -25,6 +25,7 @@ export const sampleProject: ModProject = {
       displayName: 'Test Sword',
       description: 'A sword for testing',
       category: 'weapon',
+      animation: { source: 'vanilla', build: 'flint' },
       weapon: { damage: 34 },
       finiteuses: { maxUses: 150 },
       recipe: {
@@ -53,6 +54,7 @@ export const sampleProject: ModProject = {
       displayName: 'Test Axe',
       description: 'A tool for testing',
       category: 'tool',
+      animation: { source: 'vanilla', build: 'rocks' },
       toolAction: 'CHOP',
       weapon: { damage: 27 },
       finiteuses: { maxUses: 100, ignoreCombatDurabilityLoss: true },
@@ -67,6 +69,7 @@ export const sampleProject: ModProject = {
       displayName: 'Test Fire Staff',
       description: 'A ranged magic weapon for testing',
       category: 'weapon',
+      animation: { source: 'vanilla', build: 'nightmarefuel' },
       weapon: {
         damage: 0,
         sanityCostOnUse: 3,
@@ -86,6 +89,7 @@ export const sampleProject: ModProject = {
       displayName: 'Test Armor',
       description: 'A body armor for testing',
       category: 'armor',
+      animation: { source: 'vanilla', build: 'log' },
       armor: {
         condition: 450,
         absorption: 0.8,
@@ -107,6 +111,7 @@ export const sampleProject: ModProject = {
       displayName: 'Test Food',
       description: 'A food item for testing',
       category: 'food',
+      animation: { source: 'vanilla', build: 'cutgrass' },
       edible: { foodType: 'MEAT', healthValue: 3, hungerValue: 25, sanityValue: -5 },
       onEatBuff: { damageMultiplier: 0.25, durationSeconds: 120 },
       recipe: {
@@ -120,6 +125,7 @@ export const sampleProject: ModProject = {
       displayName: 'Test Spellbook',
       description: 'An item with a spell wheel for testing',
       category: 'generic',
+      animation: { source: 'vanilla', build: 'goldnugget' },
       spellbook: {
         source: 'static',
         spells: [
@@ -139,6 +145,7 @@ export const sampleProject: ModProject = {
       id: 'teststructure',
       displayName: 'Test Structure',
       description: 'A structure for testing',
+      animation: { source: 'vanilla', build: 'treasurechest' },
       loot: [],
       recipe: {
         ingredients: [{ prefab: 'boards', amount: 4 }],
@@ -147,30 +154,24 @@ export const sampleProject: ModProject = {
       },
     },
   ],
-  characters: [
-    {
-      id: 'testchar',
-      gender: 'NEUTRAL',
-      title: 'the tester',
-      name: 'Testy',
-      description: 'A character for testing',
-      quote: 'I test things.',
-      stats: { health: 150, hunger: 150, sanity: 200 },
-      startingInventory: ['torch', 'flint'],
-      speechOverrides: { ANNOUNCE_COLD: 'It is cold, for science.' },
-      perks: ['freeze_immune'],
-      damageMultiplier: 0.75,
-      hungerRateMultiplier: 0,
-      walkSpeedMultiplier: 1.25,
-      foodTypeAffinities: [{ foodType: 'VEGGIE', multiplier: 1.33 }],
-    },
-  ],
+  // A playable character always needs its OWN bigportraits/<id>.xml for the
+  // character-select screen — confirmed in-game (characterutil.lua's
+  // SetOvalPortraitTexture hardcodes that path by character id, with no
+  // fallback the way GetInventoryItemAtlas covers item icons) — reusing a
+  // vanilla body build doesn't cover it. Left empty here since kitchen_sink's
+  // purpose is validating world-gen/items/creatures in-game, not a playable
+  // character; see mods/vex.ts for a real character (ships its own art).
+  characters: [],
   creatures: [
     {
       id: 'testmob',
       displayName: 'Test Mob',
       description: 'A mob for testing',
-      animation: { source: 'custom' },
+      animation: {
+        source: 'vanilla',
+        build: 'spider',
+        clips: { idle: 'idle', walk: 'walk', atk: 'atk', hit: 'hit', death: 'death' },
+      },
       stats: { health: 100, damage: 20, attackPeriod: 2, walkSpeed: 4 },
       loot: [{ prefab: 'monstermeat', chance: 1 }],
       behavior: 'hostile',
@@ -196,6 +197,11 @@ export const sampleProject: ModProject = {
       id: 'testhound',
       displayName: 'Test Hound',
       description: 'A mob with combat/status effects for testing',
+      animation: {
+        source: 'vanilla',
+        build: 'hound',
+        clips: { idle: 'idle', walk: 'walk', atk: 'atk', hit: 'hit', death: 'death' },
+      },
       stats: { health: 100, damage: 20, attackPeriod: 2, walkSpeed: 6, attackRange: 4 },
       loot: [{ prefab: 'monstermeat', chance: 1 }],
       behavior: 'hostile',

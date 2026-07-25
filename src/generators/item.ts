@@ -40,6 +40,24 @@ function isVanillaAnimation(item: ItemDef): boolean {
   return source === 'vanilla' || source === 'vanillaHat'
 }
 
+// Confirmed against the real scripts/recipe.lua: the `atlas` field passed into
+// AddRecipe2's config is resolved EAGERLY (self.atlas = atlas and resolvefilepath(atlas))
+// and hard-crashes mod loading if that path doesn't exist anywhere — reproduced
+// in-game as "Could not find an asset matching images/inventoryimages/<id>.xml".
+// A 'custom' item's own anim/<id>.zip bakes an INV_IMAGE at exactly that per-mod
+// path, so the atlas/image pair below is correct for it. A 'vanilla'-sourced item
+// has no such per-mod atlas to point at; omitting `atlas` (image-only) instead lets
+// Recipe's own lazy fallback (self.atlas = self.atlas or resolvefilepath
+// (GetInventoryItemAtlas(self.image))) resolve it against the reused build's real,
+// already-loaded shared atlas — same mechanism scripts/widgets/recipepopup.lua uses
+// to look up any existing item's icon by filename.
+export function itemRecipeIcon(item: ItemDef): { atlas?: string; image: string } {
+  if (isVanillaAnimation(item)) {
+    return { image: `${resolveAnimationBuild(item)}.tex` }
+  }
+  return { atlas: `images/inventoryimages/${item.id}.xml`, image: `${item.id}.tex` }
+}
+
 // Confirmed in hats.lua's simple() constructor: a hat's AnimState bank is NOT the
 // same string as its build (unlike every other reuse mode this tool models) — bank
 // is "<name>hat", build is "hat_<name>". Only matters for 'vanillaHat'; every other
@@ -734,7 +752,11 @@ export function generateItemPrefab(item: ItemDef): string {
   if (item.container?.widget.source === 'custom') {
     lines.push(`    Asset("ANIM", "anim/${containerCustomWidgetBuild(item.id)}.zip"), -- PLACEHOLDER: art da UI do contêiner, ver README`)
   }
-  lines.push(`    Asset("INV_IMAGE", "${item.id}"),`)
+  // A vanilla-sourced item has no anim/<id>.zip of its own to derive this from —
+  // declaring it anyway doesn't crash, but it's a dead reference (see itemRecipeIcon).
+  if (!isVanillaAnimation(item)) {
+    lines.push(`    Asset("INV_IMAGE", "${item.id}"),`)
+  }
   lines.push('}')
   lines.push('')
   if (handheld) {

@@ -150,7 +150,9 @@ export const staticLayoutObjectSchema = z.object({
   row: z.number().int().min(0),
   // Matches the real dotted-key convention (e.g. properties["data.setepitaph"] =
   // "Bryce") seen in the source mod — stored as flat key/value pairs here and
-  // exploded into nested Lua tables by the generator.
+  // emitted as-is by the generator; the dotted key is exploded into nested
+  // tables by the game's OWN loader (Original/map/map/static_layout.lua), not
+  // by this repo.
   properties: z.array(z.object({ key: z.string().min(1), value: z.string().min(1) })),
 })
 
