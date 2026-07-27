@@ -1,15 +1,17 @@
 import type { ModProject, ItemDef, StructureDef, CharacterDef, CreatureDef, Container, GroundAttackConfig } from '../types/modProject'
 import { luaString, luaStringArray, toUpperSnake } from './luaUtils'
-import { containerColumns, containerSlotCount, containerCustomWidgetBuild } from './item'
+import { containerColumns, containerSlotCount, containerCustomWidgetBuild, itemRecipeIcon } from './item'
+import { structureRecipeIcon } from './structure'
 
 function itemRecipeBlock(item: ItemDef): string {
   const ingredients = item.recipe.ingredients
     .map((i) => `Ingredient(${luaString(i.prefab)}, ${i.amount})`)
     .join(', ')
 
+  const icon = itemRecipeIcon(item)
   const configLines = [
-    `        atlas = "images/inventoryimages/${item.id}.xml",`,
-    `        image = "${item.id}.tex",`,
+    ...(icon.atlas ? [`        atlas = "${icon.atlas}",`] : []),
+    `        image = "${icon.image}",`,
   ]
 
   const filters = luaStringArray(item.recipe.filters)
@@ -33,9 +35,10 @@ function structureRecipeBlock(structure: StructureDef): string {
     .map((i) => `Ingredient(${luaString(i.prefab)}, ${i.amount})`)
     .join(', ')
 
+  const icon = structureRecipeIcon(structure, product)
   const configLines = [
-    `        atlas = "images/inventoryimages/${product}.xml",`,
-    `        image = "${product}.tex",`,
+    ...(icon.atlas ? [`        atlas = "${icon.atlas}",`] : []),
+    `        image = "${icon.image}",`,
     ...(deployableItem ? [] : [`        placer = "${structure.id}_placer",`]),
   ]
 

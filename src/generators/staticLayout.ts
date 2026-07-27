@@ -95,13 +95,24 @@ ${objects}
 
 // Confirmed in the same real mod: registration is a separate call in modworldgenmain.lua,
 // distinct from the Room that references the layout via contents.countstaticlayouts.
+// No `type = LAYOUT.STATIC` here — reproduced in-game that `LAYOUT` isn't reachable
+// from a mod's sandboxed globals ("attempt to index global 'LAYOUT' (a nil value)"
+// at modworldgenmain.lua load time). Confirmed in the real engine loader
+// (Original/map/map/static_layout.lua's ConvertStaticLayoutToLayout, the function
+// Get(layoutsrc, additionalProps) actually IS): it sets `layout.type = LAYOUT.STATIC`
+// itself, using ITS OWN unsandboxed access to that global — passing it ourselves is
+// both redundant and the thing that crashes.
 export function generateStaticLayoutRegistration(layout: StaticLayoutDef): string {
+  // GLOBAL. prefix confirmed necessary in-game the same way as LAYOUT above:
+  // LAYOUT_POSITION and PLACE_MASK are plain top-level globals in constants.lua,
+  // not on the mod environment's bare-name whitelist (unlike WORLD_TILES/LOCKS/
+  // KEYS, which AddRoom/AddTask expose directly) — GLOBAL is the standard proxy
+  // to the real, unrestricted _G table every mod script has access to.
   return `require("map/layouts").Layouts[${luaString(layout.id)}] =
 require("map/static_layout").Get(${luaString('map/static_layouts/' + layout.id)}, {
-    type = LAYOUT.STATIC,
-    layout_position = LAYOUT_POSITION.${layout.layoutPosition},
-    start_mask = PLACE_MASK.${layout.startMask},
-    fill_mask = PLACE_MASK.${layout.fillMask},
+    layout_position = GLOBAL.LAYOUT_POSITION.${layout.layoutPosition},
+    start_mask = GLOBAL.PLACE_MASK.${layout.startMask},
+    fill_mask = GLOBAL.PLACE_MASK.${layout.fillMask},
 })
 `
 }
