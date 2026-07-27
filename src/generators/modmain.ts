@@ -192,6 +192,14 @@ function creatureTuningBlock(creature: CreatureDef): string[] {
     lines.push(...groundAttackTuningLines(upper, creature.groundAttack))
     lines.push(`GLOBAL.TUNING.${upper}_GROUNDATTACK_COOLDOWN = ${creature.groundAttack.cooldownSeconds}`)
   }
+  if (creature.light !== undefined) {
+    lines.push(`GLOBAL.TUNING.${upper}_LIGHT_RADIUS = ${creature.light.radius}`)
+    lines.push(`GLOBAL.TUNING.${upper}_LIGHT_FALLOFF = ${creature.light.falloff}`)
+    lines.push(`GLOBAL.TUNING.${upper}_LIGHT_INTENSITY = ${creature.light.intensity}`)
+    lines.push(`GLOBAL.TUNING.${upper}_LIGHT_COLOUR_R = ${creature.light.colour.r / 255}`)
+    lines.push(`GLOBAL.TUNING.${upper}_LIGHT_COLOUR_G = ${creature.light.colour.g / 255}`)
+    lines.push(`GLOBAL.TUNING.${upper}_LIGHT_COLOUR_B = ${creature.light.colour.b / 255}`)
+  }
   return lines
 }
 

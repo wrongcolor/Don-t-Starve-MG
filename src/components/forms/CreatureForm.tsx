@@ -77,6 +77,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   const enableCompanion = watched.companion !== undefined
   const canBeFriendly = watched.behavior !== 'hostile'
   const companionTasks = watched.companion?.tasks ?? []
+  const enableLight = watched.light !== undefined
 
   const togglePanicCause = (cause: PanicCause, checked: boolean) => {
     const next = checked ? [...panicCauses, cause] : panicCauses.filter((c) => c !== cause)
@@ -494,6 +495,56 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                       {COMPANION_TASK_LABELS[task]}
                     </label>
                   ))}
+                </div>
+              </>
+            )}
+          </Fieldset>
+
+          <Fieldset legend="Light (optional)" step={9}>
+            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+              Real native API (prefabs/stafflight.lua, the same file the game's own stafflight/emberlight reuse):
+              entity:AddLight() + Light:SetRadius/SetFalloff/SetIntensity/SetColour/Enable.
+            </p>
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableLight}
+                  onChange={(e) =>
+                    setValue(
+                      'light',
+                      e.target.checked
+                        ? { radius: 12, intensity: 0.8, falloff: 0.8, colour: { r: 250, g: 149, b: 18 } }
+                        : undefined,
+                    )
+                  }
+                />
+                Emits light
+              </label>
+            </div>
+            {enableLight && (
+              <>
+                <div className="row-2">
+                  <FormField label="Radius">
+                    <input type="number" step="0.1" min="1" max="20" className={inputClass} {...register('light.radius', { valueAsNumber: true })} />
+                  </FormField>
+                  <FormField label="Intensity">
+                    <input type="number" step="0.05" min="0" max="1" className={inputClass} {...register('light.intensity', { valueAsNumber: true })} />
+                  </FormField>
+                  <FormField label="Falloff">
+                    <input type="number" step="0.05" min="0" max="1" className={inputClass} {...register('light.falloff', { valueAsNumber: true })} />
+                  </FormField>
+                </div>
+                <div className="row-2">
+                  <FormField label="Colour R (0-255)">
+                    <input type="number" min="0" max="255" className={inputClass} {...register('light.colour.r', { valueAsNumber: true })} />
+                  </FormField>
+                  <FormField label="Colour G (0-255)">
+                    <input type="number" min="0" max="255" className={inputClass} {...register('light.colour.g', { valueAsNumber: true })} />
+                  </FormField>
+                  <FormField label="Colour B (0-255)">
+                    <input type="number" min="0" max="255" className={inputClass} {...register('light.colour.b', { valueAsNumber: true })} />
+                  </FormField>
                 </div>
               </>
             )}

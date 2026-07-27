@@ -3185,3 +3185,61 @@ cortina — pulado, só o essencial pra funcionar); customizar a
 parede/chão/textura da porta (um preset único confirmado por enquanto).
 Verificação em jogo (andar pela porta de verdade) não foi possível nesta
 sessão — só a geração do Lua foi conferida (luaparse + leitura manual).
+
+## 65. Creature com luz própria (companheiro decorativo) — API nativa `Light`, `flameball_fx` como visual — **implementado**
+
+Motivação: pedido do usuário — um feitiço do `sunstaff` da Viana que invoca
+uma "bola de fogo" companheira, puramente decorativa, que acompanha a
+personagem e ilumina de verdade (afeta o medidor de escuridão), não só um
+efeito visual estático como o `emberlight` (self-cast, não segue ninguém,
+patterns.md#62).
+
+**Confirmado, mecanismo real:**
+- `prefabs/stafflight.lua` (o mesmo arquivo que já gera `emberlight`/
+  `stafflight`) usa o componente nativo `Light`, não um `AddComponent`
+  comum: `inst.entity:AddLight()` seguido de `inst.Light:SetRadius(n)`,
+  `:SetFalloff(n)`, `:SetIntensity(n)`, `:SetColour(r, g, b)` (floats 0-1) e
+  `:Enable(true)` — todos chamados antes de `entity:SetPristine()`, igual ao
+  resto do bloco de configuração visual.
+- `emberlight` especificamente usa o build `"flameball_fx"` com cor
+  `{250/255, 149/255, 18/255}` (laranja quente) — um visual de bola de fogo
+  já pronto no jogo, sem precisar de arte própria.
+- `flameball_fx` é um build de **efeito** (FX), não um build de **creature**:
+  só tem confirmados os clipes `"pre"` (aparecer) e `"idle_loop"` (loop) —
+  e, crucialmente, `"post"` como clipe de "morte"/desaparecimento, não o
+  `"disappear"` genérico que os outros builds de `stafflight.lua`
+  (`star_hot`/`star_cold`) usam por padrão. `emberlight` só precisou
+  sobrescrever `pre`/`pst` porque `flameball_fx` usa nomes diferentes — forte
+  indício de que `"disappear"` não existe nesse build. Não há confirmação
+  nenhuma de clipes `walk`/`atk`/`hit` (o build nunca anda nem luta no jogo
+  real).
+- Companion (`CreatureDef.companion`, via `Follow` + `FindClosestPlayerToInst`
+  em `src/generators/brain.ts`) já cobria "seguir o personagem" — faltava só
+  a luz de verdade em cima disso.
+
+**Implementado:**
+- `CreatureDef.light: { radius, intensity, falloff, colour: {r,g,b} }`
+  (`src/types/modProject.ts`) — mapeia 1:1 pra API real acima. `colour` usa
+  0-255 por canal (mais amigável em formulário/config) e é dividido por 255
+  na geração de código, não no schema.
+- `src/generators/creature.ts`: `inst.entity:AddLight()` inserido no bloco
+  de componentes de entidade (mesma posição de `stafflight.lua`, antes de
+  `AddNetwork`); `SetRadius`/`SetFalloff`/`SetIntensity`/`SetColour`/
+  `Enable(true)` logo após configurar `AnimState`, antes de `SetPristine()`.
+- `src/generators/modmain.ts`: `TUNING.<ID>_LIGHT_RADIUS/FALLOFF/INTENSITY/
+  COLOUR_R/COLOUR_G/COLOUR_B` — mesma convenção de todo o resto do
+  balanceamento (`WALKSPEED`/`HEALTH`/etc.), a divisão por 255 da cor
+  acontece aqui.
+- UI (`CreatureForm.tsx`/`CreaturePreview.tsx`): seção "Light (optional)"
+  espelhando o padrão de Herd/Kiting/Companion — checkbox + campos de
+  radius/intensity/falloff/colour RGB.
+- `mods/viana.ts`: nova creature `sunwisp` (`companion` + `light`, build
+  `flameball_fx` com os clipes acima, incluindo o `"post"` confirmado pro
+  death) e novo item `sunwispspell` (`spellDef.summonPrefab: 'sunwisp'`)
+  ligado ao `suncodex`/`sunstaff` já existentes.
+
+**Fora de escopo / não confirmado:** os clipes `walk`/`atk`/`hit` de
+`flameball_fx` — usados como placeholder (`"idle_loop"` repetido) até
+verificação em jogo, já que a criatura é passiva e nunca deveria entrar em
+combate de verdade. Se a stategraph reclamar de algum desses clipes ao
+testar, são os primeiros candidatos a ajustar.

@@ -131,6 +131,30 @@ export const viana: ModProject = {
         filters: ['MAGIC'],
       },
     },
+    {
+      // Companion counterpart to emberwispspell above: instead of a momentary
+      // light burst at the caster's feet, this summons a `sunwisp` creature
+      // (CreatureDef.companion + CreatureDef.light, patterns.md#65) that
+      // keeps following Viana and glowing beside her.
+      id: 'sunwispspell',
+      displayName: 'Sun Wisp Spell',
+      description: 'Bind this in the Sun Codex to let the Sun Staff call a small fire spirit that stays glowing by her side.',
+      category: 'generic',
+      // "papyrus" (Original/prefabs/prefabs/papyrus.lua) already follows the
+      // simple bank=build=name convention with a real "idle" clip — no
+      // idleClip override needed, unlike sunstaff/suncodex above.
+      animation: { source: 'vanilla', build: 'papyrus' },
+      spellDef: { label: 'Sun Wisp', summonPrefab: 'sunwisp', manaCost: 35 },
+      recipe: {
+        ingredients: [
+          { prefab: 'twigs', amount: 1 },
+          { prefab: 'goldnugget', amount: 1 },
+          { prefab: 'nightmarefuel', amount: 2 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+      },
+    },
   ],
   structures: [],
   characters: [
@@ -151,7 +175,35 @@ export const viana: ModProject = {
       foodTypeAffinities: [],
     },
   ],
-  creatures: [],
+  creatures: [
+    {
+      // Reuses "flameball_fx" (Original/prefabs/prefabs/stafflight.lua's
+      // emberlight prefab) — an FX build, not a real creature build, so only
+      // "idle_loop" (idle) and "post" (emberlight's own kill/disappear clip,
+      // NOT the generic "disappear" default — flameball_fx needed that
+      // override, meaning it likely doesn't have "disappear" at all) are
+      // confirmed against the real source. "walk"/"atk"/"hit" fall back to
+      // "idle_loop" since this build has no locomotion frames — untested
+      // in-game, adjust these three if the stategraph errors on them.
+      id: 'sunwisp',
+      displayName: 'Sun Wisp',
+      description: 'A small fire spirit, warm and constant, that never strays far from her side.',
+      animation: {
+        source: 'vanilla',
+        build: 'flameball_fx',
+        clips: { idle: 'idle_loop', walk: 'idle_loop', atk: 'idle_loop', hit: 'idle_loop', death: 'post' },
+      },
+      stats: { health: 15, damage: 0, attackPeriod: 2, walkSpeed: 5 },
+      loot: [],
+      behavior: 'passive',
+      tags: [],
+      panicCauses: [],
+      companion: { followDistance: 4, tasks: [] },
+      // Same real Light API + colour emberlight itself uses (stafflight.lua)
+      // — CreatureDef.light, patterns.md#65.
+      light: { radius: 12, intensity: 0.8, falloff: 0.8, colour: { r: 250, g: 149, b: 18 } },
+    },
+  ],
   rooms: [],
   tasks: [],
   staticLayouts: [],

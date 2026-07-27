@@ -918,6 +918,23 @@ export const creatureDefSchema = z
     // combat target — see groundAttackSchema for the real source (Antlion's
     // spike/wall attack). Requires combat, same as kiting below.
     groundAttack: groundAttackSchema.extend({ cooldownSeconds: z.number().min(1) }).optional(),
+    // Confirmed real native API (prefabs/stafflight.lua, the same file the
+    // emberlight/stafflight prefabs already reused for spellDef.summonPrefab):
+    // entity:AddLight() + Light:SetRadius/SetFalloff/SetIntensity/SetColour/
+    // Enable. Colour is 0-255 per channel here (friendlier for a form/config
+    // than the raw 0-1 floats the real API takes) and divided by 255 at codegen.
+    light: z
+      .object({
+        radius: z.number().min(1).max(20),
+        intensity: z.number().min(0).max(1),
+        falloff: z.number().min(0).max(1),
+        colour: z.object({
+          r: z.number().min(0).max(255),
+          g: z.number().min(0).max(255),
+          b: z.number().min(0).max(255),
+        }),
+      })
+      .optional(),
   })
   .refine((creature) => creature.kiting === undefined || creature.behavior !== 'passive', {
     message: 'Kiting requires neutral or hostile behavior — a passive creature never fights',

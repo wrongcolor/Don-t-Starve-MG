@@ -220,4 +220,27 @@ describe('generateCreatureFiles', () => {
     expect(code).not.toContain('dogroundattack')
     expect(code).not.toContain('TryGroundAttack')
   })
+
+  it('wires a real Light component when light is set, but not otherwise (patterns.md#65)', () => {
+    expect(generateCreaturePrefab(creature)).not.toContain('AddLight')
+    expect(generateCreaturePrefab(creature)).not.toContain('inst.Light')
+
+    const glowing: CreatureDef = { ...creature, light: { radius: 12, intensity: 0.8, falloff: 0.8, colour: { r: 250, g: 149, b: 18 } } }
+    const code = generateCreaturePrefab(glowing)
+    expect(code).toContain('inst.entity:AddLight()')
+    expect(code).toContain('inst.Light:SetRadius(TUNING.TESTMOB_LIGHT_RADIUS)')
+    expect(code).toContain('inst.Light:SetFalloff(TUNING.TESTMOB_LIGHT_FALLOFF)')
+    expect(code).toContain('inst.Light:SetIntensity(TUNING.TESTMOB_LIGHT_INTENSITY)')
+    expect(code).toContain('inst.Light:SetColour(TUNING.TESTMOB_LIGHT_COLOUR_R, TUNING.TESTMOB_LIGHT_COLOUR_G, TUNING.TESTMOB_LIGHT_COLOUR_B)')
+    expect(code).toContain('inst.Light:Enable(true)')
+
+    const addLightIdx = code.indexOf('inst.entity:AddLight()')
+    const addNetworkIdx = code.indexOf('inst.entity:AddNetwork()')
+    const pristineIdx = code.indexOf('inst.entity:SetPristine()')
+    expect(addLightIdx).toBeGreaterThan(-1)
+    expect(addLightIdx).toBeLessThan(addNetworkIdx)
+    expect(code.indexOf('inst.Light:Enable(true)')).toBeLessThan(pristineIdx)
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
 })

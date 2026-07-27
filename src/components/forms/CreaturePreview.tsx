@@ -19,6 +19,7 @@ export function CreaturePreview({ creature }: { creature: Partial<CreatureDef> }
   if (creature.groundAttack) tags.push('🌵 Ground attack')
   if (creature.panicCauses?.includes('onFire')) tags.push('🔥 Panics on fire')
   if (creature.panicCauses?.includes('haunted')) tags.push('👻 Panics when haunted')
+  if (creature.light) tags.push('💡 Emits light')
   if (creature.companion) tags.push('🐾 Follows the player')
   if (creature.companion?.tasks.includes('chopTrees')) tags.push('🪓 Chops trees')
   if (creature.companion?.tasks.includes('collectItems')) tags.push('📦 Collects items')

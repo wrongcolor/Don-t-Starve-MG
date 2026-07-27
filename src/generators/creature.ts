@@ -109,6 +109,7 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   lines.push('    inst.entity:AddTransform()')
   lines.push('    inst.entity:AddAnimState()')
   lines.push('    inst.entity:AddSoundEmitter()')
+  if (creature.light !== undefined) lines.push('    inst.entity:AddLight()')
   lines.push('    inst.entity:AddNetwork()')
   lines.push('')
   lines.push('    MakeCharacterPhysics(inst, 50, .5)')
@@ -117,6 +118,14 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   lines.push(`    inst.AnimState:SetBuild(${luaString(build)})`)
   lines.push(`    inst.AnimState:PlayAnimation(${luaString(clips.idle)})`)
   lines.push('')
+  if (creature.light !== undefined) {
+    lines.push(`    inst.Light:SetRadius(TUNING.${upper}_LIGHT_RADIUS)`)
+    lines.push(`    inst.Light:SetFalloff(TUNING.${upper}_LIGHT_FALLOFF)`)
+    lines.push(`    inst.Light:SetIntensity(TUNING.${upper}_LIGHT_INTENSITY)`)
+    lines.push(`    inst.Light:SetColour(TUNING.${upper}_LIGHT_COLOUR_R, TUNING.${upper}_LIGHT_COLOUR_G, TUNING.${upper}_LIGHT_COLOUR_B)`)
+    lines.push('    inst.Light:Enable(true)')
+    lines.push('')
+  }
   lines.push(`    inst:AddTag("${creature.behavior === 'hostile' ? 'monster' : 'animal'}")`)
   if (creature.behavior === 'hostile') lines.push('    inst:AddTag("hostile")')
   for (const tag of creature.tags) lines.push(`    inst:AddTag(${luaString(tag)})`)

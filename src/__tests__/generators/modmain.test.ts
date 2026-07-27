@@ -163,6 +163,20 @@ describe('generateModMain', () => {
     expect(groundAttackCode).toContain('GLOBAL.TUNING.TESTMOB_GROUNDATTACK_COOLDOWN = 20')
   })
 
+  it('sets TUNING values for a creature light, dividing the 0-255 colour into 0-1 floats (patterns.md#65)', () => {
+    const withLight = {
+      ...sampleProject,
+      creatures: [{ ...sampleProject.creatures[0], light: { radius: 12, intensity: 0.8, falloff: 0.8, colour: { r: 250, g: 149, b: 18 } } }],
+    }
+    const lightCode = generateModMain(withLight)
+    expect(lightCode).toContain('GLOBAL.TUNING.TESTMOB_LIGHT_RADIUS = 12')
+    expect(lightCode).toContain('GLOBAL.TUNING.TESTMOB_LIGHT_FALLOFF = 0.8')
+    expect(lightCode).toContain('GLOBAL.TUNING.TESTMOB_LIGHT_INTENSITY = 0.8')
+    expect(lightCode).toContain(`GLOBAL.TUNING.TESTMOB_LIGHT_COLOUR_R = ${250 / 255}`)
+    expect(lightCode).toContain(`GLOBAL.TUNING.TESTMOB_LIGHT_COLOUR_G = ${149 / 255}`)
+    expect(lightCode).toContain(`GLOBAL.TUNING.TESTMOB_LIGHT_COLOUR_B = ${18 / 255}`)
+  })
+
   it('sets TUNING values for a day spawner structure', () => {
     const withSpawner = {
       ...sampleProject,
