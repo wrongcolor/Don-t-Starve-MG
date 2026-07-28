@@ -31,7 +31,8 @@ describe('generateItemFiles', () => {
   })
 
   it('defaults to a custom build named after the item id when no animation is chosen', () => {
-    const code = generateItemPrefab(sword)
+    const customBuildSword: ItemDef = { ...sword, animation: undefined }
+    const code = generateItemPrefab(customBuildSword)
     expect(code).toContain('Asset("ANIM", "anim/testsword.zip")')
     expect(code).toContain('inst.AnimState:SetBank("testsword")')
     expect(code).toContain('inst.AnimState:SetBuild("testsword")')
@@ -42,7 +43,7 @@ describe('generateItemFiles', () => {
     expect(code).not.toContain('Asset("ANIM"')
     expect(code).toContain('inst.AnimState:SetBank("trinket_1")')
     expect(code).toContain('inst.AnimState:SetBuild("trinket_1")')
-    expect(code).toContain('Asset("INV_IMAGE", "testtrinket")')
+    expect(code).not.toContain('Asset("INV_IMAGE"')
   })
 
   // Confirmed directly against the real game scripts (staff.lua, books.lua):
@@ -74,14 +75,16 @@ describe('generateItemFiles', () => {
   })
 
   it('generates equippable + swap_object handling and a separate swap build asset for handheld items (tool or weapon)', () => {
-    const axeCode = generateItemPrefab(axe)
+    const customBuildAxe: ItemDef = { ...axe, animation: undefined }
+    const axeCode = generateItemPrefab(customBuildAxe)
     expect(axeCode).toContain('inst:AddComponent("equippable")')
     expect(axeCode).toContain('inst.components.equippable:SetOnEquip(onequip)')
     expect(axeCode).toContain('inst.components.equippable:SetOnUnequip(onunequip)')
     expect(axeCode).toContain('owner.AnimState:OverrideSymbol("swap_object", "swap_testaxe", "swap_testaxe")')
     expect(axeCode).toContain('Asset("ANIM", "anim/swap_testaxe.zip")')
 
-    const swordCode = generateItemPrefab(sword)
+    const customBuildSword: ItemDef = { ...sword, animation: undefined }
+    const swordCode = generateItemPrefab(customBuildSword)
     expect(swordCode).toContain('inst:AddComponent("equippable")')
     expect(swordCode).toContain('Asset("ANIM", "anim/swap_testsword.zip")')
 
@@ -465,7 +468,8 @@ describe('generateItemFiles', () => {
   })
 
   it('equips body armor via swap_body (reusing its own build) instead of swap_object', () => {
-    const code = generateItemPrefab(armor)
+    const customBuildArmor: ItemDef = { ...armor, animation: undefined }
+    const code = generateItemPrefab(customBuildArmor)
     expect(code).toContain('inst:AddComponent("equippable")')
     expect(code).toContain('inst.components.equippable.equipslot = EQUIPSLOTS.BODY')
     expect(code).toContain('owner.AnimState:OverrideSymbol("swap_body", "testarmor", "swap_body")')
@@ -507,7 +511,7 @@ describe('generateItemFiles', () => {
   })
 
   it('equips head-slot armor via swap_hat (hats.lua) instead of swap_body, with no blocked-sound override', () => {
-    const helm: ItemDef = { ...armor, armor: { ...armor.armor!, equipSlot: 'head' } }
+    const helm: ItemDef = { ...armor, animation: undefined, armor: { ...armor.armor!, equipSlot: 'head' } }
     const code = generateItemPrefab(helm)
     expect(code).toContain('inst.components.equippable.equipslot = EQUIPSLOTS.HEAD')
     expect(code).toContain('owner.AnimState:OverrideSymbol("swap_hat", "testarmor", "swap_hat")')

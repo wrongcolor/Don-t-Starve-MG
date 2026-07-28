@@ -1,13 +1,8 @@
 import type { ModProject } from '../src/types/modProject'
+import { createEmptyModProject } from '../src/types/modProject'
 
-// Mod 11 (mods/README.md): demonstra CreatureDef.groundAttack (patterns.md#58) —
-// enquanto tem um alvo de combate, a criatura periodicamente arremessa espetos
-// (e, nesse caso, também alguns blocos de parede) de areia ao redor de si mesma,
-// reaproveitando os prefabs reais sandspike_short/med/tall e sandblock do
-// Antlion (Original/stategraphs/stategraphs/SGantlion_angry.lua), sem precisar
-// de arte própria pra esses efeitos. Reaproveita o build "spider" (VANILLA_
-// CREATURE_BUILDS) pra não depender de arte própria pro corpo da criatura.
 export const duneStalker: ModProject = {
+  ...createEmptyModProject(),
   meta: {
     name: 'Dune Stalker',
     description: 'A hostile creature that erupts sand spikes and walls around itself while fighting.',
@@ -16,9 +11,6 @@ export const duneStalker: ModProject = {
     allClientsRequireMod: true,
     configOptions: [],
   },
-  items: [],
-  structures: [],
-  characters: [],
   creatures: [
     {
       id: 'dunestalker',
@@ -37,7 +29,4 @@ export const duneStalker: ModProject = {
       groundAttack: { spikeCount: 6, wallCount: 2, radius: 6, cooldownSeconds: 15 },
     },
   ],
-  rooms: [],
-  tasks: [],
-  staticLayouts: [],
 }

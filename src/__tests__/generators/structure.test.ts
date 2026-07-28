@@ -218,7 +218,8 @@ describe('generateStructureFiles', () => {
   })
 
   it('defaults to a custom build named after its own id when no animation is chosen', () => {
-    const code = generateStructurePrefab(structure)
+    const customBuildStructure: StructureDef = { ...structure, animation: { source: 'custom' } }
+    const code = generateStructurePrefab(customBuildStructure)
     expect(code).toContain('Asset("ANIM", "anim/teststructure.zip")')
     expect(code).toContain('inst.AnimState:SetBank("teststructure")')
     expect(code).toContain('inst.AnimState:SetBuild("teststructure")')
@@ -254,7 +255,8 @@ describe('generateStructureFiles (deployMode: deployableItem)', () => {
   })
 
   it('generates an inventory item that deploys back into the structure', () => {
-    const code = generateStructureItemPrefab(portable)
+    const customBuildPortable: StructureDef = { ...portable, animation: { source: 'custom' } }
+    const code = generateStructureItemPrefab(customBuildPortable)
     expect(code).toContain('MakeInventoryPhysics(inst)')
     expect(code).toContain('inst:AddComponent("inventoryitem")')
     expect(code).toContain('inst:AddComponent("deployable")')

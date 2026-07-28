@@ -1,10 +1,8 @@
 import type { ModProject } from '../src/types/modProject'
+import { createEmptyModProject } from '../src/types/modProject'
 
-// A small shipwreck island, separate from the mainland (same region_id mechanism
-// as alchemistIsland.ts / vanilla Lunar Island, patterns.md#17). Pebble-beach
-// terrain, a guaranteed chest of shipwreck loot + a rock formation to mine, and a
-// scatter of gold/gems washed up on the shore. Reuses vanilla prefabs only.
 export const castawaysCove: ModProject = {
+  ...createEmptyModProject(),
   meta: {
     name: "Castaway's Cove",
     description: 'A small shipwrecked island, separate from the mainland, with a rock formation and washed-up treasure.',
@@ -13,10 +11,6 @@ export const castawaysCove: ModProject = {
     allClientsRequireMod: true,
     configOptions: [],
   },
-  items: [],
-  structures: [],
-  characters: [],
-  creatures: [],
   rooms: [
     {
       id: 'CastawayShore',
@@ -52,5 +46,4 @@ export const castawaysCove: ModProject = {
       colour: { r: 0, g: 0.6, b: 1, a: 1 },
     },
   ],
-  staticLayouts: [],
 }

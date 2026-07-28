@@ -50,7 +50,8 @@ describe('generateCreatureFiles', () => {
   })
 
   it('builds a custom build named after the creature id when animation is explicitly custom', () => {
-    const code = generateCreaturePrefab(creature)
+    const customBuildCreature: CreatureDef = { ...creature, animation: { source: 'custom' } }
+    const code = generateCreaturePrefab(customBuildCreature)
     expect(code).toContain('Asset("ANIM", "anim/testmob.zip")')
     expect(code).toContain('inst.AnimState:SetBank("testmob")')
     expect(code).toContain('inst.AnimState:SetBuild("testmob")')
@@ -151,6 +152,7 @@ describe('generateCreatureFiles', () => {
     const mainCode = files['scripts/prefabs/testmob.lua']
     expect(mainCode).toContain('inst:AddComponent("herdmember")')
     expect(mainCode).toContain('inst.components.herdmember:SetHerdPrefab("testmobherd")')
+    expect(mainCode).toContain('inst:AddTag("testmob")')
 
     const herdCode = files['scripts/prefabs/testmobherd.lua']
     expect(herdCode).toContain('inst:AddComponent("herd")')

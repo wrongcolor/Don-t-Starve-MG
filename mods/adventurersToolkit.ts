@@ -1,12 +1,8 @@
 import type { ModProject } from '../src/types/modProject'
+import { createEmptyModProject } from '../src/types/modProject'
 
-// Mod 4 (mods/README.md): duas armas combináveis + dois contêineres (um
-// widget vanilla, um custom) no MESMO mod. Testa algo que nenhum mod real
-// anterior cobriu: os blocos que só devem aparecer UMA VEZ no modmain.lua
-// (a ação "Combine" compartilhada, containers.params) quando há MAIS de um
-// item qualificado — inclusive misturando as duas variantes de widget de
-// contêiner (vanilla reuse vs. grid custom) juntas.
 export const adventurersToolkit: ModProject = {
+  ...createEmptyModProject(),
   meta: {
     name: "Adventurer's Toolkit",
     description: 'Two combinable tools and two containers, to stress the shared modmain wiring.',
@@ -76,10 +72,4 @@ export const adventurersToolkit: ModProject = {
       },
     },
   ],
-  structures: [],
-  characters: [],
-  creatures: [],
-  rooms: [],
-  tasks: [],
-  staticLayouts: [],
 }

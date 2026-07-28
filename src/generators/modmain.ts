@@ -10,8 +10,8 @@ function itemRecipeBlock(item: ItemDef): string {
 
   const icon = itemRecipeIcon(item)
   const configLines = [
-    ...(icon.atlas ? [`        atlas = "${icon.atlas}",`] : []),
-    `        image = "${icon.image}",`,
+    ...(icon.atlas ? [`        atlas = ${luaString(icon.atlas)},`] : []),
+    `        image = ${luaString(icon.image)},`,
   ]
 
   const filters = luaStringArray(item.recipe.filters)
@@ -37,9 +37,9 @@ function structureRecipeBlock(structure: StructureDef): string {
 
   const icon = structureRecipeIcon(structure, product)
   const configLines = [
-    ...(icon.atlas ? [`        atlas = "${icon.atlas}",`] : []),
-    `        image = "${icon.image}",`,
-    ...(deployableItem ? [] : [`        placer = "${structure.id}_placer",`]),
+    ...(icon.atlas ? [`        atlas = ${luaString(icon.atlas)},`] : []),
+    `        image = ${luaString(icon.image)},`,
+    ...(deployableItem ? [] : [`        placer = ${luaString(`${structure.id}_placer`)},`]),
   ]
 
   const filters = luaStringArray(structure.recipe.filters)
@@ -373,7 +373,7 @@ function capitalize(id: string): string {
 function characterManaHudBlock(character: CharacterDef): string[] {
   const id = character.id
   const capId = capitalize(id)
-  const upper = id.toUpperCase()
+  const upper = toUpperSnake(id)
   const dirtyEvent = luaString(`${id}_manaisdirty`)
   return [
     `local function on${capId}ManaDirty(inst)`,

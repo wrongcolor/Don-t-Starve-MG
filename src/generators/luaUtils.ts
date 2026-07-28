@@ -16,6 +16,12 @@ export function luaStringArray(values: string[]): string {
   return `{ ${values.map(luaString).join(', ')} }`
 }
 
+// A `--` comment runs to end of line, so a newline in interpolated free text
+// would end the comment early and turn the rest of the value into live Lua code.
+export function sanitizeLuaComment(value: string): string {
+  return value.replace(/[\r\n]/g, ' ')
+}
+
 export function toUpperSnake(id: string): string {
   return id.toUpperCase()
 }

@@ -3,11 +3,11 @@ import { parse } from 'luaparse'
 import { generateSkillTreeFile } from '../../generators/skillTree'
 import { generateCharacterFiles } from '../../generators/character'
 import { generateModMain } from '../../generators/modmain'
-import { sampleProject } from '../fixtures'
+import { sampleProject, sampleCharacter } from '../fixtures'
 import { characterDefSchema, type CharacterDef } from '../../types/modProject'
 
 const characterWithSkillTree: CharacterDef = {
-  ...sampleProject.characters[0],
+  ...sampleCharacter,
   skillTree: {
     branches: [
       {
@@ -64,7 +64,7 @@ describe('skillTreeSchema uniqueness', () => {
   // dropping one skill from the generated mod with no build-time error.
   it('rejects two skill nodes sharing an id across different branches', () => {
     const withDuplicateId: CharacterDef = {
-      ...sampleProject.characters[0],
+      ...sampleCharacter,
       skillTree: {
         branches: [
           { name: 'alchemy', nodes: [{ id: 'skill_1', title: 'Alchemy I', desc: 'a' }] },
@@ -79,7 +79,7 @@ describe('skillTreeSchema uniqueness', () => {
 
 describe('generateCharacterFiles with a skill tree', () => {
   it('adds a skilltree_<id>.lua file only when the character has one', () => {
-    const withoutTree = generateCharacterFiles(sampleProject.characters[0], '')
+    const withoutTree = generateCharacterFiles(sampleCharacter, '')
     expect(Object.keys(withoutTree)).not.toContain('scripts/prefabs/skilltree_testchar.lua')
 
     const withTree = generateCharacterFiles(characterWithSkillTree, '')

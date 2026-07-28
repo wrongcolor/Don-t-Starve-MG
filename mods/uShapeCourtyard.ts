@@ -1,15 +1,10 @@
 import type { ModProject } from '../src/types/modProject'
-import { createEmptyTileGrid } from '../src/types/worldContent'
+import { createEmptyModProject } from '../src/types/modProject'
+import { createEmptyTileGrid, GROUND_TYPES } from '../src/types/worldContent'
 
-// Mod 6 (mods/README.md): demonstra o editor de static layout (patterns.md#55) —
-// uma pequena praça em formato de U (pernas laterais + base fechada, aberto no
-// topo), com uma fogueira no meio e duas luminárias nas pontas. A Room embute o
-// layout via staticLayouts (contents.countstaticlayouts no Lua gerado), separada
-// do continente pelo mesmo mecanismo de regionId já usado em alchemistIsland/
-// castawaysCove (patterns.md#17).
 const WIDTH = 7
 const HEIGHT = 7
-const WOODFLOOR_INDEX = 9 // GROUND_TYPES[9] = WOODFLOOR
+const WOODFLOOR_INDEX = GROUND_TYPES.indexOf('WOODFLOOR') + 1
 
 const tiles = createEmptyTileGrid(WIDTH, HEIGHT)
 for (let row = 0; row < HEIGHT; row++) {
@@ -21,6 +16,7 @@ for (let col = 0; col < WIDTH; col++) {
 }
 
 export const uShapeCourtyard: ModProject = {
+  ...createEmptyModProject(),
   meta: {
     name: 'U-Shape Courtyard',
     description: 'A small island with a hand-placed U-shaped courtyard — a static layout demo.',
@@ -29,10 +25,6 @@ export const uShapeCourtyard: ModProject = {
     allClientsRequireMod: true,
     configOptions: [],
   },
-  items: [],
-  structures: [],
-  characters: [],
-  creatures: [],
   staticLayouts: [
     {
       id: 'UShapeCourtyard',

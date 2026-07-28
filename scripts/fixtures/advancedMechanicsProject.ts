@@ -1,9 +1,8 @@
 import type { ModProject } from '../../src/types/modProject'
+import { createEmptyModProject } from '../../src/types/modProject'
 
-// Exercises the mechanics sampleProject (src/__tests__/fixtures.ts) doesn't cover:
-// rechargeable, container, nameable, combinable, skill tree, herd, kiting, panic
-// causes, and teleportPair (on a Structure, not an Item — see structures below).
 export const advancedMechanicsProject: ModProject = {
+  ...createEmptyModProject(),
   meta: {
     name: 'Advanced Mechanics Test Mod',
     description: 'Covers rechargeable/container/teleporter/nameable/combinable/skilltree/herd',
@@ -140,7 +139,4 @@ export const advancedMechanicsProject: ModProject = {
       kiting: { runDistance: 6, safeDistance: 10 },
     },
   ],
-  rooms: [],
-  tasks: [],
-  staticLayouts: [],
 }

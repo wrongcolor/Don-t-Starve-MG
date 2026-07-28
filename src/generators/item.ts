@@ -1,5 +1,5 @@
 import type { ItemDef, Container, SpellbookSpell } from '../types/modProject'
-import { luaString, toUpperSnake } from './luaUtils'
+import { luaString, sanitizeLuaComment, toUpperSnake } from './luaUtils'
 import { groundAttackFunctionBlock } from './groundAttack'
 
 // Shared by both Item and Structure containers — takes the container config
@@ -452,200 +452,241 @@ function onNamedFunctionBlock(): string[] {
   ]
 }
 
-function componentBlock(item: ItemDef): string {
+function spellDefComponentBlock(item: ItemDef): string[] {
+  const spell = item.spellDef!
+  return [
+    '',
+    `    inst.spell_label = ${luaString(spell.label)}`,
+    `    inst.spell_summonprefab = ${spell.summonPrefab !== undefined ? luaString(spell.summonPrefab) : 'nil'}`,
+    `    inst.spell_manacost = ${spell.manaCost ?? 'nil'}`,
+    `    inst.spell_healthdelta = ${spell.healthDelta ?? 'nil'}`,
+    `    inst.spell_sanitydelta = ${spell.sanityDelta ?? 'nil'}`,
+    `    inst.spell_hungerdelta = ${spell.hungerDelta ?? 'nil'}`,
+  ]
+}
+
+function toolComponentBlock(item: ItemDef): string[] {
+  return ['', '    inst:AddComponent("tool")', `    inst.components.tool:SetAction(ACTIONS.${item.toolAction})`]
+}
+
+function stackableComponentBlock(item: ItemDef): string[] {
   const upper = toUpperSnake(item.id)
+  return ['', '    inst:AddComponent("stackable")', `    inst.components.stackable:SetMaxSize(TUNING.${upper}_STACK_SIZE)`]
+}
+
+function weaponComponentBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  const weapon = item.weapon!
+  const lines = ['', '    inst:AddComponent("weapon")', `    inst.components.weapon:SetDamage(TUNING.${upper}_DAMAGE)`]
+  if (weapon.ranged) {
+    lines.push(`    inst.components.weapon:SetRange(TUNING.${upper}_MIN_RANGE, TUNING.${upper}_MAX_RANGE)`)
+    lines.push(`    inst.components.weapon:SetProjectile(${luaString(weapon.ranged.projectilePrefab)})`)
+  } else if (weapon.meleeRange !== undefined) {
+    lines.push(`    inst.components.weapon:SetRange(TUNING.${upper}_MELEE_RANGE)`)
+  }
+  if (needsOnAttack(item)) {
+    lines.push('    inst.components.weapon:SetOnAttack(onattack)')
+  }
+  return lines
+}
+
+function rechargeableComponentBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  return [
+    '',
+    '    inst:AddComponent("rechargeable")',
+    `    inst.components.rechargeable:SetChargeTime(TUNING.${upper}_COOLDOWN)`,
+    '    inst.components.inspectable.getstatus = function(inst)',
+    '        return (inst.components.rechargeable ~= nil and not inst.components.rechargeable:IsCharged()) and "RECHARGING" or nil',
+    '    end',
+  ]
+}
+
+function finiteusesComponentBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  const finiteuses = item.finiteuses!
+  const lines = [
+    '',
+    '    inst:AddComponent("finiteuses")',
+    `    inst.components.finiteuses:SetMaxUses(TUNING.${upper}_USES)`,
+    `    inst.components.finiteuses:SetUses(TUNING.${upper}_USES)`,
+    '    inst.components.finiteuses:SetOnFinished(inst.Remove)',
+  ]
+  if (item.category === 'tool' && item.toolAction) {
+    lines.push(`    inst.components.finiteuses:SetConsumption(ACTIONS.${item.toolAction}, 1)`)
+  }
+  if (finiteuses.ignoreCombatDurabilityLoss) {
+    lines.push('    inst.components.finiteuses:SetIgnoreCombatDurabilityLoss(true)')
+  }
+  return lines
+}
+
+function armorComponentBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  const armor = item.armor!
+  const lines = [
+    '',
+    '    inst:AddComponent("armor")',
+    `    inst.components.armor:InitCondition(TUNING.${upper}_CONDITION, TUNING.${upper}_ABSORPTION)`,
+  ]
+  if (armor.weakness) {
+    lines.push(`    inst.components.armor:AddWeakness(${luaString(armor.weakness.tag)}, ${armor.weakness.extraDamage})`)
+  }
+  if (needsArmorTakeDamage(item)) {
+    lines.push('    inst.components.armor.ontakedamage = onarmortakedamage')
+  }
+  if (armor.flammable) {
+    lines.push(
+      '',
+      '    inst:AddComponent("fuel")',
+      '    inst.components.fuel.fuelvalue = TUNING.LARGE_FUEL',
+      '    MakeSmallBurnable(inst, TUNING.SMALL_BURNTIME)',
+      '    MakeSmallPropagator(inst)',
+    )
+  }
+  return lines
+}
+
+function equippableComponentBlock(item: ItemDef): string[] {
+  const lines = ['', '    inst:AddComponent("equippable")']
+  if (isWearableArmor(item)) {
+    lines.push(`    inst.components.equippable.equipslot = EQUIPSLOTS.${armorEquipSlot(item).toUpperCase()}`)
+  }
+  lines.push('    inst.components.equippable:SetOnEquip(onequip)', '    inst.components.equippable:SetOnUnequip(onunequip)')
+  if (item.equipWalkSpeedMult !== undefined) {
+    lines.push(`    inst.components.equippable.walkspeedmult = ${item.equipWalkSpeedMult}`)
+  }
+  if (item.armor?.dapperness !== undefined) {
+    lines.push(`    inst.components.equippable.dapperness = ${item.armor.dapperness}`)
+  }
+  return lines
+}
+
+function spellcasterComponentBlock(item: ItemDef): string[] {
+  return [
+    '',
+    '    inst:AddComponent("reticule")',
+    '    inst.components.reticule.targetfn = spell_reticuletargetfn',
+    '',
+    '    inst:AddComponent("spellcaster")',
+    `    inst.components.spellcaster:SetSpellFn(${spellcasterFunctionName(item)})`,
+    '    inst.components.spellcaster.canuseonpoint = true',
+  ]
+}
+
+function spellbookComponentBlock(item: ItemDef): string[] {
+  const lines = ['', '    inst:AddComponent("spellbook")']
+  if (item.spellbook?.source === 'linkedContainer') {
+    lines.push(
+      '    inst.components.spellbook:SetShouldOpenFn(function(inst, user)',
+      '        local items = rebuild_spellbook_items(user)',
+      '        if items == nil or #items == 0 then',
+      '            return false',
+      '        end',
+      '        inst.components.spellbook:SetItems(items)',
+      '        return true',
+      '    end)',
+    )
+  } else {
+    lines.push('    inst.components.spellbook:SetItems(SPELLBOOK_SPELLS)')
+  }
+  return lines
+}
+
+function perishableComponentBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  return [
+    '',
+    '    inst:AddComponent("perishable")',
+    `    inst.components.perishable:SetPerishTime(TUNING.${upper}_PERISH_TIME)`,
+    '    inst.components.perishable:StartPerishing()',
+    '    inst.components.perishable:SetOnPerishFn(inst.Remove)',
+  ]
+}
+
+function edibleComponentBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  const edible = item.edible!
+  const lines = [
+    '',
+    '    inst:AddComponent("edible")',
+    `    inst.components.edible.foodtype = FOODTYPE.${edible.foodType}`,
+    `    inst.components.edible.healthvalue = TUNING.${upper}_HEALTH`,
+    `    inst.components.edible.hungervalue = TUNING.${upper}_HUNGER`,
+    `    inst.components.edible.sanityvalue = TUNING.${upper}_SANITY`,
+  ]
+  if (needsOnEaten(item)) {
+    lines.push('    inst.components.edible:SetOnEatenFn(oneaten)')
+  }
+  return lines
+}
+
+function combinableComponentBlock(): string[] {
+  return ['', '    inst.CombineWith = CombineWith']
+}
+
+function containerComponentBlock(item: ItemDef): string[] {
+  const container = item.container!
+  const lines = [
+    '',
+    '    inst:AddComponent("container")',
+    `    inst.components.container:WidgetSetup(${luaString(item.id)})`,
+    '    inst.components.inventoryitem:SetOnPutInInventoryFn(function(inst)',
+    '        inst.components.container:Close()',
+    '    end)',
+  ]
+  if (container.preservation) {
+    lines.push(
+      '',
+      '    inst:AddComponent("preserver")',
+      `    inst.components.preserver:SetPerishRateMultiplier(${container.preservation.perishRateMultiplier})`,
+    )
+    if (container.preservation.temperatureRateMultiplier !== undefined) {
+      lines.push(`    inst.components.preserver:SetTemperatureRateMultiplier(${container.preservation.temperatureRateMultiplier})`)
+    }
+  }
+  return lines
+}
+
+function nameableComponentBlock(): string[] {
+  return [
+    '',
+    '    inst:AddComponent("named")',
+    '',
+    '    inst:AddComponent("writeable")',
+    '    inst.components.writeable:SetDefaultWriteable(false)',
+    '    inst.components.writeable:SetAutomaticDescriptionEnabled(false)',
+    '    inst.components.writeable:SetWriteableDistance(1)',
+    '    inst.components.writeable:SetOnWrittenFn(onnamed)',
+  ]
+}
+
+function moonrelicComponentBlock(): string[] {
+  return ['', '    inst:AddComponent("moonrelic")']
+}
+
+function componentBlock(item: ItemDef): string {
   const lines: string[] = []
 
   lines.push('    inst:AddComponent("inspectable")')
   lines.push('    inst:AddComponent("inventoryitem")')
 
-  if (item.spellDef) {
-    lines.push('')
-    lines.push(`    inst.spell_label = ${luaString(item.spellDef.label)}`)
-    lines.push(`    inst.spell_summonprefab = ${item.spellDef.summonPrefab !== undefined ? luaString(item.spellDef.summonPrefab) : 'nil'}`)
-    lines.push(`    inst.spell_manacost = ${item.spellDef.manaCost ?? 'nil'}`)
-    lines.push(`    inst.spell_healthdelta = ${item.spellDef.healthDelta ?? 'nil'}`)
-    lines.push(`    inst.spell_sanitydelta = ${item.spellDef.sanityDelta ?? 'nil'}`)
-    lines.push(`    inst.spell_hungerdelta = ${item.spellDef.hungerDelta ?? 'nil'}`)
-  }
-
-  if (item.category === 'tool' && item.toolAction) {
-    lines.push('')
-    lines.push('    inst:AddComponent("tool")')
-    lines.push(`    inst.components.tool:SetAction(ACTIONS.${item.toolAction})`)
-  }
-
-  if (item.stackable) {
-    lines.push('')
-    lines.push('    inst:AddComponent("stackable")')
-    lines.push(`    inst.components.stackable:SetMaxSize(TUNING.${upper}_STACK_SIZE)`)
-  }
-
-  if (item.weapon) {
-    lines.push('')
-    lines.push('    inst:AddComponent("weapon")')
-    lines.push(`    inst.components.weapon:SetDamage(TUNING.${upper}_DAMAGE)`)
-    if (item.weapon.ranged) {
-      lines.push(`    inst.components.weapon:SetRange(TUNING.${upper}_MIN_RANGE, TUNING.${upper}_MAX_RANGE)`)
-      lines.push(`    inst.components.weapon:SetProjectile(${luaString(item.weapon.ranged.projectilePrefab)})`)
-    } else if (item.weapon.meleeRange !== undefined) {
-      lines.push(`    inst.components.weapon:SetRange(TUNING.${upper}_MELEE_RANGE)`)
-    }
-    if (needsOnAttack(item)) {
-      lines.push('    inst.components.weapon:SetOnAttack(onattack)')
-    }
-  }
-
-  if (item.rechargeable) {
-    lines.push('')
-    lines.push('    inst:AddComponent("rechargeable")')
-    lines.push(`    inst.components.rechargeable:SetChargeTime(TUNING.${upper}_COOLDOWN)`)
-    // Confirmed in the same source mod: shows a "RECHARGING" status on the
-    // item's tooltip while it's on cooldown.
-    lines.push('    inst.components.inspectable.getstatus = function(inst)')
-    lines.push('        return (inst.components.rechargeable ~= nil and not inst.components.rechargeable:IsCharged()) and "RECHARGING" or nil')
-    lines.push('    end')
-  }
-
-  if (item.finiteuses) {
-    lines.push('')
-    lines.push('    inst:AddComponent("finiteuses")')
-    lines.push(`    inst.components.finiteuses:SetMaxUses(TUNING.${upper}_USES)`)
-    lines.push(`    inst.components.finiteuses:SetUses(TUNING.${upper}_USES)`)
-    lines.push('    inst.components.finiteuses:SetOnFinished(inst.Remove)')
-    if (item.category === 'tool' && item.toolAction) {
-      lines.push(`    inst.components.finiteuses:SetConsumption(ACTIONS.${item.toolAction}, 1)`)
-    }
-    if (item.finiteuses.ignoreCombatDurabilityLoss) {
-      lines.push('    inst.components.finiteuses:SetIgnoreCombatDurabilityLoss(true)')
-    }
-  }
-
-  if (item.armor) {
-    lines.push('')
-    lines.push('    inst:AddComponent("armor")')
-    lines.push(`    inst.components.armor:InitCondition(TUNING.${upper}_CONDITION, TUNING.${upper}_ABSORPTION)`)
-    if (item.armor.weakness) {
-      lines.push(
-        `    inst.components.armor:AddWeakness(${luaString(item.armor.weakness.tag)}, ${item.armor.weakness.extraDamage})`,
-      )
-    }
-    if (needsArmorTakeDamage(item)) {
-      lines.push('    inst.components.armor.ontakedamage = onarmortakedamage')
-    }
-    if (item.armor.flammable) {
-      lines.push('')
-      lines.push('    inst:AddComponent("fuel")')
-      lines.push('    inst.components.fuel.fuelvalue = TUNING.LARGE_FUEL')
-      lines.push('    MakeSmallBurnable(inst, TUNING.SMALL_BURNTIME)')
-      lines.push('    MakeSmallPropagator(inst)')
-    }
-  }
-
-  if (isHandheld(item) || isWearableArmor(item)) {
-    lines.push('')
-    lines.push('    inst:AddComponent("equippable")')
-    if (isWearableArmor(item)) {
-      lines.push(`    inst.components.equippable.equipslot = EQUIPSLOTS.${armorEquipSlot(item).toUpperCase()}`)
-    }
-    lines.push('    inst.components.equippable:SetOnEquip(onequip)')
-    lines.push('    inst.components.equippable:SetOnUnequip(onunequip)')
-    if (item.equipWalkSpeedMult !== undefined) {
-      lines.push(`    inst.components.equippable.walkspeedmult = ${item.equipWalkSpeedMult}`)
-    }
-    if (item.armor?.dapperness !== undefined) {
-      lines.push(`    inst.components.equippable.dapperness = ${item.armor.dapperness}`)
-    }
-  }
-
-  if (needsSpellcaster(item)) {
-    lines.push('')
-    lines.push('    inst:AddComponent("reticule")')
-    lines.push('    inst.components.reticule.targetfn = spell_reticuletargetfn')
-    lines.push('')
-    lines.push('    inst:AddComponent("spellcaster")')
-    lines.push(`    inst.components.spellcaster:SetSpellFn(${spellcasterFunctionName(item)})`)
-    lines.push('    inst.components.spellcaster.canuseonpoint = true')
-  }
-
-  if (needsSpellbook(item)) {
-    lines.push('')
-    lines.push('    inst:AddComponent("spellbook")')
-    if (item.spellbook?.source === 'linkedContainer') {
-      lines.push('    inst.components.spellbook:SetShouldOpenFn(function(inst, user)')
-      lines.push('        local items = rebuild_spellbook_items(user)')
-      lines.push('        if items == nil or #items == 0 then')
-      lines.push('            return false')
-      lines.push('        end')
-      lines.push('        inst.components.spellbook:SetItems(items)')
-      lines.push('        return true')
-      lines.push('    end)')
-    } else {
-      lines.push('    inst.components.spellbook:SetItems(SPELLBOOK_SPELLS)')
-    }
-  }
-
-  if (item.perishable) {
-    lines.push('')
-    lines.push('    inst:AddComponent("perishable")')
-    lines.push(`    inst.components.perishable:SetPerishTime(TUNING.${upper}_PERISH_TIME)`)
-    lines.push('    inst.components.perishable:StartPerishing()')
-    lines.push('    inst.components.perishable:SetOnPerishFn(inst.Remove)')
-  }
-
-  if (item.edible) {
-    lines.push('')
-    lines.push('    inst:AddComponent("edible")')
-    lines.push(`    inst.components.edible.foodtype = FOODTYPE.${item.edible.foodType}`)
-    lines.push(`    inst.components.edible.healthvalue = TUNING.${upper}_HEALTH`)
-    lines.push(`    inst.components.edible.hungervalue = TUNING.${upper}_HUNGER`)
-    lines.push(`    inst.components.edible.sanityvalue = TUNING.${upper}_SANITY`)
-    if (needsOnEaten(item)) {
-      lines.push('    inst.components.edible:SetOnEatenFn(oneaten)')
-    }
-  }
-
-  if (item.combinable) {
-    lines.push('')
-    lines.push('    inst.CombineWith = CombineWith')
-  }
-
-  if (item.container) {
-    lines.push('')
-    lines.push('    inst:AddComponent("container")')
-    lines.push(`    inst.components.container:WidgetSetup(${luaString(item.id)})`)
-    // Confirmed in a second real mod ("Winona Toolbox", patterns.md#20): close
-    // the container when it's put away, so it doesn't stay visually open.
-    lines.push('    inst.components.inventoryitem:SetOnPutInInventoryFn(function(inst)')
-    lines.push('        inst.components.container:Close()')
-    lines.push('    end)')
-    if (item.container.preservation) {
-      lines.push('')
-      lines.push('    inst:AddComponent("preserver")')
-      lines.push(`    inst.components.preserver:SetPerishRateMultiplier(${item.container.preservation.perishRateMultiplier})`)
-      if (item.container.preservation.temperatureRateMultiplier !== undefined) {
-        lines.push(
-          `    inst.components.preserver:SetTemperatureRateMultiplier(${item.container.preservation.temperatureRateMultiplier})`,
-        )
-      }
-    }
-  }
-
-  if (item.nameable) {
-    lines.push('')
-    lines.push('    inst:AddComponent("named")')
-    lines.push('')
-    lines.push('    inst:AddComponent("writeable")')
-    lines.push('    inst.components.writeable:SetDefaultWriteable(false)')
-    lines.push('    inst.components.writeable:SetAutomaticDescriptionEnabled(false)')
-    lines.push('    inst.components.writeable:SetWriteableDistance(1)')
-    lines.push('    inst.components.writeable:SetOnWrittenFn(onnamed)')
-  }
-
-  if (item.moonrelic) {
-    lines.push('')
-    lines.push('    inst:AddComponent("moonrelic")')
-  }
+  if (item.spellDef) lines.push(...spellDefComponentBlock(item))
+  if (item.category === 'tool' && item.toolAction) lines.push(...toolComponentBlock(item))
+  if (item.stackable) lines.push(...stackableComponentBlock(item))
+  if (item.weapon) lines.push(...weaponComponentBlock(item))
+  if (item.rechargeable) lines.push(...rechargeableComponentBlock(item))
+  if (item.finiteuses) lines.push(...finiteusesComponentBlock(item))
+  if (item.armor) lines.push(...armorComponentBlock(item))
+  if (isHandheld(item) || isWearableArmor(item)) lines.push(...equippableComponentBlock(item))
+  if (needsSpellcaster(item)) lines.push(...spellcasterComponentBlock(item))
+  if (needsSpellbook(item)) lines.push(...spellbookComponentBlock(item))
+  if (item.perishable) lines.push(...perishableComponentBlock(item))
+  if (item.edible) lines.push(...edibleComponentBlock(item))
+  if (item.combinable) lines.push(...combinableComponentBlock())
+  if (item.container) lines.push(...containerComponentBlock(item))
+  if (item.nameable) lines.push(...nameableComponentBlock())
+  if (item.moonrelic) lines.push(...moonrelicComponentBlock())
 
   return lines.join('\n')
 }
@@ -737,10 +778,10 @@ export function generateItemPrefab(item: ItemDef): string {
   lines.push('local assets =')
   lines.push('{')
   if (isVanillaAnimation(item)) {
-    lines.push(`    -- Build "${build}" reaproveitado do jogo base, sem asset próprio necessário.`)
+    lines.push(`    -- Build "${sanitizeLuaComment(build)}" reaproveitado do jogo base, sem asset próprio necessário.`)
     if (handheld) {
       lines.push(
-        `    -- ATENÇÃO: build vanilla escolhido para um item empunhável — confirme se "swap_${build}" existe no jogo base antes de publicar.`,
+        `    -- ATENÇÃO: build vanilla escolhido para um item empunhável — confirme se "swap_${sanitizeLuaComment(build)}" existe no jogo base antes de publicar.`,
       )
     }
   } else {

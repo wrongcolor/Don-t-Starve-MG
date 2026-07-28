@@ -1,9 +1,8 @@
 import type { ModProject } from '../src/types/modProject'
+import { createEmptyModProject } from '../src/types/modProject'
 
-// Mod 2 (mods/README.md): uma arma corpo a corpo que nunca quebra (sem
-// finiteuses/perishable — nenhum modelo de durabilidade), com 45 de dano e
-// alcance 3 (weapon:SetRange(3) — patterns.md#31).
 export const eternalBlade: ModProject = {
+  ...createEmptyModProject(),
   meta: {
     name: 'Eternal Blade',
     description: 'A melee weapon that never wears down.',
@@ -26,10 +25,4 @@ export const eternalBlade: ModProject = {
       },
     },
   ],
-  structures: [],
-  characters: [],
-  creatures: [],
-  rooms: [],
-  tasks: [],
-  staticLayouts: [],
 }

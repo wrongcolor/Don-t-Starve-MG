@@ -1,5 +1,5 @@
 import type { CreatureDef } from '../types/modProject'
-import { luaString, toUpperSnake } from './luaUtils'
+import { luaString, sanitizeLuaComment, toUpperSnake } from './luaUtils'
 import { generateStategraph } from './stategraph'
 import { generateBrain } from './brain'
 import { resolveCreatureAnimation, isVanillaCreatureAnimation } from './creatureAnimation'
@@ -83,7 +83,7 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   lines.push('local assets =')
   lines.push('{')
   if (isVanillaCreatureAnimation(creature)) {
-    lines.push(`    -- Build "${build}" reaproveitado do jogo base, sem asset próprio necessário.`)
+    lines.push(`    -- Build "${sanitizeLuaComment(build)}" reaproveitado do jogo base, sem asset próprio necessário.`)
   } else {
     lines.push(`    Asset("ANIM", "anim/${creature.id}.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)`)
   }
@@ -129,6 +129,7 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   lines.push(`    inst:AddTag("${creature.behavior === 'hostile' ? 'monster' : 'animal'}")`)
   if (creature.behavior === 'hostile') lines.push('    inst:AddTag("hostile")')
   for (const tag of creature.tags) lines.push(`    inst:AddTag(${luaString(tag)})`)
+  if (needsHerd(creature)) lines.push(`    inst:AddTag(${luaString(creature.id)})`)
   lines.push('')
   lines.push('    inst.entity:SetPristine()')
   lines.push('    if not TheWorld.ismastersim then')

@@ -1,5 +1,5 @@
 import type { CharacterDef } from '../types/modProject'
-import { luaString, luaStringArray, toUpperSnake } from './luaUtils'
+import { luaString, luaStringArray, sanitizeLuaComment, toUpperSnake } from './luaUtils'
 import { generateSkillTreeFile } from './skillTree'
 
 // Custom keeps the character's own id as the build name — the same name
@@ -77,7 +77,7 @@ export function generateCharacterPrefab(character: CharacterDef): string {
   lines.push('local assets =')
   lines.push('{')
   if (isVanillaAnimation(character)) {
-    lines.push(`    -- Build "${build}" reaproveitado do jogo base, sem asset próprio necessário.`)
+    lines.push(`    -- Build "${sanitizeLuaComment(build)}" reaproveitado do jogo base, sem asset próprio necessário.`)
   } else {
     lines.push(`    Asset("ANIM", "anim/${character.id}.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)`)
     lines.push(`    Asset("ANIM", "anim/ghost_${character.id}_build.zip"), -- PLACEHOLDER: build do fantasma`)
@@ -91,7 +91,7 @@ export function generateCharacterPrefab(character: CharacterDef): string {
   lines.push('local function common_postinit(inst)')
   lines.push(`    inst.MiniMapEntity:SetIcon("${character.id}.tex") -- PLACEHOLDER: ícone do minimapa`)
   if (isVanillaAnimation(character)) {
-    lines.push(`    inst.AnimState:SetBuild(${luaString(build)}) -- reaproveita o visual de "${build}" em vez do build próprio`)
+    lines.push(`    inst.AnimState:SetBuild(${luaString(build)}) -- reaproveita o visual de "${sanitizeLuaComment(build)}" em vez do build próprio`)
   }
   lines.push('end')
   lines.push('')

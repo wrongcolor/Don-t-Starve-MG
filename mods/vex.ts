@@ -1,11 +1,8 @@
 import type { ModProject } from '../src/types/modProject'
+import { createEmptyModProject } from '../src/types/modProject'
 
-// Mod 3 (mods/README.md): um personagem jogável completo — a entidade com
-// maior superfície do schema (skill tree, multiplicadores de stat, perks,
-// inventário inicial, falas customizadas) e a que já gerou os bugs mais
-// sérios até agora (objeto fantasma do skill tree, colisão de id entre
-// branches). Bom teste justamente por tocar em tudo isso de uma vez.
 export const vex: ModProject = {
+  ...createEmptyModProject(),
   meta: {
     name: 'Vex the Pyromancer',
     description: 'A playable character mod exercising the full character feature set.',
@@ -14,8 +11,6 @@ export const vex: ModProject = {
     allClientsRequireMod: true,
     configOptions: [],
   },
-  items: [],
-  structures: [],
   characters: [
     {
       id: 'vex',
@@ -52,8 +47,4 @@ export const vex: ModProject = {
       },
     },
   ],
-  creatures: [],
-  rooms: [],
-  tasks: [],
-  staticLayouts: [],
 }

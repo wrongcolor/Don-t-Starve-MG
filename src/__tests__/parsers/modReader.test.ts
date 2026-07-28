@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { parseModFiles } from '../../parsers/modReader'
 import { buildModFiles } from '../../generators/zipBuilder'
-import { sampleProject } from '../fixtures'
+import { sampleProject, sampleCharacter } from '../fixtures'
+import type { ModProject } from '../../types/modProject'
+
+const projectWithCharacter: ModProject = { ...sampleProject, characters: [sampleCharacter] }
 
 describe('parseModFiles (dogfooding our own generator output)', () => {
-  const files = buildModFiles(sampleProject)
+  const files = buildModFiles(projectWithCharacter)
   const summary = parseModFiles(files)
 
   it('extracts modinfo.lua metadata', () => {

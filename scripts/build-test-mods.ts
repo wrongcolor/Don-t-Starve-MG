@@ -75,18 +75,26 @@ async function main() {
   let hadErrors = false
 
   for (const [slug, project] of Object.entries(TEST_PROJECTS)) {
-    const files = buildModFiles(project)
-    const { fileCount, errors } = await writeModFiles(slug, files)
+    try {
+      const files = buildModFiles(project)
+      const { fileCount, errors } = await writeModFiles(slug, files)
 
-    console.log(`${slug}: ${fileCount} files written to test-mods/${slug}/`)
-    if (errors.length > 0) {
+      console.log(`${slug}: ${fileCount} files written to test-mods/${slug}/`)
+      if (errors.length > 0) {
+        hadErrors = true
+        console.log(`  ${errors.length} Lua file(s) failed to parse:`)
+        for (const err of errors) console.log(`    - ${err}`)
+      }
+    } catch (e) {
       hadErrors = true
-      console.log(`  ${errors.length} Lua file(s) failed to parse:`)
-      for (const err of errors) console.log(`    - ${err}`)
+      console.log(`${slug}: failed to build - ${e instanceof Error ? e.message : String(e)}`)
     }
   }
 
   if (hadErrors) process.exit(1)
 }
 
-main()
+main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})

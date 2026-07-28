@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import JSZip from 'jszip'
 import { buildModFiles, buildModZip } from '../../generators/zipBuilder'
-import { sampleProject } from '../fixtures'
+import { sampleProject, sampleCharacter } from '../fixtures'
+import type { ModProject } from '../../types/modProject'
+
+const projectWithCharacter: ModProject = { ...sampleProject, characters: [sampleCharacter] }
 
 describe('buildModFiles', () => {
-  const files = buildModFiles(sampleProject)
+  const files = buildModFiles(projectWithCharacter)
 
   it('places modinfo.lua, modmain.lua and README.md at the zip root', () => {
     expect(files['modinfo.lua']).toBeTruthy()
@@ -75,14 +78,25 @@ describe('buildModFiles', () => {
   })
 
   it('tells apart vanilla-build items (no anim.zip needed) from custom-build items in the README', () => {
-    const readme = files['README.md']
+    const withCustomItem = {
+      ...projectWithCharacter,
+      items: [{ ...projectWithCharacter.items[0], animation: { source: 'custom' as const } }, ...projectWithCharacter.items.slice(1)],
+    }
+    const readme = buildModFiles(withCustomItem)['README.md']
     expect(readme).toContain('precisa de `anim/testsword.zip`')
     expect(readme).toContain('reaproveita o build "trinket_1" do jogo base')
     expect(readme).not.toContain('precisa de `anim/testtrinket.zip`')
   })
 
   it('tells apart vanilla-build creatures from custom-build creatures in the README', () => {
-    const readme = files['README.md']
+    const withCustomCreature = {
+      ...projectWithCharacter,
+      creatures: [
+        { ...projectWithCharacter.creatures[0], animation: { source: 'custom' as const } },
+        ...projectWithCharacter.creatures.slice(1),
+      ],
+    }
+    const readme = buildModFiles(withCustomCreature)['README.md']
     expect(readme).toContain('build/bank "testmob" com pelo menos as animações idle/walk/atk/hit/death')
     expect(readme).toContain('reaproveita o build "spider" do jogo base')
     expect(readme).toContain('confirme em-jogo')
@@ -97,10 +111,8 @@ describe('buildModFiles', () => {
 
   it('tells apart a vanilla-build character (no anim.zip needed) from a custom-build one in the README', () => {
     const vanillaCharProject = {
-      ...sampleProject,
-      characters: [
-        { ...sampleProject.characters[0], animation: { source: 'vanilla' as const, build: 'wendy' } },
-      ],
+      ...projectWithCharacter,
+      characters: [{ ...sampleCharacter, animation: { source: 'vanilla' as const, build: 'wendy' } }],
     }
     const readme = buildModFiles(vanillaCharProject)['README.md']
     expect(readme).toContain('reaproveita o build "wendy" do jogo base como placeholder visual')
@@ -114,8 +126,8 @@ describe('buildModFiles', () => {
 
   it('includes the shared mana component/widget files once when a character has mana', () => {
     const mageProject = {
-      ...sampleProject,
-      characters: [{ ...sampleProject.characters[0], mana: { max: 100 } }],
+      ...projectWithCharacter,
+      characters: [{ ...sampleCharacter, mana: { max: 100 } }],
     }
     const mageFiles = buildModFiles(mageProject)
     expect(mageFiles['scripts/components/mana.lua']).toBeTruthy()
@@ -124,8 +136,8 @@ describe('buildModFiles', () => {
 
   it('rejects a project where an item and a character share the same id (they would overwrite the same prefab file)', () => {
     const colliding = {
-      ...sampleProject,
-      characters: [{ ...sampleProject.characters[0], id: sampleProject.items[0].id }],
+      ...projectWithCharacter,
+      characters: [{ ...sampleCharacter, id: sampleProject.items[0].id }],
     }
     expect(() => buildModFiles(colliding)).toThrow(sampleProject.items[0].id)
   })

@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { generateCharacterPrefab } from '../../generators/character'
 import { generateSpeechFile } from '../../generators/speech'
-import { sampleProject } from '../fixtures'
+import { sampleCharacter } from '../fixtures'
 
 describe('generateCharacterPrefab', () => {
-  const character = sampleProject.characters[0]
+  const character = sampleCharacter
   const code = generateCharacterPrefab(character)
 
   it('uses MakePlayerCharacter with the character id', () => {
@@ -73,7 +73,7 @@ describe('generateCharacterPrefab', () => {
 })
 
 describe('generateSpeechFile', () => {
-  const character = sampleProject.characters[0]
+  const character = sampleCharacter
   const code = generateSpeechFile(character)
 
   it('falls back to speech_wilson via metatable instead of generating full speech', () => {

@@ -51,6 +51,62 @@ const ITEM_TEMPLATES: { key: string; label: string; icon: string; patch: Partial
   { key: 'other', label: 'Other', icon: '✨', patch: { category: 'generic' } },
 ]
 
+interface SpellFieldsRowProps {
+  namePrefix: 'spellDef' | `spellbook.spells.${number}`
+  labelPlaceholder: string
+  register: UseFormRegister<ItemDef>
+  setValue: UseFormSetValue<ItemDef>
+}
+
+function SpellFieldsRow({ namePrefix, labelPlaceholder, register, setValue }: SpellFieldsRowProps) {
+  return (
+    <>
+      <input className={inputClass} placeholder={labelPlaceholder} {...register(`${namePrefix}.label` as const)} />
+      <input
+        className={inputClass}
+        placeholder="prefab to spawn (e.g. stafflight)"
+        {...register(`${namePrefix}.summonPrefab` as const)}
+      />
+      <PrefabPickerButton
+        onSelect={(id) => setValue(`${namePrefix}.summonPrefab` as const, id, { shouldDirty: true })}
+      />
+      <input
+        type="number"
+        min="0"
+        step="1"
+        className="qty-input"
+        placeholder="Mana cost"
+        title="Mana cost (only matters for a caster with a mana pool — see the character's Mana section)"
+        {...register(`${namePrefix}.manaCost` as const, { valueAsNumber: true })}
+      />
+      <input
+        type="number"
+        step="1"
+        className="qty-input"
+        placeholder="Health"
+        title="Instant health change on the caster (negative drains) — leave blank for none"
+        {...register(`${namePrefix}.healthDelta` as const, { valueAsNumber: true })}
+      />
+      <input
+        type="number"
+        step="1"
+        className="qty-input"
+        placeholder="Sanity"
+        title="Instant sanity change on the caster (negative drains) — leave blank for none"
+        {...register(`${namePrefix}.sanityDelta` as const, { valueAsNumber: true })}
+      />
+      <input
+        type="number"
+        step="1"
+        className="qty-input"
+        placeholder="Hunger"
+        title="Instant hunger change on the caster (negative drains) — leave blank for none"
+        {...register(`${namePrefix}.hungerDelta` as const, { valueAsNumber: true })}
+      />
+    </>
+  )
+}
+
 interface SpellbookEditorProps {
   control: Control<ItemDef>
   register: UseFormRegister<ItemDef>
@@ -75,51 +131,11 @@ function SpellbookEditor({ control, register, setValue, errorMessage }: Spellboo
     <>
       {spells.fields.map((field, index) => (
         <div key={field.id} className="ingredient-row">
-          <input
-            className={inputClass}
-            placeholder="Spell label (e.g. Summon Light)"
-            {...register(`spellbook.spells.${index}.label` as const)}
-          />
-          <input
-            className={inputClass}
-            placeholder="prefab to spawn (e.g. stafflight)"
-            {...register(`spellbook.spells.${index}.summonPrefab` as const)}
-          />
-          <PrefabPickerButton
-            onSelect={(id) => setValue(`spellbook.spells.${index}.summonPrefab` as const, id, { shouldDirty: true })}
-          />
-          <input
-            type="number"
-            min="0"
-            step="1"
-            className="qty-input"
-            placeholder="Mana cost"
-            title="Mana cost (only matters for a caster with a mana pool — see the character's Mana section)"
-            {...register(`spellbook.spells.${index}.manaCost` as const, { valueAsNumber: true })}
-          />
-          <input
-            type="number"
-            step="1"
-            className="qty-input"
-            placeholder="Health"
-            title="Instant health change on the caster (negative drains) — leave blank for none"
-            {...register(`spellbook.spells.${index}.healthDelta` as const, { valueAsNumber: true })}
-          />
-          <input
-            type="number"
-            step="1"
-            className="qty-input"
-            placeholder="Sanity"
-            title="Instant sanity change on the caster (negative drains) — leave blank for none"
-            {...register(`spellbook.spells.${index}.sanityDelta` as const, { valueAsNumber: true })}
-          />
-          <input
-            type="number"
-            step="1"
-            className="qty-input"
-            placeholder="Hunger"
-            title="Instant hunger change on the caster (negative drains) — leave blank for none"
-            {...register(`spellbook.spells.${index}.hungerDelta` as const, { valueAsNumber: true })}
+          <SpellFieldsRow
+            namePrefix={`spellbook.spells.${index}`}
+            labelPlaceholder="Spell label (e.g. Summon Light)"
+            register={register}
+            setValue={setValue}
           />
           <button type="button" className={btnDanger} onClick={() => spells.remove(index)}>
             Remove
@@ -1068,29 +1084,24 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                 </span>
                 {(watched.container?.acceptsPrefabs ?? []).map((prefab, index) => {
                   const list = watched.container?.acceptsPrefabs ?? []
+                  const updatePrefabAt = (value: string) => {
+                    const next = [...list]
+                    next[index] = value
+                    setValue('container.acceptsPrefabs', next, { shouldDirty: true })
+                  }
                   return (
                     <div key={index} className="ingredient-row">
                       <input
                         className={inputClass}
                         placeholder="prefab id (e.g. sewing_tape)"
                         value={prefab}
-                        onChange={(e) => {
-                          const next = [...list]
-                          next[index] = e.target.value
-                          setValue('container.acceptsPrefabs', next)
-                        }}
+                        onChange={(e) => updatePrefabAt(e.target.value)}
                       />
-                      <PrefabPickerButton
-                        onSelect={(id) => {
-                          const next = [...list]
-                          next[index] = id
-                          setValue('container.acceptsPrefabs', next, { shouldDirty: true })
-                        }}
-                      />
+                      <PrefabPickerButton onSelect={updatePrefabAt} />
                       <button
                         type="button"
                         className={btnDanger}
-                        onClick={() => setValue('container.acceptsPrefabs', list.filter((_, i) => i !== index))}
+                        onClick={() => setValue('container.acceptsPrefabs', list.filter((_, i) => i !== index), { shouldDirty: true })}
                       >
                         Remove
                       </button>
@@ -1160,45 +1171,11 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
             </div>
             {enableSpellDef && (
               <div className="ingredient-row">
-                <input className={inputClass} placeholder="Spell label (e.g. Sunbeam)" {...register('spellDef.label' as const)} />
-                <input
-                  className={inputClass}
-                  placeholder="prefab to spawn (e.g. stafflight)"
-                  {...register('spellDef.summonPrefab' as const)}
-                />
-                <PrefabPickerButton onSelect={(id) => setValue('spellDef.summonPrefab' as const, id, { shouldDirty: true })} />
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  className="qty-input"
-                  placeholder="Mana cost"
-                  title="Mana cost (only matters for a caster with a mana pool — see the character's Mana section)"
-                  {...register('spellDef.manaCost' as const, { valueAsNumber: true })}
-                />
-                <input
-                  type="number"
-                  step="1"
-                  className="qty-input"
-                  placeholder="Health"
-                  title="Instant health change on the caster (negative drains) — leave blank for none"
-                  {...register('spellDef.healthDelta' as const, { valueAsNumber: true })}
-                />
-                <input
-                  type="number"
-                  step="1"
-                  className="qty-input"
-                  placeholder="Sanity"
-                  title="Instant sanity change on the caster (negative drains) — leave blank for none"
-                  {...register('spellDef.sanityDelta' as const, { valueAsNumber: true })}
-                />
-                <input
-                  type="number"
-                  step="1"
-                  className="qty-input"
-                  placeholder="Hunger"
-                  title="Instant hunger change on the caster (negative drains) — leave blank for none"
-                  {...register('spellDef.hungerDelta' as const, { valueAsNumber: true })}
+                <SpellFieldsRow
+                  namePrefix="spellDef"
+                  labelPlaceholder="Spell label (e.g. Sunbeam)"
+                  register={register}
+                  setValue={setValue}
                 />
               </div>
             )}

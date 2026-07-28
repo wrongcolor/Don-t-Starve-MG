@@ -1,11 +1,8 @@
 import type { ModProject } from '../src/types/modProject'
+import { createEmptyModProject } from '../src/types/modProject'
 
-// Mod 12 (mods/README.md): demonstra ItemDef.groundAttack (patterns.md#58) — a
-// mesma mira reticule + spellcaster já usada por spellEffect/tameBomb, só que
-// arremessando espetos e blocos de parede de areia num ponto em vez de um
-// efeito mágico ou uma nuvem de doma. Reaproveita o build vanilla "rocks" pra
-// não depender de arte própria.
 export const spikeRod: ModProject = {
+  ...createEmptyModProject(),
   meta: {
     name: 'Spike Rod',
     description: 'A rod that erupts a ring of hardened sand spikes and walls wherever it is aimed.',
@@ -33,10 +30,4 @@ export const spikeRod: ModProject = {
       },
     },
   ],
-  structures: [],
-  characters: [],
-  creatures: [],
-  rooms: [],
-  tasks: [],
-  staticLayouts: [],
 }

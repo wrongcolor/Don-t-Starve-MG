@@ -1,4 +1,25 @@
-import type { ModProject } from '../types/modProject'
+import type { CharacterDef, ModProject } from '../types/modProject'
+
+// Not part of sampleProject.characters on purpose (see the comment below) — a
+// playable character always needs its own bigportraits/<id>.xml, which has no
+// vanilla-reuse fallback, so kitchen_sink can't ship one without crashing on
+// load. Generator/character tests that need a character use this instead.
+export const sampleCharacter: CharacterDef = {
+  id: 'testchar',
+  gender: 'NEUTRAL',
+  title: 'the tester',
+  name: 'Test Character',
+  description: 'A character for testing',
+  quote: 'Testing, testing.',
+  stats: { health: 150, hunger: 150, sanity: 200 },
+  startingInventory: [],
+  speechOverrides: { ANNOUNCE_COLD: 'It is cold, for science.' },
+  perks: ['freeze_immune'],
+  damageMultiplier: 0.75,
+  hungerRateMultiplier: 0,
+  walkSpeedMultiplier: 1.25,
+  foodTypeAffinities: [{ foodType: 'VEGGIE', multiplier: 1.33 }],
+}
 
 export const sampleProject: ModProject = {
   meta: {

@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { generateModMain } from '../../generators/modmain'
-import { sampleProject } from '../fixtures'
+import { sampleProject, sampleCharacter } from '../fixtures'
+import type { ModProject } from '../../types/modProject'
+
+const projectWithCharacter: ModProject = { ...sampleProject, characters: [sampleCharacter] }
 
 describe('generateModMain', () => {
-  const code = generateModMain(sampleProject)
+  const code = generateModMain(projectWithCharacter)
 
   it('lists every prefab (including the placer) in PrefabFiles', () => {
     expect(code).toContain('PrefabFiles =')
@@ -39,8 +42,8 @@ describe('generateModMain', () => {
 
   describe('mana HUD (docs/dst-knowledge/patterns.md#61)', () => {
     const mageProject = {
-      ...sampleProject,
-      characters: [{ ...sampleProject.characters[0], mana: { max: 100, regenPerSecond: 2 } }],
+      ...projectWithCharacter,
+      characters: [{ ...projectWithCharacter.characters[0], mana: { max: 100, regenPerSecond: 2 } }],
     }
     const mageCode = generateModMain(mageProject)
 
@@ -92,8 +95,8 @@ describe('generateModMain', () => {
 
   it('sets TUNING for a melee weapon with a custom range, distinct from a ranged weapon\'s min/max range', () => {
     const withMeleeRange = {
-      ...sampleProject,
-      items: [{ ...sampleProject.items[0], weapon: { ...sampleProject.items[0].weapon!, meleeRange: 3 } }],
+      ...projectWithCharacter,
+      items: [{ ...projectWithCharacter.items[0], weapon: { ...projectWithCharacter.items[0].weapon!, meleeRange: 3 } }],
     }
     const meleeRangeCode = generateModMain(withMeleeRange)
     expect(meleeRangeCode).toContain('GLOBAL.TUNING.TESTSWORD_MELEE_RANGE = 3')
@@ -102,9 +105,9 @@ describe('generateModMain', () => {
 
   it('lists the herd manager prefab and sets its TUNING values when a creature has a herd (patterns.md#27)', () => {
     const withHerd = {
-      ...sampleProject,
+      ...projectWithCharacter,
       creatures: [
-        { ...sampleProject.creatures[0], herd: { maxSize: 8, gatherRange: 40, spawnIntervalDays: { min: 4, max: 6 } } },
+        { ...projectWithCharacter.creatures[0], herd: { maxSize: 8, gatherRange: 40, spawnIntervalDays: { min: 4, max: 6 } } },
       ],
     }
     const herdCode = generateModMain(withHerd)
@@ -117,8 +120,8 @@ describe('generateModMain', () => {
 
   it('sets TUNING values for a rechargeable item (patterns.md#26)', () => {
     const withRecharge = {
-      ...sampleProject,
-      items: [{ ...sampleProject.items[3], finiteuses: undefined, rechargeable: { cooldownSeconds: 30 } }],
+      ...projectWithCharacter,
+      items: [{ ...projectWithCharacter.items[3], finiteuses: undefined, rechargeable: { cooldownSeconds: 30 } }],
     }
     const rechargeCode = generateModMain(withRecharge)
     expect(rechargeCode).toContain('GLOBAL.TUNING.TESTFIRESTAFF_COOLDOWN = 30')
@@ -130,8 +133,8 @@ describe('generateModMain', () => {
 
   it('sets TUNING values (keyed to the cloud id) and lists the cloud prefab for a tameBomb item', () => {
     const withTameBomb = {
-      ...sampleProject,
-      items: [{ ...sampleProject.items[1], id: 'testtamebomb', tameBomb: { radius: 4, cloudDurationSeconds: 10, tameDurationSeconds: 60 } }],
+      ...projectWithCharacter,
+      items: [{ ...projectWithCharacter.items[1], id: 'testtamebomb', tameBomb: { radius: 4, cloudDurationSeconds: 10, tameDurationSeconds: 60 } }],
     }
     const tameBombCode = generateModMain(withTameBomb)
     expect(tameBombCode).toContain('GLOBAL.TUNING.TESTTAMEBOMB_CLOUD_RADIUS = 4')
@@ -142,8 +145,8 @@ describe('generateModMain', () => {
 
   it('sets TUNING values (keyed to the item id) for a groundAttack item, omitting WALL_COUNT when wallCount is 0', () => {
     const withGroundAttack = {
-      ...sampleProject,
-      items: [{ ...sampleProject.items[1], id: 'testgroundattack', groundAttack: { spikeCount: 5, wallCount: 0, radius: 6 } }],
+      ...projectWithCharacter,
+      items: [{ ...projectWithCharacter.items[1], id: 'testgroundattack', groundAttack: { spikeCount: 5, wallCount: 0, radius: 6 } }],
     }
     const groundAttackCode = generateModMain(withGroundAttack)
     expect(groundAttackCode).toContain('GLOBAL.TUNING.TESTGROUNDATTACK_SPIKE_COUNT = 5')
@@ -153,8 +156,8 @@ describe('generateModMain', () => {
 
   it('sets TUNING values for a creature groundAttack, including its own cooldown', () => {
     const withGroundAttack = {
-      ...sampleProject,
-      creatures: [{ ...sampleProject.creatures[0], groundAttack: { spikeCount: 5, wallCount: 2, radius: 6, cooldownSeconds: 20 } }],
+      ...projectWithCharacter,
+      creatures: [{ ...projectWithCharacter.creatures[0], groundAttack: { spikeCount: 5, wallCount: 2, radius: 6, cooldownSeconds: 20 } }],
     }
     const groundAttackCode = generateModMain(withGroundAttack)
     expect(groundAttackCode).toContain('GLOBAL.TUNING.TESTMOB_SPIKE_COUNT = 5')
@@ -165,8 +168,8 @@ describe('generateModMain', () => {
 
   it('sets TUNING values for a creature light, dividing the 0-255 colour into 0-1 floats (patterns.md#65)', () => {
     const withLight = {
-      ...sampleProject,
-      creatures: [{ ...sampleProject.creatures[0], light: { radius: 12, intensity: 0.8, falloff: 0.8, colour: { r: 250, g: 149, b: 18 } } }],
+      ...projectWithCharacter,
+      creatures: [{ ...projectWithCharacter.creatures[0], light: { radius: 12, intensity: 0.8, falloff: 0.8, colour: { r: 250, g: 149, b: 18 } } }],
     }
     const lightCode = generateModMain(withLight)
     expect(lightCode).toContain('GLOBAL.TUNING.TESTMOB_LIGHT_RADIUS = 12')
@@ -179,8 +182,8 @@ describe('generateModMain', () => {
 
   it('sets TUNING values for a day spawner structure', () => {
     const withSpawner = {
-      ...sampleProject,
-      structures: [{ ...sampleProject.structures[0], daySpawner: { prefab: 'deerclops', chance: 0.1, range: 40 } }],
+      ...projectWithCharacter,
+      structures: [{ ...projectWithCharacter.structures[0], daySpawner: { prefab: 'deerclops', chance: 0.1, range: 40 } }],
     }
     const spawnerCode = generateModMain(withSpawner)
     expect(spawnerCode).toContain('GLOBAL.TUNING.TESTSTRUCTURE_SPAWN_CHANCE = 0.1')
@@ -189,8 +192,8 @@ describe('generateModMain', () => {
 
   it('sets TUNING values for a resident structure (components/spawner.lua)', () => {
     const withResident = {
-      ...sampleProject,
-      structures: [{ ...sampleProject.structures[0], resident: { prefab: 'pigman', respawnDelayDays: 2 } }],
+      ...projectWithCharacter,
+      structures: [{ ...projectWithCharacter.structures[0], resident: { prefab: 'pigman', respawnDelayDays: 2 } }],
     }
     const residentCode = generateModMain(withResident)
     expect(residentCode).toContain('GLOBAL.TUNING.TESTSTRUCTURE_RESPAWN_DELAY = TUNING.TOTAL_DAY_TIME * 2')
@@ -198,9 +201,9 @@ describe('generateModMain', () => {
 
   it('sets TUNING values for a rest station structure (components/sleepingbag.lua)', () => {
     const withRestStation = {
-      ...sampleProject,
+      ...projectWithCharacter,
       structures: [
-        { ...sampleProject.structures[0], restStation: { sleepPhase: 'night' as const, healthPerTick: 1, hungerPerTick: -1, sanityPerTick: 1 } },
+        { ...projectWithCharacter.structures[0], restStation: { sleepPhase: 'night' as const, healthPerTick: 1, hungerPerTick: -1, sanityPerTick: 1 } },
       ],
     }
     const restCode = generateModMain(withRestStation)
@@ -212,10 +215,10 @@ describe('generateModMain', () => {
 
   it('sets a USES tuning value only when the rest station has limited uses', () => {
     const withMaxUses = {
-      ...sampleProject,
+      ...projectWithCharacter,
       structures: [
         {
-          ...sampleProject.structures[0],
+          ...projectWithCharacter.structures[0],
           restStation: { sleepPhase: 'day' as const, healthPerTick: 2, hungerPerTick: -1, sanityPerTick: 1, maxUses: 15 },
         },
       ],
@@ -226,8 +229,10 @@ describe('generateModMain', () => {
 
   describe('deployMode: deployableItem (Original/scripts/recipes.lua Recipe2("portablecookpot_item", ...))', () => {
     const portableProject = {
-      ...sampleProject,
-      structures: [{ ...sampleProject.structures[0], id: 'testportable', deployMode: 'deployableItem' as const }],
+      ...projectWithCharacter,
+      structures: [
+        { ...projectWithCharacter.structures[0], id: 'testportable', deployMode: 'deployableItem' as const, animation: { source: 'custom' as const } },
+      ],
     }
     const portableCode = generateModMain(portableProject)
 
@@ -258,8 +263,8 @@ describe('generateModMain', () => {
 
   it('wires the Combine action once when at least one item is combinable', () => {
     const withCombinable = {
-      ...sampleProject,
-      items: sampleProject.items.map((item, i) => (i === 0 ? { ...item, combinable: true } : item)),
+      ...projectWithCharacter,
+      items: projectWithCharacter.items.map((item, i) => (i === 0 ? { ...item, combinable: true } : item)),
     }
     const combinedCode = generateModMain(withCombinable)
     expect(combinedCode).toContain('AddAction("COMBINE_ITEM", "Combine", function(act)')
@@ -275,11 +280,11 @@ describe('generateModMain', () => {
 
   it('wires containers.params for a vanilla-widget container by cloning an existing container (patterns.md#20)', () => {
     const withContainer = {
-      ...sampleProject,
+      ...projectWithCharacter,
       items: [
-        ...sampleProject.items,
+        ...projectWithCharacter.items,
         {
-          ...sampleProject.items[0],
+          ...projectWithCharacter.items[0],
           id: 'testbag',
           container: { widget: { source: 'vanilla' as const, reusePrefab: 'sacred_chest' }, sideWidget: true },
         },
@@ -296,11 +301,11 @@ describe('generateModMain', () => {
 
   it('unrolls a custom container grid into exactly `slots` table.insert calls, and wires itemtestfn for acceptsTag', () => {
     const withCustomContainer = {
-      ...sampleProject,
+      ...projectWithCharacter,
       items: [
-        ...sampleProject.items,
+        ...projectWithCharacter.items,
         {
-          ...sampleProject.items[0],
+          ...projectWithCharacter.items[0],
           id: 'testcustombag',
           container: {
             widget: { source: 'custom' as const, slots: 5, columns: 2 },
@@ -319,11 +324,11 @@ describe('generateModMain', () => {
 
   it('ORs acceptsTag and acceptsPrefabs together in a single itemtestfn (patterns.md#20)', () => {
     const withBoth = {
-      ...sampleProject,
+      ...projectWithCharacter,
       items: [
-        ...sampleProject.items,
+        ...projectWithCharacter.items,
         {
-          ...sampleProject.items[0],
+          ...projectWithCharacter.items[0],
           id: 'testtoolbox',
           container: {
             widget: { source: 'custom' as const, slots: 9, columns: 3 },

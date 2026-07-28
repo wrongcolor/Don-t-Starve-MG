@@ -1,17 +1,8 @@
 import type { ModProject } from '../src/types/modProject'
+import { createEmptyModProject } from '../src/types/modProject'
 
-// Mod 8 (mods/README.md): a friendly counterpart to bogLurker — a passive
-// creature that never fights (damage 0, no kiting: kiting requires
-// neutral/hostile per the schema refine in creatureDefSchema). No animation
-// field at all, so it reuses the tool's default build ("pigman" — see
-// creatureAnimation.ts), no custom art required. Demonstrates the companion
-// feature end-to-end: it always follows the nearest player, and chops nearby
-// trees / collects nearby loose items on top of that (simplified from the
-// real leader-assist system — see COMPANION_TASKS in modProject.ts for what's
-// dropped). Also still forms herds in the wild (patterns.md#27) and keeps a
-// soothing sanityAura + flees if set on fire, from the original version of
-// this mod.
 export const meadowHopper: ModProject = {
+  ...createEmptyModProject(),
   meta: {
     name: 'Meadow Hopper',
     description: 'A gentle, harmless critter that follows you around, chopping trees and collecting items.',
@@ -20,9 +11,6 @@ export const meadowHopper: ModProject = {
     allClientsRequireMod: true,
     configOptions: [],
   },
-  items: [],
-  structures: [],
-  characters: [],
   creatures: [
     {
       id: 'meadowhopper',
@@ -39,7 +27,4 @@ export const meadowHopper: ModProject = {
       companion: { followDistance: 5, tasks: ['chopTrees', 'collectItems'] },
     },
   ],
-  rooms: [],
-  tasks: [],
-  staticLayouts: [],
 }

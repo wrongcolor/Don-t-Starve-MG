@@ -12,7 +12,9 @@ export function GenerateButton() {
     project.items.length +
       project.characters.length +
       project.creatures.length +
+      project.structures.length +
       project.rooms.length +
+      project.staticLayouts.length +
       project.tasks.length >
     0
   const canGenerate = project.meta.name.trim().length > 0 && hasContent
@@ -32,7 +34,7 @@ export function GenerateButton() {
   }
 
   const title = !canGenerate
-    ? 'Fill in the mod name and add at least 1 item, character, creature, room, or task.'
+    ? 'Fill in the mod name and add at least 1 item, character, creature, structure, room, static layout, or task.'
     : (error ?? undefined)
 
   return (

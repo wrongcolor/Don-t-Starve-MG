@@ -1,12 +1,8 @@
 import type { ModProject } from '../src/types/modProject'
+import { createEmptyModProject } from '../src/types/modProject'
 
-// Mod 7 (mods/README.md): demonstra a criatura de ponta a ponta, incluindo os 3
-// achados do brain sweep implementados em src/generators/brain.ts (patterns.md#46-51):
-// hit-and-run/kiting (ataca só fora do cooldown, foge entre um golpe e outro),
-// aggroRange customizado (15 em vez do padrão 10), e uma cadeia de causas de
-// pânico (foge se pegar fogo OU se assombrada por um fantasma). Reaproveita o
-// build "hound" (VANILLA_CREATURE_BUILDS) pra não depender de arte própria.
 export const bogLurker: ModProject = {
+  ...createEmptyModProject(),
   meta: {
     name: 'Bog Lurker',
     description: 'A hostile swamp creature that kites its prey and panics when set on fire or haunted.',
@@ -15,9 +11,6 @@ export const bogLurker: ModProject = {
     allClientsRequireMod: true,
     configOptions: [],
   },
-  items: [],
-  structures: [],
-  characters: [],
   creatures: [
     {
       id: 'boglurker',
@@ -38,7 +31,4 @@ export const bogLurker: ModProject = {
       kiting: { runDistance: 6, safeDistance: 10 },
     },
   ],
-  rooms: [],
-  tasks: [],
-  staticLayouts: [],
 }

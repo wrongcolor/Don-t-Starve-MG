@@ -1,5 +1,5 @@
 import type { StructureDef, RoomSize } from '../types/modProject'
-import { luaString, toUpperSnake } from './luaUtils'
+import { luaString, sanitizeLuaComment, toUpperSnake } from './luaUtils'
 import { containerCustomWidgetBuild } from './item'
 
 // A structure with no animation choice keeps the same default an item gets: a
@@ -34,7 +34,6 @@ function itemId(structure: StructureDef): string {
 }
 
 function lootBlock(structure: StructureDef): string[] {
-  if (structure.loot.length === 0) return ['', '    inst:AddComponent("lootdropper")']
   const lines = ['', '    inst:AddComponent("lootdropper")']
   for (const drop of structure.loot) {
     lines.push(`    inst.components.lootdropper:AddChancedLoot(${luaString(drop.prefab)}, ${drop.chance})`)
@@ -336,7 +335,7 @@ export function generateStructurePrefab(structure: StructureDef): string {
   lines.push('local assets =')
   lines.push('{')
   if (isVanillaAnimation(structure)) {
-    lines.push(`    -- Build "${build}" reaproveitado do jogo base, sem asset próprio necessário.`)
+    lines.push(`    -- Build "${sanitizeLuaComment(build)}" reaproveitado do jogo base, sem asset próprio necessário.`)
   } else {
     lines.push(`    Asset("ANIM", "anim/${structure.id}.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)`)
   }
@@ -408,7 +407,7 @@ export function generateStructurePlacerPrefab(structure: StructureDef): string {
   lines.push('local assets =')
   lines.push('{')
   if (isVanillaAnimation(structure)) {
-    lines.push(`    -- Build "${build}" reaproveitado do jogo base, sem asset próprio necessário.`)
+    lines.push(`    -- Build "${sanitizeLuaComment(build)}" reaproveitado do jogo base, sem asset próprio necessário.`)
   } else {
     lines.push(`    Asset("ANIM", "anim/${structure.id}.zip"), -- PLACEHOLDER: mesmo build da estrutura, ver README`)
   }
@@ -434,7 +433,7 @@ export function generateStructureItemPrefab(structure: StructureDef): string {
   lines.push('local assets =')
   lines.push('{')
   if (isVanillaAnimation(structure)) {
-    lines.push(`    -- Build "${build}" reaproveitado do jogo base, sem asset próprio necessário.`)
+    lines.push(`    -- Build "${sanitizeLuaComment(build)}" reaproveitado do jogo base, sem asset próprio necessário.`)
   } else {
     lines.push(`    Asset("ANIM", "anim/${structure.id}.zip"), -- PLACEHOLDER: mesmo build da estrutura, ver README`)
   }

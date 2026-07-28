@@ -104,10 +104,9 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
 
   const roomChoices = useFieldArray({ control, name: 'roomChoices' })
 
-  const [locks, setLocks] = useState<string[]>((initialTask ?? emptyTask).locks)
-  const [keysGiven, setKeysGiven] = useState<string[]>((initialTask ?? emptyTask).keysGiven)
-
   const watched = watch()
+  const locks = watched.locks ?? []
+  const keysGiven = watched.keysGiven ?? []
   const enableRegion = watched.regionId !== undefined
 
   const onSubmit = (data: TaskDef) => onSave(data)
@@ -139,32 +138,16 @@ export function TaskForm({ initialTask, onSave, onCancel }: TaskFormProps) {
                 info="This area only becomes accessible after the player has obtained ALL of the selected keys from other Tasks."
                 options={LOCKS}
                 values={locks}
-                onAdd={(v) => {
-                  const next = [...locks, v]
-                  setLocks(next)
-                  setValue('locks', next)
-                }}
-                onRemove={(i) => {
-                  const next = locks.filter((_, idx) => idx !== i)
-                  setLocks(next)
-                  setValue('locks', next)
-                }}
+                onAdd={(v) => setValue('locks', [...locks, v])}
+                onRemove={(i) => setValue('locks', locks.filter((_, idx) => idx !== i))}
               />
               <EnumListEditor
                 label="Keys given (what this area unlocks for others)"
                 info="Once the player reaches this Task, these keys become available — any other Task locked behind one of them becomes reachable."
                 options={KEYS}
                 values={keysGiven}
-                onAdd={(v) => {
-                  const next = [...keysGiven, v]
-                  setKeysGiven(next)
-                  setValue('keysGiven', next)
-                }}
-                onRemove={(i) => {
-                  const next = keysGiven.filter((_, idx) => idx !== i)
-                  setKeysGiven(next)
-                  setValue('keysGiven', next)
-                }}
+                onAdd={(v) => setValue('keysGiven', [...keysGiven, v])}
+                onRemove={(i) => setValue('keysGiven', keysGiven.filter((_, idx) => idx !== i))}
               />
             </Fieldset>
 

@@ -21,7 +21,6 @@ interface ModProjectState {
   removeTask: (id: string) => void
   upsertStaticLayout: (layout: StaticLayoutDef) => void
   removeStaticLayout: (id: string) => void
-  resetProject: () => void
 }
 
 function upsertById<T extends { id: string }>(list: T[], entry: T): T[] {
@@ -116,7 +115,6 @@ export const useModProjectStore = create<ModProjectState>()(
         set((state) => ({
           project: { ...state.project, staticLayouts: state.project.staticLayouts.filter((l) => l.id !== id) },
         })),
-      resetProject: () => set({ project: createEmptyModProject() }),
     }),
     {
       name: 'dst-mod-creator-project',
