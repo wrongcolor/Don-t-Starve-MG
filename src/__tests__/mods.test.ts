@@ -24,6 +24,7 @@ import { trailRations } from '../../mods/trailRations'
 import { emberRod } from '../../mods/emberRod'
 import { calmingCenser } from '../../mods/calmingCenser'
 import { engravedPlaque } from '../../mods/engravedPlaque'
+import { fenwick } from '../../mods/fenwick'
 
 const REAL_MODS: Record<string, ModProject> = {
   alchemistIsland,
@@ -48,6 +49,7 @@ const REAL_MODS: Record<string, ModProject> = {
   emberRod,
   calmingCenser,
   engravedPlaque,
+  fenwick,
 }
 
 describe('mods/*.ts (mods/README.md) build to syntactically valid Lua', () => {
