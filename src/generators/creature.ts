@@ -77,7 +77,7 @@ function lootBlock(creature: CreatureDef): string[] {
 // (see README) before this prefab will load without a missing-build error.
 export function generateCreaturePrefab(creature: CreatureDef): string {
   const upper = toUpperSnake(creature.id)
-  const { build, clips } = resolveCreatureAnimation(creature)
+  const { bank, build, clips } = resolveCreatureAnimation(creature)
   const lines: string[] = []
 
   lines.push('local assets =')
@@ -116,7 +116,7 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   lines.push('')
   lines.push('    MakeCharacterPhysics(inst, 50, .5)')
   lines.push('')
-  lines.push(`    inst.AnimState:SetBank(${luaString(build)})`)
+  lines.push(`    inst.AnimState:SetBank(${luaString(bank)})`)
   lines.push(`    inst.AnimState:SetBuild(${luaString(build)})`)
   lines.push(`    inst.AnimState:PlayAnimation(${luaString(clips.idle)})`)
   lines.push('')

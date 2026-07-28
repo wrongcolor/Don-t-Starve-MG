@@ -859,11 +859,13 @@ export const creatureAnimationSchema = z.discriminatedUnion('source', [
   z.object({
     source: z.literal('vanilla'),
     build: z.string().min(1, 'Choose an animation'),
+    bank: z.string().min(1).optional(),
     clips: creatureAnimationClipsSchema,
   }),
   z.object({
     source: z.literal('islandAdventuresShipwrecked'),
     build: z.string().min(1, 'Choose an animation'),
+    bank: z.string().min(1).optional(),
     clips: creatureAnimationClipsSchema,
   }),
 ])

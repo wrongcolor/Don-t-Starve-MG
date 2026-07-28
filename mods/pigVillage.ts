@@ -37,6 +37,7 @@ export const pigVillage: ModProject = {
       animation: {
         source: 'islandAdventuresShipwrecked',
         build: 'wildbore_build',
+        bank: 'pigman',
         clips: { idle: 'idle', walk: 'walk', atk: 'atk', hit: 'hit', death: 'death' },
       },
       stats: { health: 100, damage: 20, attackPeriod: 2, walkSpeed: 3 },

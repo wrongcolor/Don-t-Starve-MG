@@ -89,6 +89,21 @@ describe('generateCreatureFiles', () => {
     expect(code).toContain('Build "wildbore_build" reaproveitado do mod "Island Adventures - Shipwrecked"')
   })
 
+  it('uses a separate bank (animation skeleton) from the build (visual skin) when bank is set', () => {
+    const withSeparateBank: CreatureDef = {
+      ...spiderMob,
+      animation: {
+        source: 'islandAdventuresShipwrecked',
+        build: 'wildbore_build',
+        bank: 'pigman',
+        clips: { idle: 'idle', walk: 'walk', atk: 'atk', hit: 'hit', death: 'death' },
+      },
+    }
+    const code = generateCreaturePrefab(withSeparateBank)
+    expect(code).toContain('inst.AnimState:SetBank("pigman")')
+    expect(code).toContain('inst.AnimState:SetBuild("wildbore_build")')
+  })
+
   it('threads the same vanilla clip names into the generated stategraph', () => {
     const withCustomClips = {
       ...spiderMob,
