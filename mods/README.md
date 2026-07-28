@@ -28,3 +28,4 @@ Cada entrada é um `ModProject` real em `mods/<nome>.ts`, gerado e validado via
 | 20 | `emberRod` | Item `rechargeable` + `spellEffect` (patterns.md#26): nunca quebra, só recarrega com o tempo em vez de gastar usos — conjura luz (`createLight`) | Gerado |
 | 21 | `calmingCenser` | Item com `tameBomb`: arremessa uma nuvem que amansa temporariamente criaturas hostis próximas, via `follower`/`leader` (patterns.md#58) | Gerado |
 | 22 | `engravedPlaque` | Item `nameable` (patterns.md#24): placa decorativa que o jogador pode renomear, como placas/lápides | Gerado |
+| 23 | `pigVillage` | Estrutura `villagerhouse` (`resident`, build vanilla "pig_house") que hospeda a creature `villager` — primeiro uso do novo `animation.source: 'islandAdventuresShipwrecked'`, reaproveitando o build `wildbore_build` do mod publicado "Island Adventures - Shipwrecked" (`mod_dependencies` real no `modinfo.lua` gerado, workshop id `1467214795`) | Gerado |
