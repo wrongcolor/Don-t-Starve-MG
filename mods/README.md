@@ -28,4 +28,4 @@ Cada entrada é um `ModProject` real em `mods/<nome>.ts`, gerado e validado via
 | 20 | `emberRod` | Item `rechargeable` + `spellEffect` (patterns.md#26): nunca quebra, só recarrega com o tempo em vez de gastar usos — conjura luz (`createLight`) | Gerado |
 | 21 | `calmingCenser` | Item com `tameBomb`: arremessa uma nuvem que amansa temporariamente criaturas hostis próximas, via `follower`/`leader` (patterns.md#58) | Gerado |
 | 22 | `engravedPlaque` | Item `nameable` (patterns.md#24): placa decorativa que o jogador pode renomear, como placas/lápides | Gerado |
-| 23 | `fenwick` | Personagem jogável completo: Fenwick, o Guardião das Feras — mana própria + skill tree ao mesmo tempo (nunca combinados antes), kit de 5 itens (arma, `rechargeable`+`spellEffect`, `container`, comida `stackable`+`perishable`+`onEatBuff`, `tameBomb`), uma creature companheira (`companion`) e uma estrutura própria com `prototyper` (nunca usado em nenhum mod até agora) | Gerado |
+| 23 | `wrongcolor` | Personagem jogável: um ladino. Em construção — kit completo sendo adicionado aos poucos | Em progresso |
