@@ -18,7 +18,7 @@ export const wrongcolor: ModProject = {
       description: 'Quick, quiet, and easy to hide.',
       category: 'weapon',
       animation: { source: 'vanilla', build: 'flint' },
-      weapon: { damage: 20 },
+      weapon: { damage: 27 },
       finiteuses: { maxUses: 30 },
       recipe: {
         ingredients: [
@@ -35,7 +35,7 @@ export const wrongcolor: ModProject = {
       description: "Aim true. You won't get this one back.",
       category: 'weapon',
       animation: { source: 'vanilla', build: 'flint' },
-      weapon: { damage: 15, ranged: { minRange: 4, maxRange: 8, projectilePrefab: 'blowdart_dart' } },
+      weapon: { damage: 20, ranged: { minRange: 4, maxRange: 8, projectilePrefab: 'blowdart_dart' } },
       finiteuses: { maxUses: 10 },
       recipe: {
         ingredients: [
@@ -52,7 +52,7 @@ export const wrongcolor: ModProject = {
       description: 'Shinier than it has any right to be, for something this sharp.',
       category: 'weapon',
       animation: { source: 'vanilla', build: 'goldnugget' },
-      weapon: { damage: 27 },
+      weapon: { damage: 42 },
       finiteuses: { maxUses: 40 },
       recipe: {
         ingredients: [
@@ -69,7 +69,7 @@ export const wrongcolor: ModProject = {
       description: 'Worth more than the wound it leaves.',
       category: 'weapon',
       animation: { source: 'vanilla', build: 'goldnugget' },
-      weapon: { damage: 20, ranged: { minRange: 4, maxRange: 8, projectilePrefab: 'blowdart_dart' } },
+      weapon: { damage: 32, ranged: { minRange: 4, maxRange: 8, projectilePrefab: 'blowdart_dart' } },
       finiteuses: { maxUses: 15 },
       recipe: {
         ingredients: [
@@ -86,7 +86,7 @@ export const wrongcolor: ModProject = {
       description: 'Ancient, and still hungry.',
       category: 'weapon',
       animation: { source: 'vanilla', build: 'thulecite' },
-      weapon: { damage: 34 },
+      weapon: { damage: 65 },
       finiteuses: { maxUses: 50 },
       recipe: {
         ingredients: [
@@ -103,7 +103,7 @@ export const wrongcolor: ModProject = {
       description: 'Old magic, new bruises.',
       category: 'weapon',
       animation: { source: 'vanilla', build: 'thulecite' },
-      weapon: { damage: 27, ranged: { minRange: 4, maxRange: 8, projectilePrefab: 'blowdart_dart' } },
+      weapon: { damage: 49, ranged: { minRange: 4, maxRange: 8, projectilePrefab: 'blowdart_dart' } },
       finiteuses: { maxUses: 20 },
       recipe: {
         ingredients: [
