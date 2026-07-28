@@ -73,6 +73,22 @@ describe('generateCreatureFiles', () => {
     expect(code).toContain('inst.AnimState:SetBuild("spider")')
   })
 
+  it('reuses an Island Adventures - Shipwrecked build without declaring an ANIM asset, and labels it correctly in a comment', () => {
+    const withIslandAdventures: CreatureDef = {
+      ...spiderMob,
+      animation: {
+        source: 'islandAdventuresShipwrecked',
+        build: 'wildbore_build',
+        clips: { idle: 'idle_loop', walk: 'walk_loop', atk: 'atk', hit: 'hit', death: 'death' },
+      },
+    }
+    const code = generateCreaturePrefab(withIslandAdventures)
+    expect(code).not.toContain('Asset("ANIM"')
+    expect(code).toContain('inst.AnimState:SetBank("wildbore_build")')
+    expect(code).toContain('inst.AnimState:SetBuild("wildbore_build")')
+    expect(code).toContain('Build "wildbore_build" reaproveitado do mod "Island Adventures - Shipwrecked"')
+  })
+
   it('threads the same vanilla clip names into the generated stategraph', () => {
     const withCustomClips = {
       ...spiderMob,

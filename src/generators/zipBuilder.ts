@@ -7,7 +7,7 @@ import { generateStructureFiles } from './structure'
 import { generateCharacterFiles } from './character'
 import { generateSpeechFile } from './speech'
 import { generateCreatureFiles } from './creature'
-import { resolveCreatureAnimation, isVanillaCreatureAnimation } from './creatureAnimation'
+import { resolveCreatureAnimation, isVanillaCreatureAnimation, isIslandAdventuresShipwreckedAnimation } from './creatureAnimation'
 import { generateWorldContentFiles } from './worldContent'
 import { generateManaComponentFile, generateManaBadgeWidgetFile } from './mana'
 
@@ -91,7 +91,12 @@ function generateReadme(project: ModProject): string {
   if (project.creatures.length > 0) {
     lines.push('- **Criaturas**: por padrão reaproveitam o build "pigman" do jogo base — só precisam de `anim/<id>.zip` próprio se a animação for explicitamente marcada como personalizada.')
     for (const creature of project.creatures) {
-      if (isVanillaCreatureAnimation(creature)) {
+      if (isIslandAdventuresShipwreckedAnimation(creature)) {
+        const { build, clips } = resolveCreatureAnimation(creature)
+        lines.push(
+          `  - \`${creature.id}\`: reaproveita o build "${build}" do mod "Island Adventures - Shipwrecked" — confirme em-jogo que as animações "${clips.idle}"/"${clips.walk}"/"${clips.atk}"/"${clips.hit}"/"${clips.death}" existem nesse build antes de publicar (não verificado por esta ferramenta).`,
+        )
+      } else if (isVanillaCreatureAnimation(creature)) {
         const { build, clips } = resolveCreatureAnimation(creature)
         lines.push(
           `  - \`${creature.id}\`: reaproveita o build "${build}" do jogo base — confirme em-jogo que as animações "${clips.idle}"/"${clips.walk}"/"${clips.atk}"/"${clips.hit}"/"${clips.death}" existem nesse build antes de publicar (não verificado por esta ferramenta).`,
@@ -115,21 +120,35 @@ function generateReadme(project: ModProject): string {
   lines.push('falas customizadas no formulário foram sobrescritas; o resto herda do Wilson.')
   lines.push('')
   const usesAboveTheClouds = project.structures.some((s) => s.interior)
-  if (usesAboveTheClouds) {
+  const usesIslandAdventuresShipwrecked = project.creatures.some((c) => isIslandAdventuresShipwreckedAnimation(c))
+  const requiredMods = [
+    ...(usesAboveTheClouds ? ['**"Above the Clouds"**'] : []),
+    ...(usesIslandAdventuresShipwrecked ? ['**"Island Adventures - Shipwrecked"**'] : []),
+  ]
+  if (requiredMods.length > 0) {
     lines.push('## Dependência obrigatória')
     lines.push('')
-    lines.push('Este mod usa `StructureDef.interior` (patterns.md#64), que depende do')
-    lines.push('componente `interiorspawner` do mod publicado **"Above the Clouds"**')
-    lines.push('(Workshop id `workshop-3322803908`, já declarado em `mod_dependencies` no')
-    lines.push('`modinfo.lua` gerado). Sem ele ativo, as estruturas com interior não vão')
-    lines.push('conseguir criar a sala/porta ao serem construídas.')
-    lines.push('')
+    if (usesAboveTheClouds) {
+      lines.push('Este mod usa `StructureDef.interior` (patterns.md#64), que depende do')
+      lines.push('componente `interiorspawner` do mod publicado **"Above the Clouds"**')
+      lines.push('(Workshop id `workshop-3322803908`, já declarado em `mod_dependencies` no')
+      lines.push('`modinfo.lua` gerado). Sem ele ativo, as estruturas com interior não vão')
+      lines.push('conseguir criar a sala/porta ao serem construídas.')
+      lines.push('')
+    }
+    if (usesIslandAdventuresShipwrecked) {
+      lines.push('Este mod reaproveita um build de criatura do mod publicado')
+      lines.push('**"Island Adventures - Shipwrecked"** (Workshop id `workshop-1467214795`,')
+      lines.push('já declarado em `mod_dependencies` no `modinfo.lua` gerado). Sem ele ativo,')
+      lines.push('essas criaturas vão carregar sem a arte correta.')
+      lines.push('')
+    }
   }
 
   lines.push('## Como instalar')
   lines.push('')
-  if (usesAboveTheClouds) {
-    lines.push('1. Inscreva-se e ative **"Above the Clouds"** primeiro (ver "Dependência obrigatória" acima).')
+  if (requiredMods.length > 0) {
+    lines.push(`1. Inscreva-se e ative ${requiredMods.join(' e ')} primeiro (ver "Dependência obrigatória" acima).`)
     lines.push('2. Copie esta pasta inteira para `Documents/Klei/DoNotStarveTogether/mods/`.')
     lines.push('3. Abra o jogo, vá em "Mods" e ative este mod.')
     lines.push('4. Reinicie o jogo se solicitado.')
@@ -166,6 +185,11 @@ function generateReadme(project: ModProject): string {
   }
   if (project.creatures.length > 0) {
     lines.push('- [ ] Para cada criatura: `c_spawn("<id>")` e observar se anda/ataca sem erro no log.')
+  }
+  if (usesIslandAdventuresShipwrecked) {
+    lines.push(
+      '- [ ] Para cada criatura com build do Island Adventures: com "Island Adventures - Shipwrecked" ativo, `c_spawn("<id>")` e confirmar que a arte carrega sem erro no log.',
+    )
   }
   lines.push('')
 

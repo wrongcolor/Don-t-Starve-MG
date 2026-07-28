@@ -43,4 +43,43 @@ describe('generateModInfo', () => {
     expect(withInteriorCode).toContain('mod_dependencies =')
     expect(withInteriorCode).toContain('workshop = "workshop-3322803908"')
   })
+
+  it('declares a dependency on "Island Adventures - Shipwrecked" when a creature reuses one of its builds', () => {
+    const withIslandAdventures = {
+      ...sampleProject,
+      creatures: [
+        {
+          ...sampleProject.creatures[0],
+          animation: {
+            source: 'islandAdventuresShipwrecked' as const,
+            build: 'wildbore_build',
+            clips: { idle: 'idle_loop', walk: 'walk_loop', atk: 'atk', hit: 'hit', death: 'death' },
+          },
+        },
+      ],
+    }
+    const withIslandAdventuresCode = generateModInfo(withIslandAdventures)
+    expect(withIslandAdventuresCode).toContain('mod_dependencies =')
+    expect(withIslandAdventuresCode).toContain('workshop = "workshop-1467214795"')
+  })
+
+  it('lists both dependencies when a structure has an interior and a creature reuses an Island Adventures build', () => {
+    const withBoth = {
+      ...sampleProject,
+      structures: [{ ...sampleProject.structures[0], interior: { size: 'tiny' as const } }],
+      creatures: [
+        {
+          ...sampleProject.creatures[0],
+          animation: {
+            source: 'islandAdventuresShipwrecked' as const,
+            build: 'wildbore_build',
+            clips: { idle: 'idle_loop', walk: 'walk_loop', atk: 'atk', hit: 'hit', death: 'death' },
+          },
+        },
+      ],
+    }
+    const withBothCode = generateModInfo(withBoth)
+    expect(withBothCode).toContain('workshop = "workshop-3322803908"')
+    expect(withBothCode).toContain('workshop = "workshop-1467214795"')
+  })
 })

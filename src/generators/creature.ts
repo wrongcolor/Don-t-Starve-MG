@@ -2,7 +2,7 @@ import type { CreatureDef } from '../types/modProject'
 import { luaString, sanitizeLuaComment, toUpperSnake } from './luaUtils'
 import { generateStategraph } from './stategraph'
 import { generateBrain } from './brain'
-import { resolveCreatureAnimation, isVanillaCreatureAnimation } from './creatureAnimation'
+import { resolveCreatureAnimation, isVanillaCreatureAnimation, isIslandAdventuresShipwreckedAnimation } from './creatureAnimation'
 import { groundAttackFunctionBlock } from './groundAttack'
 
 function needsHerd(creature: CreatureDef): boolean {
@@ -82,7 +82,9 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
 
   lines.push('local assets =')
   lines.push('{')
-  if (isVanillaCreatureAnimation(creature)) {
+  if (isIslandAdventuresShipwreckedAnimation(creature)) {
+    lines.push(`    -- Build "${sanitizeLuaComment(build)}" reaproveitado do mod "Island Adventures - Shipwrecked", sem asset próprio necessário.`)
+  } else if (isVanillaCreatureAnimation(creature)) {
     lines.push(`    -- Build "${sanitizeLuaComment(build)}" reaproveitado do jogo base, sem asset próprio necessário.`)
   } else {
     lines.push(`    Asset("ANIM", "anim/${creature.id}.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)`)

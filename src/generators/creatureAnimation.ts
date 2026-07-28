@@ -15,7 +15,7 @@ const DEFAULT_BUILD = 'pigman'
 
 export function resolveCreatureAnimation(creature: CreatureDef): ResolvedCreatureAnimation {
   const anim = creature.animation
-  if (anim?.source === 'vanilla') {
+  if (anim?.source === 'vanilla' || anim?.source === 'islandAdventuresShipwrecked') {
     return { build: anim.build, clips: anim.clips }
   }
   if (anim?.source === 'custom') {
@@ -26,4 +26,8 @@ export function resolveCreatureAnimation(creature: CreatureDef): ResolvedCreatur
 
 export function isVanillaCreatureAnimation(creature: CreatureDef): boolean {
   return creature.animation?.source !== 'custom'
+}
+
+export function isIslandAdventuresShipwreckedAnimation(creature: CreatureDef): boolean {
+  return creature.animation?.source === 'islandAdventuresShipwrecked'
 }

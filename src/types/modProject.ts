@@ -861,6 +861,11 @@ export const creatureAnimationSchema = z.discriminatedUnion('source', [
     build: z.string().min(1, 'Choose an animation'),
     clips: creatureAnimationClipsSchema,
   }),
+  z.object({
+    source: z.literal('islandAdventuresShipwrecked'),
+    build: z.string().min(1, 'Choose an animation'),
+    clips: creatureAnimationClipsSchema,
+  }),
 ])
 
 // Builds commonly cited in the DST modding community as safe to reuse for a simple

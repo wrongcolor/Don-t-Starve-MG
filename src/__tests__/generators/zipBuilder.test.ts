@@ -41,6 +41,28 @@ describe('buildModFiles', () => {
     expect(readme).toContain('Inscreva-se e ative **"Above the Clouds"** primeiro')
   })
 
+  it('warns in the README about the "Island Adventures - Shipwrecked" dependency when a creature reuses one of its builds', () => {
+    expect(files['README.md']).not.toContain('Island Adventures')
+
+    const withIslandAdventures = {
+      ...projectWithCharacter,
+      creatures: [
+        {
+          ...projectWithCharacter.creatures[0],
+          animation: {
+            source: 'islandAdventuresShipwrecked' as const,
+            build: 'wildbore_build',
+            clips: { idle: 'idle_loop', walk: 'walk_loop', atk: 'atk', hit: 'hit', death: 'death' },
+          },
+        },
+      ],
+    }
+    const readme = buildModFiles(withIslandAdventures)['README.md']
+    expect(readme).toContain('Dependência obrigatória')
+    expect(readme).toContain('Island Adventures - Shipwrecked')
+    expect(readme).toContain('Inscreva-se e ative **"Island Adventures - Shipwrecked"** primeiro')
+  })
+
   it('places every prefab script under scripts/prefabs/', () => {
     expect(files['scripts/prefabs/testsword.lua']).toBeTruthy()
     expect(files['scripts/prefabs/teststructure.lua']).toBeTruthy()

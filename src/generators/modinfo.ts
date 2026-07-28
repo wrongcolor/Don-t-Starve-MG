@@ -7,6 +7,23 @@ import { luaString } from './luaUtils'
 // `.interior` set needs that mod's real interiorspawner component at runtime.
 const ABOVE_THE_CLOUDS_WORKSHOP_ID = 'workshop-3322803908'
 
+// Confirmed directly in "Island Adventures - Shipwrecked"'s own modinfo.lua
+// dependency on "Island Adventures - Core" (workshop-3435352667) — this id is
+// Shipwrecked's own, i.e. what a THIRD mod needs to depend on to reuse one of
+// its assets (e.g. wildbore_build), sourced from the real Steam Workshop page.
+const ISLAND_ADVENTURES_SHIPWRECKED_WORKSHOP_ID = 'workshop-1467214795'
+
+function modDependencies(project: ModProject): { workshopId: string; label: string }[] {
+  const dependencies: { workshopId: string; label: string }[] = []
+  if (project.structures.some((s) => s.interior)) {
+    dependencies.push({ workshopId: ABOVE_THE_CLOUDS_WORKSHOP_ID, label: 'Above the Clouds (interiorspawner)' })
+  }
+  if (project.creatures.some((c) => c.animation?.source === 'islandAdventuresShipwrecked')) {
+    dependencies.push({ workshopId: ISLAND_ADVENTURES_SHIPWRECKED_WORKSHOP_ID, label: 'Island Adventures - Shipwrecked (creature build)' })
+  }
+  return dependencies
+}
+
 // api_version = 10 and dst_compatible = true are required for the mod to be picked up
 // by DST at all — see plan notes. dont_starve_compatible / shipwrecked / hamlet are left
 // false since this generator only targets DST.
@@ -36,14 +53,17 @@ export function generateModInfo(project: ModProject): string {
   lines.push('forumthread = ""')
   lines.push('priority = 0')
 
-  // Derived from usage, not a separate toggle — an interior structure needs
-  // the real dependency mod's interiorspawner component at runtime, so this
-  // can never drift out of sync with whether the feature is actually used.
-  if (project.structures.some((s) => s.interior)) {
+  // Derived from usage, not a separate toggle — a dependent feature needs the
+  // real dependency mod's own component/asset at runtime, so this can never
+  // drift out of sync with whether the feature is actually used.
+  const dependencies = modDependencies(project)
+  if (dependencies.length > 0) {
     lines.push('')
     lines.push('mod_dependencies =')
     lines.push('{')
-    lines.push(`    { workshop = ${luaString(ABOVE_THE_CLOUDS_WORKSHOP_ID)} }, -- Above the Clouds (interiorspawner)`)
+    for (const dependency of dependencies) {
+      lines.push(`    { workshop = ${luaString(dependency.workshopId)} }, -- ${dependency.label}`)
+    }
     lines.push('}')
   }
 

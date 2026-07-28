@@ -61,7 +61,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   const loot = useFieldArray({ control, name: 'loot' })
   const tags = useFieldArray({ control, name: 'tags' as never })
 
-  const [animationSource, setAnimationSource] = useState<'custom' | 'vanilla'>(
+  const [animationSource, setAnimationSource] = useState<'custom' | 'vanilla' | 'islandAdventuresShipwrecked'>(
     (initialCreature ?? emptyCreature).animation?.source ?? 'vanilla',
   )
   const watched = watch()
