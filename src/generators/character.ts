@@ -62,6 +62,19 @@ function statMultiplierLines(character: CharacterDef): string[] {
   return lines
 }
 
+function backstabFunctionBlock(character: CharacterDef): string[] {
+  const upper = toUpperSnake(character.id)
+  return [
+    'local function CustomCombatDamage(inst, target, weapon, multiplier, mount)',
+    '    local angletoattacker = target:GetAngleToPoint(inst.Transform:GetWorldPosition())',
+    `    if DiffAngle(target.Transform:GetRotation(), angletoattacker) >= (180 - TUNING.${upper}_BACKSTAB_ARC) then`,
+    `        return TUNING.${upper}_BACKSTAB_MULT`,
+    '    end',
+    'end',
+    '',
+  ]
+}
+
 // Assets: when the character reuses a vanilla build (animation.source ===
 // 'vanilla'), no Asset() is declared at all — that build is already
 // preloaded globally by the base game (global.lua's own Asset("PKGREF",
@@ -88,6 +101,9 @@ export function generateCharacterPrefab(character: CharacterDef): string {
   lines.push('')
   lines.push(`local start_inv = ${luaStringArray(character.startingInventory)}`)
   lines.push('')
+  if (character.backstab !== undefined) {
+    lines.push(...backstabFunctionBlock(character))
+  }
   lines.push('local function common_postinit(inst)')
   lines.push(`    inst.MiniMapEntity:SetIcon("${character.id}.tex") -- PLACEHOLDER: ícone do minimapa`)
   if (isVanillaAnimation(character)) {
@@ -116,6 +132,10 @@ export function generateCharacterPrefab(character: CharacterDef): string {
     if (character.mana.regenPerSecond !== undefined) {
       lines.push(`    inst.components.mana:SetRegenRate(TUNING.${upper}_MANA_REGEN)`)
     }
+  }
+  if (character.backstab !== undefined) {
+    lines.push('')
+    lines.push('    inst.components.combat.customdamagemultfn = CustomCombatDamage')
   }
   lines.push('end')
   lines.push('')

@@ -227,6 +227,10 @@ function characterTuningBlock(character: CharacterDef): string[] {
       lines.push(`GLOBAL.TUNING.${upper}_MANA_REGEN = ${character.mana.regenPerSecond}`)
     }
   }
+  if (character.backstab !== undefined) {
+    lines.push(`GLOBAL.TUNING.${upper}_BACKSTAB_MULT = ${character.backstab.multiplier}`)
+    lines.push(`GLOBAL.TUNING.${upper}_BACKSTAB_ARC = ${character.backstab.arcDegrees}`)
+  }
   return lines
 }
 

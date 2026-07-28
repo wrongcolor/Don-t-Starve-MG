@@ -815,6 +815,12 @@ export const characterDefSchema = z.object({
   foodTypeAffinities: z.array(foodTypeAffinitySchema),
   skillTree: skillTreeSchema.optional(),
   mana: characterManaSchema.optional(),
+  backstab: z
+    .object({
+      multiplier: z.number().min(1.1).max(10),
+      arcDegrees: z.number().min(10).max(180),
+    })
+    .optional(),
 })
 
 // Unlike items (where "idle" is near-universal across every inventory build), creature

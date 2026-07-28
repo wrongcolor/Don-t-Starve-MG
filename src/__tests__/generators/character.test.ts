@@ -70,6 +70,21 @@ describe('generateCharacterPrefab', () => {
   it('does not add the mana component when mana is not set', () => {
     expect(code).not.toContain('mana')
   })
+
+  it('wires a customdamagemultfn that checks the angle behind the target when backstab is set', () => {
+    const rogue = { ...character, backstab: { multiplier: 3, arcDegrees: 90 } }
+    const rogueCode = generateCharacterPrefab(rogue)
+    expect(rogueCode).toContain('local function CustomCombatDamage(inst, target, weapon, multiplier, mount)')
+    expect(rogueCode).toContain('local angletoattacker = target:GetAngleToPoint(inst.Transform:GetWorldPosition())')
+    expect(rogueCode).toContain('if DiffAngle(target.Transform:GetRotation(), angletoattacker) >= (180 - TUNING.TESTCHAR_BACKSTAB_ARC) then')
+    expect(rogueCode).toContain('return TUNING.TESTCHAR_BACKSTAB_MULT')
+    expect(rogueCode).toContain('inst.components.combat.customdamagemultfn = CustomCombatDamage')
+  })
+
+  it('does not wire a customdamagemultfn when backstab is not set', () => {
+    expect(code).not.toContain('CustomCombatDamage')
+    expect(code).not.toContain('customdamagemultfn')
+  })
 })
 
 describe('generateSpeechFile', () => {

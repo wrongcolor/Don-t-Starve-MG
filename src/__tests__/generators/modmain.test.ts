@@ -76,6 +76,20 @@ describe('generateModMain', () => {
     })
   })
 
+  it('sets TUNING values for a character with backstab', () => {
+    const rogueProject = {
+      ...projectWithCharacter,
+      characters: [{ ...projectWithCharacter.characters[0], backstab: { multiplier: 3, arcDegrees: 90 } }],
+    }
+    const rogueCode = generateModMain(rogueProject)
+    expect(rogueCode).toContain('GLOBAL.TUNING.TESTCHAR_BACKSTAB_MULT = 3')
+    expect(rogueCode).toContain('GLOBAL.TUNING.TESTCHAR_BACKSTAB_ARC = 90')
+  })
+
+  it('does not set backstab TUNING values when backstab is not set', () => {
+    expect(code).not.toContain('BACKSTAB')
+  })
+
   it('sets TUNING values for items, characters and creatures', () => {
     expect(code).toContain('GLOBAL.TUNING.TESTSWORD_DAMAGE = 34')
     expect(code).toContain('GLOBAL.TUNING.TESTCHAR_HEALTH = 150')
