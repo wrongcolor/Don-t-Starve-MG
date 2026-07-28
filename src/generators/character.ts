@@ -64,15 +64,22 @@ function statMultiplierLines(character: CharacterDef): string[] {
 
 function backstabFunctionBlock(character: CharacterDef): string[] {
   const upper = toUpperSnake(character.id)
-  return [
+  const backstab = character.backstab!
+  const lines = [
     'local function CustomCombatDamage(inst, target, weapon, multiplier, mount)',
     '    local angletoattacker = target:GetAngleToPoint(inst.Transform:GetWorldPosition())',
-    `    if DiffAngle(target.Transform:GetRotation(), angletoattacker) >= (180 - TUNING.${upper}_BACKSTAB_ARC) then`,
-    `        return TUNING.${upper}_BACKSTAB_MULT`,
-    '    end',
-    'end',
-    '',
+    `    local isbehind = DiffAngle(target.Transform:GetRotation(), angletoattacker) >= (180 - TUNING.${upper}_BACKSTAB_ARC)`,
   ]
+  if (backstab.bonusWhenTargetDistracted) {
+    lines.push(
+      '    local isdistracted = target.components.combat ~= nil and target.components.combat:HasTarget() and target.components.combat.target ~= inst',
+      '    if isbehind or isdistracted then',
+    )
+  } else {
+    lines.push('    if isbehind then')
+  }
+  lines.push(`        return TUNING.${upper}_BACKSTAB_MULT`, '    end', 'end', '')
+  return lines
 }
 
 // Assets: when the character reuses a vanilla build (animation.source ===

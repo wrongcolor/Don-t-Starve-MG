@@ -819,6 +819,7 @@ export const characterDefSchema = z.object({
     .object({
       multiplier: z.number().min(1.1).max(10),
       arcDegrees: z.number().min(10).max(180),
+      bonusWhenTargetDistracted: z.boolean().optional(),
     })
     .optional(),
 })

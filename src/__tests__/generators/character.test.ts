@@ -76,9 +76,20 @@ describe('generateCharacterPrefab', () => {
     const rogueCode = generateCharacterPrefab(rogue)
     expect(rogueCode).toContain('local function CustomCombatDamage(inst, target, weapon, multiplier, mount)')
     expect(rogueCode).toContain('local angletoattacker = target:GetAngleToPoint(inst.Transform:GetWorldPosition())')
-    expect(rogueCode).toContain('if DiffAngle(target.Transform:GetRotation(), angletoattacker) >= (180 - TUNING.TESTCHAR_BACKSTAB_ARC) then')
+    expect(rogueCode).toContain('local isbehind = DiffAngle(target.Transform:GetRotation(), angletoattacker) >= (180 - TUNING.TESTCHAR_BACKSTAB_ARC)')
+    expect(rogueCode).toContain('if isbehind then')
     expect(rogueCode).toContain('return TUNING.TESTCHAR_BACKSTAB_MULT')
     expect(rogueCode).toContain('inst.components.combat.customdamagemultfn = CustomCombatDamage')
+    expect(rogueCode).not.toContain('isdistracted')
+  })
+
+  it('also checks whether the target is distracted (fighting someone else) when bonusWhenTargetDistracted is set', () => {
+    const rogue = { ...character, backstab: { multiplier: 3, arcDegrees: 90, bonusWhenTargetDistracted: true } }
+    const rogueCode = generateCharacterPrefab(rogue)
+    expect(rogueCode).toContain(
+      'local isdistracted = target.components.combat ~= nil and target.components.combat:HasTarget() and target.components.combat.target ~= inst',
+    )
+    expect(rogueCode).toContain('if isbehind or isdistracted then')
   })
 
   it('does not wire a customdamagemultfn when backstab is not set', () => {

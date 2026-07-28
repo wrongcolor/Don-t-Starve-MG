@@ -24,7 +24,7 @@ export const wrongcolor: ModProject = {
       speechOverrides: {},
       perks: [],
       foodTypeAffinities: [],
-      backstab: { multiplier: 3, arcDegrees: 90 },
+      backstab: { multiplier: 3, arcDegrees: 90, bonusWhenTargetDistracted: true },
     },
   ],
 }
