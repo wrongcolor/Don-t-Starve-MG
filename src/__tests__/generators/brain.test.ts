@@ -192,18 +192,32 @@ describe('generateBrain', () => {
     expect(code).toContain('DoAction(self.inst, MineRockAction, "MineRock"),')
     expect(code).toContain('DoAction(self.inst, HarvestCropAction, "HarvestCrop"),')
     expect(code).toContain('local COLLECT_RADIUS = 10')
-    expect(code).toContain('DoAction(self.inst, CollectItemAction, "CollectItem"),')
+    expect(code).toContain('DoAction(self.inst, CollectChoppedLootAction, "CollectChoppedLoot"),')
+    expect(code).toContain('DoAction(self.inst, CollectMinedLootAction, "CollectMinedLoot"),')
 
     const chopIdx = code.indexOf('DoAction(self.inst, ChopTreeAction')
+    const collectChoppedIdx = code.indexOf('DoAction(self.inst, CollectChoppedLootAction')
     const mineIdx = code.indexOf('DoAction(self.inst, MineRockAction')
+    const collectMinedIdx = code.indexOf('DoAction(self.inst, CollectMinedLootAction')
     const harvestIdx = code.indexOf('DoAction(self.inst, HarvestCropAction')
-    const collectIdx = code.indexOf('DoAction(self.inst, CollectItemAction')
     const wanderIdx = code.indexOf('Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
-    expect(chopIdx).toBeLessThan(mineIdx)
-    expect(mineIdx).toBeLessThan(harvestIdx)
-    expect(harvestIdx).toBeLessThan(collectIdx)
-    expect(collectIdx).toBeLessThan(wanderIdx)
+    expect(chopIdx).toBeLessThan(collectChoppedIdx)
+    expect(collectChoppedIdx).toBeLessThan(mineIdx)
+    expect(mineIdx).toBeLessThan(collectMinedIdx)
+    expect(collectMinedIdx).toBeLessThan(harvestIdx)
+    expect(harvestIdx).toBeLessThan(wanderIdx)
 
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('only lets a lumberjack/miner collect loot related to their own job (not any loose item)', () => {
+    const worker: CreatureDef = { ...hostileMob, behavior: 'passive', work: { tasks: ['chopTrees', 'mineRocks'] } }
+    const code = generateBrain(worker)
+    expect(code).toContain('local CHOPPED_LOOT_PREFABS = { log = true, twigs = true, pinecone = true, twiggy_nut = true }')
+    expect(code).toContain('local MINED_LOOT_PREFABS = { rocks = true, flint = true, nitre = true, goldnugget = true }')
+    expect(code).toContain('FindEntity(inst, COLLECT_RADIUS, function(ent) return CHOPPED_LOOT_PREFABS[ent.prefab] end, { "_inventoryitem" })')
+    expect(code).toContain('FindEntity(inst, COLLECT_RADIUS, function(ent) return MINED_LOOT_PREFABS[ent.prefab] end, { "_inventoryitem" })')
+    expect(code).not.toContain('CollectItemAction')
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 

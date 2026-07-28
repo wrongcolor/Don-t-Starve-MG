@@ -99,6 +99,36 @@ function harvestFarmFunctionBlock(): string[] {
   ]
 }
 
+function collectChoppedLootFunctionBlock(): string[] {
+  return [
+    'local CHOPPED_LOOT_PREFABS = { log = true, twigs = true, pinecone = true, twiggy_nut = true }',
+    '',
+    'local function FindChoppedLoot(inst)',
+    '    return FindEntity(inst, COLLECT_RADIUS, function(ent) return CHOPPED_LOOT_PREFABS[ent.prefab] end, { "_inventoryitem" })',
+    'end',
+    '',
+    'local function CollectChoppedLootAction(inst)',
+    '    local item = FindChoppedLoot(inst)',
+    '    return item ~= nil and BufferedAction(inst, item, ACTIONS.PICKUP) or nil',
+    'end',
+  ]
+}
+
+function collectMinedLootFunctionBlock(): string[] {
+  return [
+    'local MINED_LOOT_PREFABS = { rocks = true, flint = true, nitre = true, goldnugget = true }',
+    '',
+    'local function FindMinedLoot(inst)',
+    '    return FindEntity(inst, COLLECT_RADIUS, function(ent) return MINED_LOOT_PREFABS[ent.prefab] end, { "_inventoryitem" })',
+    'end',
+    '',
+    'local function CollectMinedLootAction(inst)',
+    '    local item = FindMinedLoot(inst)',
+    '    return item ~= nil and BufferedAction(inst, item, ACTIONS.PICKUP) or nil',
+    'end',
+  ]
+}
+
 // Confirmed real APIs, heavily simplified from the real "assist the leader" system
 // (see COMPANION_TASKS in modProject.ts for exactly what's dropped): worker/workable
 // + BufferedAction(ACTIONS.CHOP) for chopping (spooked.lua/wildfires.lua), and
@@ -131,24 +161,24 @@ function workTaskFunctions(creature: CreatureDef): { functions: string[]; nodes:
   if (tasks.includes('chopTrees')) {
     functions.push(...chopTreesFunctionBlock())
     nodes.push('        DoAction(self.inst, ChopTreeAction, "ChopTree"),')
+
+    functions.push('', ...collectChoppedLootFunctionBlock())
+    nodes.push('        DoAction(self.inst, CollectChoppedLootAction, "CollectChoppedLoot"),')
   }
 
   if (tasks.includes('mineRocks')) {
     if (functions.length > 0) functions.push('')
     functions.push(...mineRocksFunctionBlock())
     nodes.push('        DoAction(self.inst, MineRockAction, "MineRock"),')
+
+    functions.push('', ...collectMinedLootFunctionBlock())
+    nodes.push('        DoAction(self.inst, CollectMinedLootAction, "CollectMinedLoot"),')
   }
 
   if (tasks.includes('harvestFarm')) {
     if (functions.length > 0) functions.push('')
     functions.push(...harvestFarmFunctionBlock())
     nodes.push('        DoAction(self.inst, HarvestCropAction, "HarvestCrop"),')
-  }
-
-  if (tasks.includes('chopTrees') || tasks.includes('mineRocks')) {
-    if (functions.length > 0) functions.push('')
-    functions.push(...collectItemsFunctionBlock())
-    nodes.push('        DoAction(self.inst, CollectItemAction, "CollectItem"),')
   }
 
   return { functions, nodes }
