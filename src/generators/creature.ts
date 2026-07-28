@@ -62,6 +62,18 @@ export function generateHerdPrefab(creature: CreatureDef): string {
   return lines.join('\n') + '\n'
 }
 
+function defendLeaderFunctionBlock(): string[] {
+  return [
+    'local function TryDefendLeader(inst)',
+    '    local leader = FindClosestPlayerToInst(inst, 30, true)',
+    '    if leader ~= nil and inst.components.follower:GetLeader() ~= leader then',
+    '        inst.components.follower:SetLeader(leader)',
+    '    end',
+    'end',
+    '',
+  ]
+}
+
 function lootBlock(creature: CreatureDef): string[] {
   if (creature.loot.length === 0) return []
   const lines = ['', '    inst:AddComponent("lootdropper")']
@@ -104,6 +116,9 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
       'end',
       '',
     )
+  }
+  if (creature.companion?.defendLeader) {
+    lines.push(...defendLeaderFunctionBlock())
   }
   lines.push('local function fn()')
   lines.push('    local inst = CreateEntity()')
@@ -192,15 +207,26 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
     lines.push('    inst:AddComponent("hauntable")')
   }
 
-  if (creature.companion?.tasks.includes('collectItems')) {
+  const needsChop = creature.companion?.tasks.includes('chopTrees') || creature.work?.tasks.includes('chopTrees')
+  const needsMine = creature.work?.tasks.includes('mineRocks')
+  const needsInventory = creature.companion?.tasks.includes('collectItems') || creature.work?.tasks.includes('harvestFarm')
+
+  if (needsInventory) {
     lines.push('')
     lines.push('    inst:AddComponent("inventory")')
   }
 
-  if (creature.companion?.tasks.includes('chopTrees')) {
+  if (needsChop || needsMine) {
     lines.push('')
     lines.push('    inst:AddComponent("worker")')
-    lines.push('    inst.components.worker:SetAction(ACTIONS.CHOP, 1)')
+    if (needsChop) lines.push('    inst.components.worker:SetAction(ACTIONS.CHOP, 1)')
+    if (needsMine) lines.push('    inst.components.worker:SetAction(ACTIONS.MINE, 1)')
+  }
+
+  if (creature.companion?.defendLeader) {
+    lines.push('')
+    lines.push('    inst:AddComponent("follower")')
+    lines.push('    inst:DoPeriodicTask(2, TryDefendLeader)')
   }
 
   lines.push('')

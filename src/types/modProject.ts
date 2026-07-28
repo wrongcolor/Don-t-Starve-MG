@@ -73,6 +73,8 @@ export const PANIC_CAUSES = ['onFire', 'haunted'] as const
 // the one to follow.
 export const COMPANION_TASKS = ['chopTrees', 'collectItems'] as const
 
+export const WORK_TASKS = ['chopTrees', 'mineRocks', 'harvestFarm'] as const
+
 // Bundled with the base game — safe to reuse via SetBank/SetBuild without shipping
 // an anim/*.zip, since the game already has this animation data loaded. Pickup-item
 // shapes and placed-structure shapes both follow the same simple convention (bank
@@ -944,6 +946,12 @@ export const creatureDefSchema = z
       .object({
         followDistance: z.number().min(2).max(20),
         tasks: z.array(z.enum(COMPANION_TASKS)),
+        defendLeader: z.boolean().optional(),
+      })
+      .optional(),
+    work: z
+      .object({
+        tasks: z.array(z.enum(WORK_TASKS)).min(1, 'Select at least one job'),
       })
       .optional(),
     // A periodic special attack around the creature itself while it has a
@@ -984,6 +992,10 @@ export const creatureDefSchema = z
     message: 'A companion follows and helps the player — turn off hostile behavior first',
     path: ['companion'],
   })
+  .refine((creature) => creature.companion === undefined || creature.work === undefined, {
+    message: 'A creature either follows the player as a companion or stays near its home as a worker — turn one off first',
+    path: ['work'],
+  })
 
 export const modProjectSchema = z.object({
   meta: modMetaSchema,
@@ -1005,6 +1017,7 @@ export type CharacterGender = (typeof CHARACTER_GENDERS)[number]
 export type CreatureBehavior = (typeof CREATURE_BEHAVIORS)[number]
 export type PanicCause = (typeof PANIC_CAUSES)[number]
 export type CompanionTask = (typeof COMPANION_TASKS)[number]
+export type WorkTask = (typeof WORK_TASKS)[number]
 export type CharacterPerk = (typeof CHARACTER_PERKS)[number]
 
 export type ConfigOption = z.infer<typeof configOptionSchema>

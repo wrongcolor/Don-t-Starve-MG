@@ -15,7 +15,7 @@ describe('generateBrain', () => {
     expect(code).toContain(
       'WhileNode(function() return self.inst.components.combat:HasTarget() and self.inst.components.combat.target ~= (self.inst.components.follower ~= nil and self.inst.components.follower:GetLeader() or nil) end, "AttackTarget", ChaseAndAttack(self.inst, SEE_TARGET_DIST)),',
     )
-    expect(code).toContain('Wander(self.inst),')
+    expect(code).toContain('Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
@@ -31,7 +31,7 @@ describe('generateBrain', () => {
     const code = generateBrain(passive)
     expect(code).not.toContain('require "behaviours/chaseandattack"')
     expect(code).not.toContain('SEE_TARGET_DIST')
-    expect(code).toContain('Wander(self.inst),')
+    expect(code).toContain('Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
   })
 
   it('parametrizes SEE_TARGET_DIST from stats.aggroRange (patterns.md#46-51)', () => {
@@ -101,7 +101,7 @@ describe('generateBrain', () => {
     const code = generateBrain({ ...hostileMob, panicCauses: ['haunted'] })
     const panicIdx = code.indexOf('HauntedPanic')
     const attackIdx = code.indexOf('AttackTarget')
-    const wanderIdx = code.indexOf('Wander(self.inst),')
+    const wanderIdx = code.indexOf('Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
     expect(panicIdx).toBeGreaterThan(-1)
     expect(panicIdx).toBeLessThan(attackIdx)
     expect(attackIdx).toBeLessThan(wanderIdx)
@@ -158,10 +158,48 @@ describe('generateBrain', () => {
     const chopIdx = code.indexOf('DoAction(self.inst, ChopTreeAction')
     const collectIdx = code.indexOf('DoAction(self.inst, CollectItemAction')
     const followIdx = code.indexOf('Follow(self.inst,')
-    const wanderIdx = code.indexOf('Wander(self.inst),')
+    const wanderIdx = code.indexOf('Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
     expect(chopIdx).toBeGreaterThan(-1)
     expect(chopIdx).toBeLessThan(collectIdx)
     expect(collectIdx).toBeLessThan(followIdx)
     expect(followIdx).toBeLessThan(wanderIdx)
+  })
+
+  it('always wanders leashed to a home position, if the creature has one, instead of unleashed', () => {
+    const code = generateBrain(hostileMob)
+    expect(code).toContain('local MAX_WANDER_DIST = 20')
+    expect(code).toContain(
+      'local function GetHomePos(inst)\n    return inst.components.homeseeker ~= nil and inst.components.homeseeker.home ~= nil and inst.components.homeseeker:GetHomePos() or nil\nend',
+    )
+    expect(code).toContain('Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
+  })
+
+  it('adds a ChopTree/MineRock/HarvestCrop DoAction node for each work task, with no Follow behaviour', () => {
+    const worker: CreatureDef = {
+      ...hostileMob,
+      behavior: 'passive',
+      work: { tasks: ['chopTrees', 'mineRocks', 'harvestFarm'] },
+    }
+    const code = generateBrain(worker)
+    expect(code).not.toContain('require "behaviours/follow"')
+    expect(code).not.toContain('Follow(self.inst,')
+    expect(code).toContain('local CHOP_RADIUS = 12')
+    expect(code).toContain('local MINE_RADIUS = 12')
+    expect(code).toContain('local HARVEST_RADIUS = 10')
+    expect(code).toContain('ent.components.workable:GetWorkAction() == ACTIONS.MINE')
+    expect(code).toContain('FindEntity(inst, HARVEST_RADIUS, nil, { "readyforharvest" })')
+    expect(code).toContain('DoAction(self.inst, ChopTreeAction, "ChopTree"),')
+    expect(code).toContain('DoAction(self.inst, MineRockAction, "MineRock"),')
+    expect(code).toContain('DoAction(self.inst, HarvestCropAction, "HarvestCrop"),')
+
+    const chopIdx = code.indexOf('DoAction(self.inst, ChopTreeAction')
+    const mineIdx = code.indexOf('DoAction(self.inst, MineRockAction')
+    const harvestIdx = code.indexOf('DoAction(self.inst, HarvestCropAction')
+    const wanderIdx = code.indexOf('Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
+    expect(chopIdx).toBeLessThan(mineIdx)
+    expect(mineIdx).toBeLessThan(harvestIdx)
+    expect(harvestIdx).toBeLessThan(wanderIdx)
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 })

@@ -9,6 +9,9 @@ const FOLLOW_SEARCH_DIST = 30
 const FOLLOW_MIN_DIST = 2
 const CHOP_RADIUS = 12
 const COLLECT_RADIUS = 10
+const MINE_RADIUS = 12
+const HARVEST_RADIUS = 10
+const MAX_WANDER_DIST = 20
 
 function capitalize(id: string): string {
   return id.charAt(0).toUpperCase() + id.slice(1)
@@ -34,6 +37,68 @@ function panicBehaviorNodes(creature: CreatureDef): string[] {
   return nodes
 }
 
+function chopTreesFunctionBlock(): string[] {
+  return [
+    'local function FindTreeToChop(inst)',
+    '    return FindEntity(inst, CHOP_RADIUS, function(ent)',
+    '        return ent.components.workable ~= nil',
+    '            and ent.components.workable:CanBeWorked()',
+    '            and ent.components.workable:GetWorkAction() == ACTIONS.CHOP',
+    '    end, { "tree" })',
+    'end',
+    '',
+    'local function ChopTreeAction(inst)',
+    '    local tree = FindTreeToChop(inst)',
+    '    return tree ~= nil and BufferedAction(inst, tree, ACTIONS.CHOP) or nil',
+    'end',
+  ]
+}
+
+function collectItemsFunctionBlock(): string[] {
+  return [
+    'local NO_PICKUP_TAGS = { "FX", "NOCLICK", "DECOR", "INLIMBO", "outofreach" }',
+    '',
+    'local function FindLooseItem(inst)',
+    '    return FindEntity(inst, COLLECT_RADIUS, nil, { "_inventoryitem" }, NO_PICKUP_TAGS)',
+    'end',
+    '',
+    'local function CollectItemAction(inst)',
+    '    local item = FindLooseItem(inst)',
+    '    return item ~= nil and BufferedAction(inst, item, ACTIONS.PICKUP) or nil',
+    'end',
+  ]
+}
+
+function mineRocksFunctionBlock(): string[] {
+  return [
+    'local function FindRockToMine(inst)',
+    '    return FindEntity(inst, MINE_RADIUS, function(ent)',
+    '        return ent.components.workable ~= nil',
+    '            and ent.components.workable:CanBeWorked()',
+    '            and ent.components.workable:GetWorkAction() == ACTIONS.MINE',
+    '    end, { "rock" })',
+    'end',
+    '',
+    'local function MineRockAction(inst)',
+    '    local rock = FindRockToMine(inst)',
+    '    return rock ~= nil and BufferedAction(inst, rock, ACTIONS.MINE) or nil',
+    'end',
+  ]
+}
+
+function harvestFarmFunctionBlock(): string[] {
+  return [
+    'local function FindCropToHarvest(inst)',
+    '    return FindEntity(inst, HARVEST_RADIUS, nil, { "readyforharvest" })',
+    'end',
+    '',
+    'local function HarvestCropAction(inst)',
+    '    local crop = FindCropToHarvest(inst)',
+    '    return crop ~= nil and BufferedAction(inst, crop, ACTIONS.HARVEST) or nil',
+    'end',
+  ]
+}
+
 // Confirmed real APIs, heavily simplified from the real "assist the leader" system
 // (see COMPANION_TASKS in modProject.ts for exactly what's dropped): worker/workable
 // + BufferedAction(ACTIONS.CHOP) for chopping (spooked.lua/wildfires.lua), and
@@ -45,38 +110,39 @@ function companionTaskFunctions(creature: CreatureDef): { functions: string[]; n
   const nodes: string[] = []
 
   if (tasks.includes('chopTrees')) {
-    functions.push(
-      'local function FindTreeToChop(inst)',
-      '    return FindEntity(inst, CHOP_RADIUS, function(ent)',
-      '        return ent.components.workable ~= nil',
-      '            and ent.components.workable:CanBeWorked()',
-      '            and ent.components.workable:GetWorkAction() == ACTIONS.CHOP',
-      '    end, { "tree" })',
-      'end',
-      '',
-      'local function ChopTreeAction(inst)',
-      '    local tree = FindTreeToChop(inst)',
-      '    return tree ~= nil and BufferedAction(inst, tree, ACTIONS.CHOP) or nil',
-      'end',
-    )
+    functions.push(...chopTreesFunctionBlock())
     nodes.push('        DoAction(self.inst, ChopTreeAction, "ChopTree"),')
   }
 
   if (tasks.includes('collectItems')) {
     if (functions.length > 0) functions.push('')
-    functions.push(
-      'local NO_PICKUP_TAGS = { "FX", "NOCLICK", "DECOR", "INLIMBO", "outofreach" }',
-      '',
-      'local function FindLooseItem(inst)',
-      '    return FindEntity(inst, COLLECT_RADIUS, nil, { "_inventoryitem" }, NO_PICKUP_TAGS)',
-      'end',
-      '',
-      'local function CollectItemAction(inst)',
-      '    local item = FindLooseItem(inst)',
-      '    return item ~= nil and BufferedAction(inst, item, ACTIONS.PICKUP) or nil',
-      'end',
-    )
+    functions.push(...collectItemsFunctionBlock())
     nodes.push('        DoAction(self.inst, CollectItemAction, "CollectItem"),')
+  }
+
+  return { functions, nodes }
+}
+
+function workTaskFunctions(creature: CreatureDef): { functions: string[]; nodes: string[] } {
+  const tasks = creature.work?.tasks ?? []
+  const functions: string[] = []
+  const nodes: string[] = []
+
+  if (tasks.includes('chopTrees')) {
+    functions.push(...chopTreesFunctionBlock())
+    nodes.push('        DoAction(self.inst, ChopTreeAction, "ChopTree"),')
+  }
+
+  if (tasks.includes('mineRocks')) {
+    if (functions.length > 0) functions.push('')
+    functions.push(...mineRocksFunctionBlock())
+    nodes.push('        DoAction(self.inst, MineRockAction, "MineRock"),')
+  }
+
+  if (tasks.includes('harvestFarm')) {
+    if (functions.length > 0) functions.push('')
+    functions.push(...harvestFarmFunctionBlock())
+    nodes.push('        DoAction(self.inst, HarvestCropAction, "HarvestCrop"),')
   }
 
   return { functions, nodes }
@@ -91,8 +157,12 @@ export function generateBrain(creature: CreatureDef): string {
   const className = `${capitalize(creature.id)}Brain`
 
   const requires = ['require "behaviours/wander"']
-  const localConstants: string[] = []
-  const localFunctions: string[] = []
+  const localConstants: string[] = [`local MAX_WANDER_DIST = ${MAX_WANDER_DIST}`]
+  const localFunctions: string[] = [
+    'local function GetHomePos(inst)',
+    '    return inst.components.homeseeker ~= nil and inst.components.homeseeker.home ~= nil and inst.components.homeseeker:GetHomePos() or nil',
+    'end',
+  ]
   const behaviorNodes: string[] = []
 
   if (creature.panicCauses.length > 0) {
@@ -147,14 +217,26 @@ export function generateBrain(creature: CreatureDef): string {
     )
 
     const { functions, nodes } = companionTaskFunctions(creature)
-    localFunctions.push(...functions)
+    localFunctions.push('', ...functions)
     behaviorNodes.push(...nodes)
     behaviorNodes.push(
       `        Follow(self.inst, function() return FindClosestPlayerToInst(self.inst, ${FOLLOW_SEARCH_DIST}, true) end, FOLLOW_MIN_DIST, FOLLOW_TARGET_DIST, FOLLOW_MAX_DIST),`,
     )
   }
 
-  behaviorNodes.push('        Wander(self.inst),')
+  if (creature.work) {
+    const tasks = creature.work.tasks
+    requires.push('require "behaviours/doaction"')
+    if (tasks.includes('chopTrees')) localConstants.push(`local CHOP_RADIUS = ${CHOP_RADIUS}`)
+    if (tasks.includes('mineRocks')) localConstants.push(`local MINE_RADIUS = ${MINE_RADIUS}`)
+    if (tasks.includes('harvestFarm')) localConstants.push(`local HARVEST_RADIUS = ${HARVEST_RADIUS}`)
+
+    const { functions, nodes } = workTaskFunctions(creature)
+    localFunctions.push('', ...functions)
+    behaviorNodes.push(...nodes)
+  }
+
+  behaviorNodes.push('        Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
 
   const lines = [...requires, '', 'local BrainClass = require "brain"']
   if (localConstants.length > 0) lines.push('', ...localConstants)

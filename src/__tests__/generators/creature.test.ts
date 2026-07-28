@@ -221,6 +221,37 @@ describe('generateCreatureFiles', () => {
     expect(collectCode).not.toContain('inst:AddComponent("worker")')
   })
 
+  it('wires worker/inventory components for a resident worker\'s chopTrees/mineRocks/harvestFarm jobs', () => {
+    const miner: CreatureDef = { ...creature, work: { tasks: ['mineRocks'] } }
+    const minerCode = generateCreaturePrefab(miner)
+    expect(minerCode).toContain('inst:AddComponent("worker")')
+    expect(minerCode).toContain('inst.components.worker:SetAction(ACTIONS.MINE, 1)')
+    expect(minerCode).not.toContain('inst:AddComponent("inventory")')
+
+    const farmer: CreatureDef = { ...creature, work: { tasks: ['harvestFarm'] } }
+    const farmerCode = generateCreaturePrefab(farmer)
+    expect(farmerCode).toContain('inst:AddComponent("inventory")')
+    expect(farmerCode).not.toContain('inst:AddComponent("worker")')
+
+    const lumberjack: CreatureDef = { ...creature, work: { tasks: ['chopTrees'] } }
+    const lumberjackCode = generateCreaturePrefab(lumberjack)
+    expect(lumberjackCode).toContain('inst.components.worker:SetAction(ACTIONS.CHOP, 1)')
+  })
+
+  it('wires a follower component and a periodic leader-assignment task when companion.defendLeader is set', () => {
+    const guard: CreatureDef = {
+      ...creature,
+      behavior: 'neutral',
+      companion: { followDistance: 5, tasks: [], defendLeader: true },
+    }
+    const code = generateCreaturePrefab(guard)
+    expect(code).toContain('local function TryDefendLeader(inst)')
+    expect(code).toContain('local leader = FindClosestPlayerToInst(inst, 30, true)')
+    expect(code).toContain('inst.components.follower:SetLeader(leader)')
+    expect(code).toContain('inst:AddComponent("follower")')
+    expect(code).toContain('inst:DoPeriodicTask(2, TryDefendLeader)')
+  })
+
   // Confirmed against Original/stategraphs/stategraphs/SGantlion_angry.lua's
   // SpawnSpikes/SpawnBlocks — reuses the real sandspike_*/sandblock hazard
   // prefabs, fired periodically (not frame-perfect stategraph timing like the
