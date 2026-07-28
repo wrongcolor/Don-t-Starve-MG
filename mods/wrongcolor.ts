@@ -52,8 +52,8 @@ export const wrongcolor: ModProject = {
       description: 'Shinier than it has any right to be, for something this sharp.',
       category: 'weapon',
       animation: { source: 'vanilla', build: 'goldnugget' },
-      weapon: { damage: 20 },
-      finiteuses: { maxUses: 30 },
+      weapon: { damage: 27 },
+      finiteuses: { maxUses: 40 },
       recipe: {
         ingredients: [
           { prefab: 'goldnugget', amount: 2 },
@@ -69,8 +69,8 @@ export const wrongcolor: ModProject = {
       description: 'Worth more than the wound it leaves.',
       category: 'weapon',
       animation: { source: 'vanilla', build: 'goldnugget' },
-      weapon: { damage: 15, ranged: { minRange: 4, maxRange: 8, projectilePrefab: 'blowdart_dart' } },
-      finiteuses: { maxUses: 10 },
+      weapon: { damage: 20, ranged: { minRange: 4, maxRange: 8, projectilePrefab: 'blowdart_dart' } },
+      finiteuses: { maxUses: 15 },
       recipe: {
         ingredients: [
           { prefab: 'goldnugget', amount: 1 },
@@ -86,8 +86,8 @@ export const wrongcolor: ModProject = {
       description: 'Ancient, and still hungry.',
       category: 'weapon',
       animation: { source: 'vanilla', build: 'thulecite' },
-      weapon: { damage: 20 },
-      finiteuses: { maxUses: 30 },
+      weapon: { damage: 34 },
+      finiteuses: { maxUses: 50 },
       recipe: {
         ingredients: [
           { prefab: 'thulecite', amount: 2 },
@@ -103,48 +103,14 @@ export const wrongcolor: ModProject = {
       description: 'Old magic, new bruises.',
       category: 'weapon',
       animation: { source: 'vanilla', build: 'thulecite' },
-      weapon: { damage: 15, ranged: { minRange: 4, maxRange: 8, projectilePrefab: 'blowdart_dart' } },
-      finiteuses: { maxUses: 10 },
+      weapon: { damage: 27, ranged: { minRange: 4, maxRange: 8, projectilePrefab: 'blowdart_dart' } },
+      finiteuses: { maxUses: 20 },
       recipe: {
         ingredients: [
           { prefab: 'thulecite', amount: 1 },
           { prefab: 'nightmarefuel', amount: 1 },
         ],
         techLevel: 'ANCIENT_TWO',
-        filters: ['WEAPONS'],
-      },
-    },
-    {
-      id: 'obsidianknife',
-      displayName: 'Obsidian Knife',
-      description: 'Cooled fast. Cuts faster.',
-      category: 'weapon',
-      animation: { source: 'vanilla', build: 'obsidian' },
-      weapon: { damage: 20 },
-      finiteuses: { maxUses: 30 },
-      recipe: {
-        ingredients: [
-          { prefab: 'obsidian', amount: 2 },
-          { prefab: 'charcoal', amount: 1 },
-        ],
-        techLevel: 'SEAFARING_ONE',
-        filters: ['WEAPONS'],
-      },
-    },
-    {
-      id: 'obsidianthrowingknife',
-      displayName: 'Obsidian Throwing Knife',
-      description: 'Still warm from the volcano.',
-      category: 'weapon',
-      animation: { source: 'vanilla', build: 'obsidian' },
-      weapon: { damage: 15, ranged: { minRange: 4, maxRange: 8, projectilePrefab: 'blowdart_dart' } },
-      finiteuses: { maxUses: 10 },
-      recipe: {
-        ingredients: [
-          { prefab: 'obsidian', amount: 1 },
-          { prefab: 'charcoal', amount: 1 },
-        ],
-        techLevel: 'SEAFARING_ONE',
         filters: ['WEAPONS'],
       },
     },
