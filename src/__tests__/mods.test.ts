@@ -16,6 +16,14 @@ import { duneStalker } from '../../mods/duneStalker'
 import { spikeRod } from '../../mods/spikeRod'
 import { viana } from '../../mods/viana'
 import { hideawayHut } from '../../mods/hideawayHut'
+import { teleportGate } from '../../mods/teleportGate'
+import { residentDen } from '../../mods/residentDen'
+import { campBedroll } from '../../mods/campBedroll'
+import { portableSupplyCrate } from '../../mods/portableSupplyCrate'
+import { trailRations } from '../../mods/trailRations'
+import { emberRod } from '../../mods/emberRod'
+import { calmingCenser } from '../../mods/calmingCenser'
+import { engravedPlaque } from '../../mods/engravedPlaque'
 
 const REAL_MODS: Record<string, ModProject> = {
   alchemistIsland,
@@ -32,6 +40,14 @@ const REAL_MODS: Record<string, ModProject> = {
   spikeRod,
   viana,
   hideawayHut,
+  teleportGate,
+  residentDen,
+  campBedroll,
+  portableSupplyCrate,
+  trailRations,
+  emberRod,
+  calmingCenser,
+  engravedPlaque,
 }
 
 describe('mods/*.ts (mods/README.md) build to syntactically valid Lua', () => {
