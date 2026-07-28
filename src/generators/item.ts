@@ -164,15 +164,25 @@ function onAttackFunctionBlock(item: ItemDef): string[] {
 // refines) to throw a different effect — see generateTameCloudPrefab and
 // groundAttackFunctionBlock.
 function needsSpellcaster(item: ItemDef): boolean {
-  return item.spellEffect !== undefined || item.tameBomb !== undefined || item.groundAttack !== undefined
+  return (
+    item.spellEffect !== undefined ||
+    item.tameBomb !== undefined ||
+    item.smokeBomb !== undefined ||
+    item.groundAttack !== undefined
+  )
 }
 
 function tameCloudId(item: ItemDef): string {
   return `${item.id}_cloud`
 }
 
+function smokeCloudId(item: ItemDef): string {
+  return `${item.id}_smoke`
+}
+
 function spellcasterFunctionName(item: ItemDef): string {
   if (item.tameBomb !== undefined) return 'throwtamecloud'
+  if (item.smokeBomb !== undefined) return 'throwsmokebomb'
   if (item.groundAttack !== undefined) return 'throwgroundattack'
   return 'createlight'
 }
@@ -189,6 +199,16 @@ function spellFunctionBlock(item: ItemDef): string[] {
     lines.push(
       'local function throwtamecloud(staff, target, pos)',
       `    local cloud = SpawnPrefab(${luaString(tameCloudId(item))})`,
+      '    cloud.Transform:SetPosition(pos:Get())',
+      '    cloud:SetOwner(staff.components.inventoryitem.owner)',
+      '    if staff.components.finiteuses ~= nil then',
+      '        staff.components.finiteuses:Use(1)',
+      '    end',
+    )
+  } else if (item.smokeBomb !== undefined) {
+    lines.push(
+      'local function throwsmokebomb(staff, target, pos)',
+      `    local cloud = SpawnPrefab(${luaString(smokeCloudId(item))})`,
       '    cloud.Transform:SetPosition(pos:Get())',
       '    cloud:SetOwner(staff.components.inventoryitem.owner)',
       '    if staff.components.finiteuses ~= nil then',
@@ -826,7 +846,8 @@ export function generateItemPrefab(item: ItemDef): string {
   if (item.nameable) {
     lines.push(...onNamedFunctionBlock())
   }
-  lines.push(item.tameBomb !== undefined ? `local prefabs = { ${luaString(tameCloudId(item))} }` : 'local prefabs = {}')
+  const cloudPrefabId = item.tameBomb !== undefined ? tameCloudId(item) : item.smokeBomb !== undefined ? smokeCloudId(item) : undefined
+  lines.push(cloudPrefabId !== undefined ? `local prefabs = { ${luaString(cloudPrefabId)} }` : 'local prefabs = {}')
   lines.push('')
   lines.push('local function fn()')
   lines.push('    local inst = CreateEntity()')
@@ -939,12 +960,72 @@ function generateTameCloudPrefab(item: ItemDef): string {
   return lines.join('\n') + '\n'
 }
 
+function generateSmokeCloudPrefab(item: ItemDef): string {
+  const id = smokeCloudId(item)
+  const upper = toUpperSnake(id)
+  const lines: string[] = []
+
+  lines.push('local assets =')
+  lines.push('{')
+  lines.push(`    Asset("ANIM", "anim/${id}.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)`)
+  lines.push('}')
+  lines.push('')
+  lines.push('local function ScareNearbyHostiles(inst)')
+  lines.push('    local x, y, z = inst.Transform:GetWorldPosition()')
+  lines.push(`    local ents = TheSim:FindEntities(x, y, z, TUNING.${upper}_RADIUS, { "hostile" })`)
+  lines.push('    for _, ent in ipairs(ents) do')
+  lines.push('        if ent.components.combat ~= nil then')
+  lines.push('            ent.components.combat:DropTarget()')
+  lines.push('        end')
+  lines.push('    end')
+  lines.push('end')
+  lines.push('')
+  lines.push('local function SetOwner(inst, owner)')
+  lines.push('    inst.owner = owner')
+  lines.push('end')
+  lines.push('')
+  lines.push('local function fn()')
+  lines.push('    local inst = CreateEntity()')
+  lines.push('')
+  lines.push('    inst.entity:AddTransform()')
+  lines.push('    inst.entity:AddAnimState()')
+  lines.push('    inst.entity:AddNetwork()')
+  lines.push('')
+  lines.push('    inst:AddTag("FX")')
+  lines.push('    inst:AddTag("NOCLICK")')
+  lines.push('')
+  lines.push(`    inst.AnimState:SetBank(${luaString(id)})`)
+  lines.push(`    inst.AnimState:SetBuild(${luaString(id)})`)
+  lines.push('    inst.AnimState:PlayAnimation("idle", true)')
+  lines.push('')
+  lines.push('    inst.entity:SetPristine()')
+  lines.push('    if not TheWorld.ismastersim then')
+  lines.push('        return inst')
+  lines.push('    end')
+  lines.push('')
+  lines.push('    inst.SetOwner = SetOwner')
+  lines.push('    inst.persists = false')
+  lines.push('')
+  lines.push(`    inst:DoPeriodicTask(1, ScareNearbyHostiles)`)
+  lines.push(`    inst:DoTaskInTime(TUNING.${upper}_DURATION, inst.Remove)`)
+  lines.push('')
+  lines.push('    return inst')
+  lines.push('end')
+  lines.push('')
+  lines.push(`return Prefab(${luaString(id)}, fn, assets)`)
+
+  return lines.join('\n') + '\n'
+}
+
 export function generateItemFiles(item: ItemDef): Record<string, string> {
   const files: Record<string, string> = {
     [`scripts/prefabs/${item.id}.lua`]: generateItemPrefab(item),
   }
   if (item.tameBomb !== undefined) {
     files[`scripts/prefabs/${tameCloudId(item)}.lua`] = generateTameCloudPrefab(item)
+  }
+  if (item.smokeBomb !== undefined) {
+    files[`scripts/prefabs/${smokeCloudId(item)}.lua`] = generateSmokeCloudPrefab(item)
   }
   return files
 }

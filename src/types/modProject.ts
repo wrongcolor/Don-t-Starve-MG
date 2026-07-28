@@ -484,9 +484,15 @@ export const itemDefSchema = z
         tameDurationSeconds: z.number().min(1),
       })
       .optional(),
+    smokeBomb: z
+      .object({
+        radius: z.number().min(1).max(20),
+        cloudDurationSeconds: z.number().min(1),
+      })
+      .optional(),
     // Thrown at a reticule point via the same spellcaster mechanism as
-    // spellEffect/tameBomb (mutually exclusive with both — see the refines
-    // below) — see groundAttackSchema for the real source.
+    // spellEffect/tameBomb/smokeBomb (mutually exclusive with all three — see
+    // the refines below) — see groundAttackSchema for the real source.
     groundAttack: groundAttackSchema.optional(),
     recipe: z.object({
       ingredients: z.array(ingredientSchema).min(1, 'Add at least 1 ingredient'),
@@ -544,6 +550,18 @@ export const itemDefSchema = z
   .refine((item) => item.groundAttack === undefined || item.tameBomb === undefined, {
     message: 'A ground attack and a tame cloud both use the same aim-and-throw mechanism (spellcaster) — turn one off first',
     path: ['groundAttack'],
+  })
+  .refine((item) => item.smokeBomb === undefined || item.spellEffect === undefined, {
+    message: 'A smoke cloud already uses the same aim-and-throw mechanism (spellcaster) as the magic effect — turn that off first',
+    path: ['smokeBomb'],
+  })
+  .refine((item) => item.smokeBomb === undefined || item.tameBomb === undefined, {
+    message: 'A smoke cloud and a tame cloud both use the same aim-and-throw mechanism (spellcaster) — turn one off first',
+    path: ['smokeBomb'],
+  })
+  .refine((item) => item.smokeBomb === undefined || item.groundAttack === undefined, {
+    message: 'A smoke cloud and a ground attack both use the same aim-and-throw mechanism (spellcaster) — turn one off first',
+    path: ['smokeBomb'],
   })
 
 // A structure is never handheld/wearable/edible — it's always a placed prefab

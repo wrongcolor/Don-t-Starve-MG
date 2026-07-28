@@ -156,6 +156,11 @@ function itemTuningBlock(item: ItemDef): string[] {
     lines.push(`GLOBAL.TUNING.${cloudUpper}_DURATION = ${item.tameBomb.cloudDurationSeconds}`)
     lines.push(`GLOBAL.TUNING.${cloudUpper}_TAME_DURATION = ${item.tameBomb.tameDurationSeconds}`)
   }
+  if (item.smokeBomb) {
+    const cloudUpper = toUpperSnake(`${item.id}_smoke`)
+    lines.push(`GLOBAL.TUNING.${cloudUpper}_RADIUS = ${item.smokeBomb.radius}`)
+    lines.push(`GLOBAL.TUNING.${cloudUpper}_DURATION = ${item.smokeBomb.cloudDurationSeconds}`)
+  }
   if (item.groundAttack) {
     lines.push(...groundAttackTuningLines(upper, item.groundAttack))
   }
@@ -435,6 +440,7 @@ export function generateModMain(project: ModProject): string {
   for (const item of project.items) {
     prefabFiles.push(item.id)
     if (item.tameBomb) prefabFiles.push(`${item.id}_cloud`)
+    if (item.smokeBomb) prefabFiles.push(`${item.id}_smoke`)
   }
   for (const structure of project.structures) {
     prefabFiles.push(structure.id, structure.deployMode === 'deployableItem' ? `${structure.id}_item` : `${structure.id}_placer`)

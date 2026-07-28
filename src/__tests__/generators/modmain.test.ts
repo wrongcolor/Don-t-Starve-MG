@@ -157,6 +157,17 @@ describe('generateModMain', () => {
     expect(tameBombCode).toContain('"testtamebomb_cloud"')
   })
 
+  it('sets TUNING values (keyed to the smoke cloud id) and lists the smoke cloud prefab for a smokeBomb item', () => {
+    const withSmokeBomb = {
+      ...projectWithCharacter,
+      items: [{ ...projectWithCharacter.items[1], id: 'testsmokebomb', smokeBomb: { radius: 5, cloudDurationSeconds: 8 } }],
+    }
+    const smokeBombCode = generateModMain(withSmokeBomb)
+    expect(smokeBombCode).toContain('GLOBAL.TUNING.TESTSMOKEBOMB_SMOKE_RADIUS = 5')
+    expect(smokeBombCode).toContain('GLOBAL.TUNING.TESTSMOKEBOMB_SMOKE_DURATION = 8')
+    expect(smokeBombCode).toContain('"testsmokebomb_smoke"')
+  })
+
   it('sets TUNING values (keyed to the item id) for a groundAttack item, omitting WALL_COUNT when wallCount is 0', () => {
     const withGroundAttack = {
       ...projectWithCharacter,

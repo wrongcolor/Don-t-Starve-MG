@@ -114,6 +114,23 @@ export const wrongcolor: ModProject = {
         filters: ['WEAPONS'],
       },
     },
+    {
+      id: 'smokebomb',
+      displayName: 'Smoke Bomb',
+      description: "One toss, and he's already gone.",
+      category: 'generic',
+      animation: { source: 'vanilla', build: 'ash' },
+      finiteuses: { maxUses: 3 },
+      smokeBomb: { radius: 6, cloudDurationSeconds: 6 },
+      recipe: {
+        ingredients: [
+          { prefab: 'ash', amount: 2 },
+          { prefab: 'twigs', amount: 1 },
+        ],
+        techLevel: 'NONE',
+        filters: ['MAGIC'],
+      },
+    },
   ],
   characters: [
     {

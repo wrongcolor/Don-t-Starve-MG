@@ -209,6 +209,63 @@ describe('generateItemFiles', () => {
     expect(() => parse(cloudCode, { luaVersion: '5.1' })).not.toThrow()
   })
 
+  it('wires a smokeBomb via the same reticule + spellcaster aim-a-point mechanism as tameBomb', () => {
+    const bomb: ItemDef = {
+      ...trinket,
+      id: 'testsmokebomb',
+      smokeBomb: { radius: 5, cloudDurationSeconds: 8 },
+    }
+    const code = generateItemPrefab(bomb)
+    expect(code).toContain('inst:AddComponent("reticule")')
+    expect(code).toContain('inst:AddComponent("spellcaster")')
+    expect(code).toContain('inst.components.spellcaster:SetSpellFn(throwsmokebomb)')
+    expect(code).toContain('local function throwsmokebomb(staff, target, pos)')
+    expect(code).toContain('local cloud = SpawnPrefab("testsmokebomb_smoke")')
+    expect(code).toContain('cloud:SetOwner(staff.components.inventoryitem.owner)')
+    expect(code).toContain('local prefabs = { "testsmokebomb_smoke" }')
+    expect(code).not.toContain('createlight')
+    expect(code).not.toContain('throwtamecloud')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('rejects an item with smokeBomb alongside spellEffect, tameBomb, or groundAttack (all need the same spellcaster slot)', () => {
+    const withSpellEffect: ItemDef = { ...trinket, smokeBomb: { radius: 5, cloudDurationSeconds: 8 }, spellEffect: 'createLight' }
+    expect(itemDefSchema.safeParse(withSpellEffect).success).toBe(false)
+
+    const withTameBomb: ItemDef = {
+      ...trinket,
+      smokeBomb: { radius: 5, cloudDurationSeconds: 8 },
+      tameBomb: { radius: 4, cloudDurationSeconds: 10, tameDurationSeconds: 60 },
+    }
+    expect(itemDefSchema.safeParse(withTameBomb).success).toBe(false)
+
+    const withGroundAttack: ItemDef = {
+      ...trinket,
+      smokeBomb: { radius: 5, cloudDurationSeconds: 8 },
+      groundAttack: { spikeCount: 5, wallCount: 0, radius: 6 },
+    }
+    expect(itemDefSchema.safeParse(withGroundAttack).success).toBe(false)
+  })
+
+  it('generates a separate smoke cloud prefab file that scans for hostile-tagged entities and drops their combat target', () => {
+    const bomb: ItemDef = {
+      ...trinket,
+      id: 'testsmokebomb',
+      smokeBomb: { radius: 5, cloudDurationSeconds: 8 },
+    }
+    const files = generateItemFiles(bomb)
+    expect(Object.keys(files).sort()).toEqual(['scripts/prefabs/testsmokebomb.lua', 'scripts/prefabs/testsmokebomb_smoke.lua'].sort())
+
+    const cloudCode = files['scripts/prefabs/testsmokebomb_smoke.lua']
+    expect(cloudCode).toContain('TheSim:FindEntities(x, y, z, TUNING.TESTSMOKEBOMB_SMOKE_RADIUS, { "hostile" })')
+    expect(cloudCode).toContain('ent.components.combat:DropTarget()')
+    expect(cloudCode).toContain('inst:DoTaskInTime(TUNING.TESTSMOKEBOMB_SMOKE_DURATION, inst.Remove)')
+    expect(cloudCode).toContain('return Prefab("testsmokebomb_smoke", fn, assets)')
+
+    expect(() => parse(cloudCode, { luaVersion: '5.1' })).not.toThrow()
+  })
+
   // Confirmed against Original/stategraphs/stategraphs/SGantlion_angry.lua's
   // SpawnSpikes/SpawnBlocks — same reticule + spellcaster mechanism as
   // spellEffect/tameBomb, thrown at a point instead of at the caster.
