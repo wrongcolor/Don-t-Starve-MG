@@ -226,7 +226,7 @@ describe('generateCreatureFiles', () => {
     const minerCode = generateCreaturePrefab(miner)
     expect(minerCode).toContain('inst:AddComponent("worker")')
     expect(minerCode).toContain('inst.components.worker:SetAction(ACTIONS.MINE, 1)')
-    expect(minerCode).not.toContain('inst:AddComponent("inventory")')
+    expect(minerCode).toContain('inst:AddComponent("inventory")')
 
     const farmer: CreatureDef = { ...creature, work: { tasks: ['harvestFarm'] } }
     const farmerCode = generateCreaturePrefab(farmer)
@@ -236,6 +236,21 @@ describe('generateCreatureFiles', () => {
     const lumberjack: CreatureDef = { ...creature, work: { tasks: ['chopTrees'] } }
     const lumberjackCode = generateCreaturePrefab(lumberjack)
     expect(lumberjackCode).toContain('inst.components.worker:SetAction(ACTIONS.CHOP, 1)')
+    expect(lumberjackCode).toContain('inst:AddComponent("inventory")')
+  })
+
+  it('wires a periodic TryDepositAtHome task that hands off inventory items to the home structure\'s container, for any resident worker', () => {
+    const lumberjack: CreatureDef = { ...creature, work: { tasks: ['chopTrees'] } }
+    const code = generateCreaturePrefab(lumberjack)
+    expect(code).toContain('local function TryDepositAtHome(inst)')
+    expect(code).toContain('local home = inst.components.homeseeker ~= nil and inst.components.homeseeker.home or nil')
+    expect(code).toContain('home.components.container:GiveItem(removed)')
+    expect(code).toContain('inst:DoPeriodicTask(3, TryDepositAtHome)')
+  })
+
+  it('does not wire TryDepositAtHome for a companion (only resident workers have a home to deposit at)', () => {
+    const chopper: CreatureDef = { ...creature, companion: { followDistance: 5, tasks: ['chopTrees'] } }
+    expect(generateCreaturePrefab(chopper)).not.toContain('TryDepositAtHome')
   })
 
   it('wires a follower component and a periodic leader-assignment task when companion.defendLeader is set', () => {

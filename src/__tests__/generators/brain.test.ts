@@ -191,15 +191,26 @@ describe('generateBrain', () => {
     expect(code).toContain('DoAction(self.inst, ChopTreeAction, "ChopTree"),')
     expect(code).toContain('DoAction(self.inst, MineRockAction, "MineRock"),')
     expect(code).toContain('DoAction(self.inst, HarvestCropAction, "HarvestCrop"),')
+    expect(code).toContain('local COLLECT_RADIUS = 10')
+    expect(code).toContain('DoAction(self.inst, CollectItemAction, "CollectItem"),')
 
     const chopIdx = code.indexOf('DoAction(self.inst, ChopTreeAction')
     const mineIdx = code.indexOf('DoAction(self.inst, MineRockAction')
     const harvestIdx = code.indexOf('DoAction(self.inst, HarvestCropAction')
+    const collectIdx = code.indexOf('DoAction(self.inst, CollectItemAction')
     const wanderIdx = code.indexOf('Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
     expect(chopIdx).toBeLessThan(mineIdx)
     expect(mineIdx).toBeLessThan(harvestIdx)
-    expect(harvestIdx).toBeLessThan(wanderIdx)
+    expect(harvestIdx).toBeLessThan(collectIdx)
+    expect(collectIdx).toBeLessThan(wanderIdx)
 
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('does not add a CollectItem node for a harvestFarm-only worker (HARVEST already gives straight to the doer)', () => {
+    const farmer: CreatureDef = { ...hostileMob, behavior: 'passive', work: { tasks: ['harvestFarm'] } }
+    const code = generateBrain(farmer)
+    expect(code).not.toContain('CollectItemAction')
+    expect(code).not.toContain('COLLECT_RADIUS')
   })
 })

@@ -74,6 +74,33 @@ function defendLeaderFunctionBlock(): string[] {
   ]
 }
 
+function depositAtHomeFunctionBlock(): string[] {
+  return [
+    'local function TryDepositAtHome(inst)',
+    '    local home = inst.components.homeseeker ~= nil and inst.components.homeseeker.home or nil',
+    '    if home == nil or home.components.container == nil or inst.components.inventory == nil then',
+    '        return',
+    '    end',
+    '    if inst:GetDistanceSqToInst(home) > 16 then',
+    '        return',
+    '    end',
+    '',
+    '    local items = {}',
+    '    inst.components.inventory:ForEachItem(function(item) table.insert(items, item) end)',
+    '    for _, item in ipairs(items) do',
+    '        if home.components.container:IsFull() then',
+    '            break',
+    '        end',
+    '        local removed = inst.components.inventory:RemoveItem(item, true)',
+    '        if removed ~= nil then',
+    '            home.components.container:GiveItem(removed)',
+    '        end',
+    '    end',
+    'end',
+    '',
+  ]
+}
+
 function lootBlock(creature: CreatureDef): string[] {
   if (creature.loot.length === 0) return []
   const lines = ['', '    inst:AddComponent("lootdropper")']
@@ -119,6 +146,9 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   }
   if (creature.companion?.defendLeader) {
     lines.push(...defendLeaderFunctionBlock())
+  }
+  if (creature.work !== undefined) {
+    lines.push(...depositAtHomeFunctionBlock())
   }
   lines.push('local function fn()')
   lines.push('    local inst = CreateEntity()')
@@ -209,7 +239,9 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
 
   const needsChop = creature.companion?.tasks.includes('chopTrees') || creature.work?.tasks.includes('chopTrees')
   const needsMine = creature.work?.tasks.includes('mineRocks')
-  const needsInventory = creature.companion?.tasks.includes('collectItems') || creature.work?.tasks.includes('harvestFarm')
+  const needsWorkAutoCollect = creature.work?.tasks.includes('chopTrees') || creature.work?.tasks.includes('mineRocks')
+  const needsInventory =
+    creature.companion?.tasks.includes('collectItems') || creature.work?.tasks.includes('harvestFarm') || needsWorkAutoCollect
 
   if (needsInventory) {
     lines.push('')
@@ -227,6 +259,11 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
     lines.push('')
     lines.push('    inst:AddComponent("follower")')
     lines.push('    inst:DoPeriodicTask(2, TryDefendLeader)')
+  }
+
+  if (creature.work !== undefined) {
+    lines.push('')
+    lines.push('    inst:DoPeriodicTask(3, TryDepositAtHome)')
   }
 
   lines.push('')

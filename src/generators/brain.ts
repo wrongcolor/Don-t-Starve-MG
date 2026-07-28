@@ -145,6 +145,12 @@ function workTaskFunctions(creature: CreatureDef): { functions: string[]; nodes:
     nodes.push('        DoAction(self.inst, HarvestCropAction, "HarvestCrop"),')
   }
 
+  if (tasks.includes('chopTrees') || tasks.includes('mineRocks')) {
+    if (functions.length > 0) functions.push('')
+    functions.push(...collectItemsFunctionBlock())
+    nodes.push('        DoAction(self.inst, CollectItemAction, "CollectItem"),')
+  }
+
   return { functions, nodes }
 }
 
@@ -230,6 +236,7 @@ export function generateBrain(creature: CreatureDef): string {
     if (tasks.includes('chopTrees')) localConstants.push(`local CHOP_RADIUS = ${CHOP_RADIUS}`)
     if (tasks.includes('mineRocks')) localConstants.push(`local MINE_RADIUS = ${MINE_RADIUS}`)
     if (tasks.includes('harvestFarm')) localConstants.push(`local HARVEST_RADIUS = ${HARVEST_RADIUS}`)
+    if (tasks.includes('chopTrees') || tasks.includes('mineRocks')) localConstants.push(`local COLLECT_RADIUS = ${COLLECT_RADIUS}`)
 
     const { functions, nodes } = workTaskFunctions(creature)
     localFunctions.push('', ...functions)
