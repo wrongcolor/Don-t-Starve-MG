@@ -5,7 +5,7 @@ export const advancedMechanicsProject: ModProject = {
   ...createEmptyModProject(),
   meta: {
     name: 'Advanced Mechanics Test Mod',
-    description: 'Covers rechargeable/container/teleporter/nameable/combinable/skilltree/herd',
+    description: 'Covers rechargeable/container/teleporter/nameable/combinable/skilltree/herd/squadAlert',
     author: 'Tester',
     version: '1.0.0',
     allClientsRequireMod: true,
@@ -118,13 +118,14 @@ export const advancedMechanicsProject: ModProject = {
     {
       id: 'packwolf',
       displayName: 'Pack Wolf',
-      description: 'A creature that forms herds',
+      description: 'A creature that forms herds and calls the pack in when attacked',
       stats: { health: 150, damage: 25, attackPeriod: 2, walkSpeed: 5 },
       loot: [{ prefab: 'monstermeat', chance: 1 }],
       behavior: 'hostile',
       tags: [],
       panicCauses: [],
       herd: { maxSize: 6, gatherRange: 30, spawnIntervalDays: { min: 2, max: 4 } },
+      squadAlert: { range: 30 },
     },
     {
       id: 'skitterling',

@@ -34,6 +34,7 @@ import { emberRod } from '../mods/emberRod'
 import { calmingCenser } from '../mods/calmingCenser'
 import { engravedPlaque } from '../mods/engravedPlaque'
 import { pigVillage } from '../mods/pigVillage'
+import { monkeyRaidEvent } from '../mods/monkeyRaidEvent'
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const outputRoot = path.join(projectRoot, 'test-mods')
@@ -66,6 +67,7 @@ const TEST_PROJECTS = {
   calming_censer: calmingCenser,
   engraved_plaque: engravedPlaque,
   pig_village: pigVillage,
+  monkey_raid_event: monkeyRaidEvent,
 }
 
 async function writeModFiles(slug: string, files: Record<string, string>) {

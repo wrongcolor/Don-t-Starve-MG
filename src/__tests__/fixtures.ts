@@ -275,4 +275,5 @@ export const sampleProject: ModProject = {
       fillMask: 'IGNORE_IMPASSABLE_BARREN_RESERVED',
     },
   ],
+  worldEvents: [],
 }

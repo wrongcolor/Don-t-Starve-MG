@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { ModMeta, ModProject, ItemDef, StructureDef, CharacterDef, CreatureDef } from '../types/modProject'
 import { createEmptyModProject } from '../types/modProject'
 import type { RoomDef, TaskDef, StaticLayoutDef } from '../types/worldContent'
+import type { WorldEventDef } from '../types/worldEvent'
 
 interface ModProjectState {
   project: ModProject
@@ -21,6 +22,8 @@ interface ModProjectState {
   removeTask: (id: string) => void
   upsertStaticLayout: (layout: StaticLayoutDef) => void
   removeStaticLayout: (id: string) => void
+  upsertWorldEvent: (event: WorldEventDef) => void
+  removeWorldEvent: (id: string) => void
 }
 
 function upsertById<T extends { id: string }>(list: T[], entry: T): T[] {
@@ -114,6 +117,14 @@ export const useModProjectStore = create<ModProjectState>()(
       removeStaticLayout: (id) =>
         set((state) => ({
           project: { ...state.project, staticLayouts: state.project.staticLayouts.filter((l) => l.id !== id) },
+        })),
+      upsertWorldEvent: (event) =>
+        set((state) => ({
+          project: { ...state.project, worldEvents: upsertById(state.project.worldEvents, event) },
+        })),
+      removeWorldEvent: (id) =>
+        set((state) => ({
+          project: { ...state.project, worldEvents: state.project.worldEvents.filter((e) => e.id !== id) },
         })),
     }),
     {

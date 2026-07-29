@@ -17,6 +17,7 @@ export function CreaturePreview({ creature }: { creature: Partial<CreatureDef> }
   if (creature.herd) tags.push(`🐄 Herd (up to ${creature.herd.maxSize})`)
   if (creature.kiting) tags.push('🏃 Hit-and-run')
   if (creature.groundAttack) tags.push('🌵 Ground attack')
+  if (creature.squadAlert) tags.push('📯 Squad alert')
   if (creature.panicCauses?.includes('onFire')) tags.push('🔥 Panics on fire')
   if (creature.panicCauses?.includes('haunted')) tags.push('👻 Panics when haunted')
   if (creature.light) tags.push('💡 Emits light')

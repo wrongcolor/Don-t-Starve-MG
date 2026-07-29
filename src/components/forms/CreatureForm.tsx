@@ -72,6 +72,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   const enableHerd = watched.herd !== undefined
   const enableKiting = watched.kiting !== undefined
   const enableGroundAttack = watched.groundAttack !== undefined
+  const enableSquadAlert = watched.squadAlert !== undefined
   const canFight = watched.behavior !== 'passive'
   const panicCauses = watched.panicCauses ?? []
   const enableCompanion = watched.companion !== undefined
@@ -95,6 +96,9 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
     }
     if (nextBehavior === 'passive' && watched.groundAttack) {
       setValue('groundAttack', undefined, { shouldValidate: true })
+    }
+    if (nextBehavior === 'passive' && watched.squadAlert) {
+      setValue('squadAlert', undefined, { shouldValidate: true })
     }
     if (nextBehavior === 'hostile' && watched.companion) {
       setValue('companion', undefined, { shouldValidate: true })
@@ -456,6 +460,26 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                 </FormField>
                 <FormField label="Cooldown (seconds)">
                   <input type="number" min="1" className={inputClass} {...register('groundAttack.cooldownSeconds', { valueAsNumber: true })} />
+                </FormField>
+              </div>
+            )}
+
+            <div className="checks" style={{ marginTop: 12 }}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableSquadAlert}
+                  disabled={!canFight}
+                  onChange={(e) => setValue('squadAlert', e.target.checked ? { range: 30 } : undefined)}
+                />
+                Squad alert (getting hit pulls in nearby idle allies of the same creature — like the pirate monkey crew)
+                {!canFight ? ' — requires neutral or hostile behavior' : ''}
+              </label>
+            </div>
+            {enableSquadAlert && (
+              <div className="row-2">
+                <FormField label="Alert range">
+                  <input type="number" min="1" max="50" className={inputClass} {...register('squadAlert.range', { valueAsNumber: true })} />
                 </FormField>
               </div>
             )}

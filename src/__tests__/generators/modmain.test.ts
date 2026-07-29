@@ -191,6 +191,15 @@ describe('generateModMain', () => {
     expect(groundAttackCode).toContain('GLOBAL.TUNING.TESTMOB_GROUNDATTACK_COOLDOWN = 20')
   })
 
+  it('sets TUNING values for a creature squadAlert', () => {
+    const withSquadAlert = {
+      ...projectWithCharacter,
+      creatures: [{ ...projectWithCharacter.creatures[0], squadAlert: { range: 30 } }],
+    }
+    const squadAlertCode = generateModMain(withSquadAlert)
+    expect(squadAlertCode).toContain('GLOBAL.TUNING.TESTMOB_SQUADALERT_RANGE = 30')
+  })
+
   it('sets TUNING values for a creature light, dividing the 0-255 colour into 0-1 floats (patterns.md#65)', () => {
     const withLight = {
       ...projectWithCharacter,
@@ -368,5 +377,32 @@ describe('generateModMain', () => {
     expect(code).toContain(
       'return item:HasTag("pocketwatch") or item.prefab == "sewing_tape" or item.prefab == "winona_remote"',
     )
+  })
+
+  describe('World events', () => {
+    const duskAmbush = {
+      id: 'testduskambush',
+      displayName: 'Test Dusk Ambush',
+      description: 'Spawns a mob group at dusk',
+      trigger: { kind: 'phaseChange' as const, phase: 'dusk' as const },
+      chance: 0.3,
+      spawnRadius: 20,
+      spawnGroup: [{ prefabId: 'testmob', count: { min: 2, max: 4 } }],
+      loot: [{ prefab: 'monstermeat', chance: 0.5 }],
+    }
+
+    it('sets TUNING values (chance + radius) for a world event', () => {
+      const code = generateModMain({ ...projectWithCharacter, worldEvents: [duskAmbush] })
+      expect(code).toContain('GLOBAL.TUNING.TESTDUSKAMBUSH_CHANCE = 0.3')
+      expect(code).toContain('GLOBAL.TUNING.TESTDUSKAMBUSH_RADIUS = 20')
+    })
+
+    it('wires PickRandomOnlinePlayer once when a world-scoped trigger is used, and not otherwise', () => {
+      const code = generateModMain({ ...projectWithCharacter, worldEvents: [duskAmbush] })
+      expect(code).toContain('local function PickRandomOnlinePlayer()')
+
+      const noWorldEventsCode = generateModMain(projectWithCharacter)
+      expect(noWorldEventsCode).not.toContain('PickRandomOnlinePlayer')
+    })
   })
 })

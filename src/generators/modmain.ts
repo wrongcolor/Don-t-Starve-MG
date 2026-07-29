@@ -2,6 +2,7 @@ import type { ModProject, ItemDef, StructureDef, CharacterDef, CreatureDef, Cont
 import { luaString, luaStringArray, toUpperSnake } from './luaUtils'
 import { containerColumns, containerSlotCount, containerCustomWidgetBuild, itemRecipeIcon } from './item'
 import { structureRecipeIcon } from './structure'
+import { generateWorldEventBlock, isWorldScopedTrigger, pickRandomOnlinePlayerBlock, worldEventTuningBlock } from './worldEvent'
 
 function itemRecipeBlock(item: ItemDef): string {
   const ingredients = item.recipe.ingredients
@@ -199,6 +200,9 @@ function creatureTuningBlock(creature: CreatureDef): string[] {
   if (creature.groundAttack !== undefined) {
     lines.push(...groundAttackTuningLines(upper, creature.groundAttack))
     lines.push(`GLOBAL.TUNING.${upper}_GROUNDATTACK_COOLDOWN = ${creature.groundAttack.cooldownSeconds}`)
+  }
+  if (creature.squadAlert !== undefined) {
+    lines.push(`GLOBAL.TUNING.${upper}_SQUADALERT_RANGE = ${creature.squadAlert.range}`)
   }
   if (creature.light !== undefined) {
     lines.push(`GLOBAL.TUNING.${upper}_LIGHT_RADIUS = ${creature.light.radius}`)
@@ -553,6 +557,22 @@ export function generateModMain(project: ModProject): string {
     for (const character of charactersWithMana) {
       sections.push('')
       sections.push(...characterManaHudBlock(character))
+    }
+  }
+
+  if (project.worldEvents.length > 0) {
+    sections.push('')
+    sections.push('-- World events')
+    for (const event of project.worldEvents) {
+      sections.push(...worldEventTuningBlock(event))
+    }
+    if (project.worldEvents.some((event) => isWorldScopedTrigger(event.trigger))) {
+      sections.push('')
+      sections.push(...pickRandomOnlinePlayerBlock())
+    }
+    for (const event of project.worldEvents) {
+      sections.push('')
+      sections.push(...generateWorldEventBlock(event))
     }
   }
 

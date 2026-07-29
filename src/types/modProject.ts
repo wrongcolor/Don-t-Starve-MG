@@ -1,5 +1,9 @@
 import { z } from 'zod'
 import { roomDefSchema, taskDefSchema, staticLayoutDefSchema } from './worldContent'
+import { worldEventDefSchema } from './worldEvent'
+import { RESERVED_PREFAB_IDS, luaIdentifier } from './luaIdentifier'
+
+export { RESERVED_PREFAB_IDS, luaIdentifier }
 
 // Validated against the live DST game-scripts (recipe.lua, modutil.lua, techtree.lua,
 // constants.lua, recipes_filter.lua) — see plan notes for sources.
@@ -115,26 +119,6 @@ export const VANILLA_HAT_BUILDS = [
 // (patterns.md#21) — a fixed perk is just one specific value of the same
 // mechanism, no need for two ways to express it.
 export const CHARACTER_PERKS = ['no_sanity_drain', 'fire_immune', 'freeze_immune', 'night_vision'] as const
-
-// Prefab names from the base game — used to stop users from generating an id that
-// silently overwrites/collides with a vanilla prefab.
-export const RESERVED_PREFAB_IDS = new Set([
-  'wilson', 'willow', 'wolfgang', 'wendy', 'wx78', 'wickerbottom', 'woodie',
-  'wes', 'waxwell', 'wathgrithr', 'webber', 'winona', 'warly', 'wortox',
-  'wormwood', 'wurt', 'walter', 'wanda',
-  'log', 'twigs', 'flint', 'rocks', 'cutgrass', 'grass', 'poop', 'gears',
-  'goldnugget', 'nightmarefuel', 'silk', 'spidergland', 'monstermeat',
-  'boneshard', 'ash', 'boards', 'ropes', 'rope', 'papyrus', 'transistor',
-])
-
-const luaIdentifier = z
-  .string()
-  .min(2, 'Use at least 2 characters')
-  .max(32, 'Use at most 32 characters')
-  .regex(/^[a-z][a-z0-9_]*$/, 'Use only lowercase letters, numbers, and "_", starting with a letter')
-  .refine((id) => !RESERVED_PREFAB_IDS.has(id), {
-    message: 'This id collides with a base-game prefab — choose another one',
-  })
 
 export const configOptionSchema = z.object({
   name: luaIdentifier,
@@ -958,6 +942,18 @@ export const creatureDefSchema = z
     // combat target — see groundAttackSchema for the real source (Antlion's
     // spike/wall attack). Requires combat, same as kiting below.
     groundAttack: groundAttackSchema.extend({ cooldownSeconds: z.number().min(1) }).optional(),
+    // Confirmed in Original/prefabs/prefabs/primemate.lua's OnAttacked (the pirate
+    // monkey crew): when one member of the group is hit, it calls
+    // combat:SuggestTarget(attacker) on other nearby creatures sharing this
+    // prefab's own id as a tag. SuggestTarget (components/combat.lua) only takes
+    // effect on a creature with no target yet, so it just pulls in idle allies
+    // instead of stealing anyone already fighting something else. Requires
+    // combat, same as kiting/groundAttack above.
+    squadAlert: z
+      .object({
+        range: z.number().min(1).max(50),
+      })
+      .optional(),
     // Confirmed real native API (prefabs/stafflight.lua, the same file the
     // emberlight/stafflight prefabs already reused for spellDef.summonPrefab):
     // entity:AddLight() + Light:SetRadius/SetFalloff/SetIntensity/SetColour/
@@ -984,6 +980,10 @@ export const creatureDefSchema = z
     message: 'A ground attack requires neutral or hostile behavior — a passive creature never fights',
     path: ['groundAttack'],
   })
+  .refine((creature) => creature.squadAlert === undefined || creature.behavior !== 'passive', {
+    message: 'Squad alert requires neutral or hostile behavior — a passive creature never fights',
+    path: ['squadAlert'],
+  })
   .refine((creature) => !creature.panicCauses.includes('onFire') || creature.flammable === true, {
     message: 'The "catches fire" panic cause requires the creature to be flammable — enable that trait first',
     path: ['panicCauses'],
@@ -1006,6 +1006,7 @@ export const modProjectSchema = z.object({
   rooms: z.array(roomDefSchema),
   tasks: z.array(taskDefSchema),
   staticLayouts: z.array(staticLayoutDefSchema),
+  worldEvents: z.array(worldEventDefSchema),
 })
 
 export type TechLevel = (typeof TECH_LEVELS)[number]
@@ -1059,5 +1060,6 @@ export function createEmptyModProject(): ModProject {
     rooms: [],
     tasks: [],
     staticLayouts: [],
+    worldEvents: [],
   }
 }

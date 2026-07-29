@@ -300,6 +300,29 @@ describe('generateCreatureFiles', () => {
     expect(code).not.toContain('TryGroundAttack')
   })
 
+  // Confirmed against Original/prefabs/prefabs/primemate.lua's OnAttacked (the
+  // pirate monkey crew): getting hit calls combat:SuggestTarget(attacker) on
+  // nearby creatures sharing this prefab's own id as a tag.
+  it('wires a squad alert that pulls in nearby idle allies when this creature is attacked', () => {
+    const alerter: CreatureDef = { ...creature, squadAlert: { range: 30 } }
+    const code = generateCreaturePrefab(alerter)
+    expect(code).toContain('local SQUAD_ALERT_TAGS = { "testmob" }')
+    expect(code).toContain('local function OnAttacked(inst, data)')
+    expect(code).toContain('inst.components.combat:SetTarget(data.attacker)')
+    expect(code).toContain('local allies = TheSim:FindEntities(x, y, z, TUNING.TESTMOB_SQUADALERT_RANGE, SQUAD_ALERT_TAGS)')
+    expect(code).toContain('ally.components.combat:SuggestTarget(data.attacker)')
+    expect(code).toContain('inst:ListenForEvent("attacked", OnAttacked)')
+    expect(code).toContain('inst:AddTag("testmob")')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('does not wire a squad alert when it is not set', () => {
+    const code = generateCreaturePrefab(creature)
+    expect(code).not.toContain('SQUAD_ALERT_TAGS')
+    expect(code).not.toContain('OnAttacked')
+  })
+
   it('wires a real Light component when light is set, but not otherwise (patterns.md#65)', () => {
     expect(generateCreaturePrefab(creature)).not.toContain('AddLight')
     expect(generateCreaturePrefab(creature)).not.toContain('inst.Light')

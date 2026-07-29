@@ -4,6 +4,7 @@ import { ItemsPanel } from './components/panels/ItemsPanel'
 import { StructuresPanel } from './components/panels/StructuresPanel'
 import { CharactersPanel } from './components/panels/CharactersPanel'
 import { CreaturesPanel } from './components/panels/CreaturesPanel'
+import { WorldEventsPanel } from './components/panels/WorldEventsPanel'
 import { WorldPanel } from './components/panels/WorldPanel'
 import { ReaderPanel } from './components/panels/ReaderPanel'
 import { GenerateButton } from './components/GenerateButton'
@@ -14,6 +15,7 @@ const TABS = [
   { key: 'structures', label: 'Structures', icon: '🏛️' },
   { key: 'characters', label: 'Characters', icon: '🧑' },
   { key: 'creatures', label: 'Creatures', icon: '👹' },
+  { key: 'events', label: 'Events', icon: '🔔' },
   { key: 'world', label: 'World', icon: '🌍' },
   { key: 'reader', label: 'Reader', icon: '🔍' },
 ] as const
@@ -49,6 +51,7 @@ function App() {
       {tab === 'structures' && <StructuresPanel />}
       {tab === 'characters' && <CharactersPanel />}
       {tab === 'creatures' && <CreaturesPanel />}
+      {tab === 'events' && <WorldEventsPanel />}
       {tab === 'world' && <WorldPanel />}
       {tab === 'reader' && (
         <div className="layout-single animate-fade-in-up">

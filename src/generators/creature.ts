@@ -74,6 +74,26 @@ function defendLeaderFunctionBlock(): string[] {
   ]
 }
 
+function squadAlertFunctionBlock(creature: CreatureDef): string[] {
+  const upper = toUpperSnake(creature.id)
+  return [
+    `local SQUAD_ALERT_TAGS = { ${luaString(creature.id)} }`,
+    '',
+    'local function OnAttacked(inst, data)',
+    '    inst.components.combat:SetTarget(data.attacker)',
+    '',
+    '    local x, y, z = inst.Transform:GetWorldPosition()',
+    `    local allies = TheSim:FindEntities(x, y, z, TUNING.${upper}_SQUADALERT_RANGE, SQUAD_ALERT_TAGS)`,
+    '    for _, ally in ipairs(allies) do',
+    '        if ally ~= inst and ally.components.combat ~= nil then',
+    '            ally.components.combat:SuggestTarget(data.attacker)',
+    '        end',
+    '    end',
+    'end',
+    '',
+  ]
+}
+
 function depositAtHomeFunctionBlock(): string[] {
   return [
     'local function TryDepositAtHome(inst)',
@@ -150,6 +170,9 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   if (creature.work !== undefined) {
     lines.push(...depositAtHomeFunctionBlock())
   }
+  if (creature.squadAlert !== undefined) {
+    lines.push(...squadAlertFunctionBlock(creature))
+  }
   lines.push('local function fn()')
   lines.push('    local inst = CreateEntity()')
   lines.push('')
@@ -176,7 +199,7 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   lines.push(`    inst:AddTag("${creature.behavior === 'hostile' ? 'monster' : 'animal'}")`)
   if (creature.behavior === 'hostile') lines.push('    inst:AddTag("hostile")')
   for (const tag of creature.tags) lines.push(`    inst:AddTag(${luaString(tag)})`)
-  if (needsHerd(creature)) lines.push(`    inst:AddTag(${luaString(creature.id)})`)
+  if (needsHerd(creature) || creature.squadAlert !== undefined) lines.push(`    inst:AddTag(${luaString(creature.id)})`)
   lines.push('')
   lines.push('    inst.entity:SetPristine()')
   lines.push('    if not TheWorld.ismastersim then')
@@ -199,6 +222,9 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   }
   if (creature.groundAttack !== undefined) {
     lines.push(`    inst:DoPeriodicTask(TUNING.${upper}_GROUNDATTACK_COOLDOWN, TryGroundAttack)`)
+  }
+  if (creature.squadAlert !== undefined) {
+    lines.push('    inst:ListenForEvent("attacked", OnAttacked)')
   }
   lines.push(...lootBlock(creature))
 
