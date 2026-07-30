@@ -13,7 +13,9 @@ dist-ssr
 *.local
 
 # Generated mods used for manual/in-game testing (see scripts/build-test-mods.ts)
-/test-mods
+/test-mods/*
+# dual_mount was hand-written (not generated) to prototype the two-rider mount mechanic
+!/test-mods/dual_mount
 
 # Klei's real DST source, used locally as ground-truth reference. Copyrighted
 # third-party code — never track it (see docs/dst-knowledge/README.md).
