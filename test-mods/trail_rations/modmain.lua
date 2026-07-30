@@ -1,0 +1,24 @@
+local require = GLOBAL.require
+local STRINGS = GLOBAL.STRINGS
+local TUNING = GLOBAL.TUNING
+local TECH = GLOBAL.TECH
+local Ingredient = GLOBAL.Ingredient
+
+PrefabFiles = { "trailrations" }
+
+-- Items: tuning + strings
+GLOBAL.TUNING.TRAILRATIONS_PERISH_TIME = TUNING.TOTAL_DAY_TIME * 8
+GLOBAL.TUNING.TRAILRATIONS_STACK_SIZE = 20
+GLOBAL.TUNING.TRAILRATIONS_HEALTH = 8
+GLOBAL.TUNING.TRAILRATIONS_HUNGER = 25
+GLOBAL.TUNING.TRAILRATIONS_SANITY = 0
+GLOBAL.TUNING.TRAILRATIONS_DAMAGE_BUFF_MULT = 0.2
+GLOBAL.TUNING.TRAILRATIONS_DAMAGE_BUFF_DURATION = 180
+STRINGS.NAMES.TRAILRATIONS = "Trail Rations"
+STRINGS.RECIPE_DESC.TRAILRATIONS = "Dried and salted. Keeps for a while."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.TRAILRATIONS = "Dried and salted. Keeps for a while."
+
+-- Items: recipes
+AddRecipe2("trailrations", { Ingredient("monstermeat", 2), Ingredient("twigs", 1) }, TECH.NONE, {
+        image = "jerky.tex",
+    }, { "COOKING" })

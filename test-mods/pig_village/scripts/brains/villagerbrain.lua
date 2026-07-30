@@ -1,0 +1,27 @@
+require "behaviours/wander"
+require "behaviours/chaseandattack"
+
+local BrainClass = require "brain"
+
+local MAX_WANDER_DIST = 20
+local SEE_TARGET_DIST = 10
+
+local function GetHomePos(inst)
+    return inst.components.homeseeker ~= nil and inst.components.homeseeker.home ~= nil and inst.components.homeseeker:GetHomePos() or nil
+end
+
+local VillagerBrain = Class(BrainClass, function(self, inst)
+    BrainClass._ctor(self, inst)
+end)
+
+function VillagerBrain:OnStart()
+    local root = PriorityNode(
+    {
+        WhileNode(function() return self.inst.components.combat:HasTarget() end, "Retaliate", ChaseAndAttack(self.inst, SEE_TARGET_DIST)),
+        Wander(self.inst, GetHomePos, MAX_WANDER_DIST),
+    }, .25)
+
+    self.bt = BT(self.inst, root)
+end
+
+return VillagerBrain
