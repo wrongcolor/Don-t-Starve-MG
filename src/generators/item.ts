@@ -9,13 +9,29 @@ import { groundAttackFunctionBlock } from './groundAttack'
 // ourselves. Shared with modmain.ts, which needs the same numbers to build
 // the custom grid.
 export function containerSlotCount(container: Container | undefined): number {
-  const widget = container?.widget
-  return widget?.source === 'custom' ? widget.slots : 0
+  if (container?.source !== 'own') return 0
+  return container.widget.source === 'custom' ? container.widget.slots : 0
 }
 
 export function containerColumns(container: Container | undefined): number {
-  const widget = container?.widget
-  return widget?.source === 'custom' ? widget.columns : 0
+  if (container?.source !== 'own') return 0
+  return container.widget.source === 'custom' ? container.widget.columns : 0
+}
+
+// Confirmed identically across chester.lua's AttachShadowContainer, hats.lua's
+// top_convert_to_magician, and magician_chest.lua's AttachShadowContainer — a
+// container_proxy owner reattaches to its pocket dimension's master container both
+// right away (skipped during world population, same as magician_chest.lua's own
+// `if not POPULATING then` guard) and on every load (OnLoadPostPass), since the
+// proxy itself holds no state of its own to restore. Shared by item.ts and
+// structure.ts — see containerComponentBlock/structure.ts's componentBlock.
+export function linkedDimensionAttachFunctionBlock(dimension: string): string[] {
+  return [
+    'local function AttachSharedContainer(inst)',
+    `    inst.components.container_proxy:SetMaster(TheWorld:GetPocketDimensionContainer(${luaString(dimension)}))`,
+    'end',
+    '',
+  ]
 }
 
 // The UI build a 'custom' container widget needs — always named after its
@@ -647,6 +663,20 @@ function combinableComponentBlock(): string[] {
 
 function containerComponentBlock(item: ItemDef): string[] {
   const container = item.container!
+  if (container.source === 'pocketDimension') {
+    return [
+      '',
+      '    inst:AddComponent("container_proxy")',
+      '    inst.components.inventoryitem:SetOnPutInInventoryFn(function(inst)',
+      '        inst.components.container_proxy:Close()',
+      '    end)',
+      '',
+      '    inst.OnLoadPostPass = AttachSharedContainer',
+      '    if not POPULATING then',
+      '        AttachSharedContainer(inst)',
+      '    end',
+    ]
+  }
   const lines = [
     '',
     '    inst:AddComponent("container")',
@@ -810,7 +840,7 @@ export function generateItemPrefab(item: ItemDef): string {
       lines.push(`    Asset("ANIM", "anim/swap_${item.id}.zip"), -- PLACEHOLDER: aparência na mão, ver README`)
     }
   }
-  if (item.container?.widget.source === 'custom') {
+  if (item.container?.source === 'own' && item.container.widget.source === 'custom') {
     lines.push(`    Asset("ANIM", "anim/${containerCustomWidgetBuild(item.id)}.zip"), -- PLACEHOLDER: art da UI do contêiner, ver README`)
   }
   // A vanilla-sourced item has no anim/<id>.zip of its own to derive this from —
@@ -845,6 +875,9 @@ export function generateItemPrefab(item: ItemDef): string {
   }
   if (item.nameable) {
     lines.push(...onNamedFunctionBlock())
+  }
+  if (item.container?.source === 'pocketDimension') {
+    lines.push(...linkedDimensionAttachFunctionBlock(item.container.dimension))
   }
   const cloudPrefabId = item.tameBomb !== undefined ? tameCloudId(item) : item.smokeBomb !== undefined ? smokeCloudId(item) : undefined
   lines.push(cloudPrefabId !== undefined ? `local prefabs = { ${luaString(cloudPrefabId)} }` : 'local prefabs = {}')

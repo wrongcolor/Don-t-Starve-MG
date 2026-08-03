@@ -320,7 +320,7 @@ describe('generateModMain', () => {
         {
           ...projectWithCharacter.items[0],
           id: 'testbag',
-          container: { widget: { source: 'vanilla' as const, reusePrefab: 'sacred_chest' }, sideWidget: true },
+          container: { source: 'own' as const, widget: { source: 'vanilla' as const, reusePrefab: 'sacred_chest' }, sideWidget: true },
         },
       ],
     }
@@ -342,6 +342,7 @@ describe('generateModMain', () => {
           ...projectWithCharacter.items[0],
           id: 'testcustombag',
           container: {
+            source: 'own' as const,
             widget: { source: 'custom' as const, slots: 5, columns: 2 },
             sideWidget: false,
             acceptsTag: 'pocketwatch',
@@ -365,6 +366,7 @@ describe('generateModMain', () => {
           ...projectWithCharacter.items[0],
           id: 'testtoolbox',
           container: {
+            source: 'own' as const,
             widget: { source: 'custom' as const, slots: 9, columns: 3 },
             sideWidget: false,
             acceptsTag: 'pocketwatch',
@@ -377,6 +379,23 @@ describe('generateModMain', () => {
     expect(code).toContain(
       'return item:HasTag("pocketwatch") or item.prefab == "sewing_tape" or item.prefab == "winona_remote"',
     )
+  })
+
+  it('does not register containers.params for a pocketDimension container — its widget is already defined by the base game', () => {
+    const withVoidBag = {
+      ...projectWithCharacter,
+      items: [
+        ...projectWithCharacter.items,
+        {
+          ...projectWithCharacter.items[0],
+          id: 'testvoidbag',
+          container: { source: 'pocketDimension' as const, dimension: 'shadow' as const },
+        },
+      ],
+    }
+    const code = generateModMain(withVoidBag)
+    expect(code).not.toContain('params.testvoidbag')
+    expect(code).not.toContain('local containers = require("containers")')
   })
 
   describe('World events', () => {

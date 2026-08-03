@@ -1,6 +1,6 @@
 import type { StructureDef, RoomSize } from '../types/modProject'
 import { luaString, sanitizeLuaComment, toUpperSnake } from './luaUtils'
-import { containerCustomWidgetBuild } from './item'
+import { containerCustomWidgetBuild, linkedDimensionAttachFunctionBlock } from './item'
 
 // A structure with no animation choice keeps the same default an item gets: a
 // custom build named after its own id, which the user must supply as
@@ -253,7 +253,10 @@ function componentBlock(structure: StructureDef): string {
   lines.push('    inst.components.workable:SetWorkLeft(4)')
   lines.push('    inst.components.workable:SetOnFinishCallback(onhammered)')
 
-  if (structure.container) {
+  if (structure.container?.source === 'pocketDimension') {
+    lines.push('')
+    lines.push('    inst:AddComponent("container_proxy")')
+  } else if (structure.container) {
     lines.push('')
     lines.push('    inst:AddComponent("container")')
     lines.push(`    inst.components.container:WidgetSetup(${luaString(structure.id)})`)
@@ -339,7 +342,7 @@ export function generateStructurePrefab(structure: StructureDef): string {
   } else {
     lines.push(`    Asset("ANIM", "anim/${structure.id}.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)`)
   }
-  if (structure.container?.widget.source === 'custom') {
+  if (structure.container?.source === 'own' && structure.container.widget.source === 'custom') {
     lines.push(`    Asset("ANIM", "anim/${containerCustomWidgetBuild(structure.id)}.zip"), -- PLACEHOLDER: art da UI do contêiner, ver README`)
   }
   // A deployableItem structure is never craftable/hoverable directly — the item
@@ -360,6 +363,9 @@ export function generateStructurePrefab(structure: StructureDef): string {
   }
   if (needsInterior(structure)) {
     lines.push(...interiorFunctionBlock(structure))
+  }
+  if (structure.container?.source === 'pocketDimension') {
+    lines.push(...linkedDimensionAttachFunctionBlock(structure.container.dimension))
   }
   const prefabs = referencedPrefabs(structure)
   lines.push(prefabs.length > 0 ? `local prefabs = { ${prefabs.map(luaString).join(', ')} }` : 'local prefabs = {}')
@@ -390,6 +396,13 @@ export function generateStructurePrefab(structure: StructureDef): string {
     lines.push('    inst.OnSave = OnSave')
     lines.push('    inst.OnLoad = OnLoad')
     lines.push('    inst:DoTaskInTime(0, function() EnsureInterior(inst) end)')
+  }
+  if (structure.container?.source === 'pocketDimension') {
+    lines.push('')
+    lines.push('    inst.OnLoadPostPass = AttachSharedContainer')
+    lines.push('    if not POPULATING then')
+    lines.push('        AttachSharedContainer(inst)')
+    lines.push('    end')
   }
   lines.push('')
   lines.push('    return inst')

@@ -5,6 +5,7 @@ import { categoryVisual } from '../panels/entityVisuals'
 // (patterns.md#20) — we never know its slot count ourselves, so show what we
 // DO know (which prefab it's copying) instead of guessing a number.
 function containerSlotsLabel(container: NonNullable<ItemDef['container']>): string {
+  if (container.source === 'pocketDimension') return `shared (${container.dimension})`
   const widget = container.widget
   return widget.source === 'vanilla' ? `like ${widget.reusePrefab || '?'}` : String(widget.slots)
 }
@@ -34,7 +35,7 @@ export function ItemPreview({ item }: { item: Partial<ItemDef> }) {
   if (item.onEatBuff) tags.push('💪 Combat buff on eat')
   if (item.combinable) tags.push('🔗 Combinable')
   if (item.container) tags.push('🎒 Container')
-  if (item.container?.preservation) tags.push('🧊 Preserves contents')
+  if (item.container?.source === 'own' && item.container.preservation) tags.push('🧊 Preserves contents')
   if (item.nameable) tags.push('✏️ Renameable')
   if (item.rechargeable) tags.push('🔋 Rechargeable')
   if (item.moonrelic) tags.push('🌙 Portal idol')

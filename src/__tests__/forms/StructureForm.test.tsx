@@ -19,6 +19,26 @@ describe('StructureForm', () => {
     expect(saved.restStation).toBeUndefined()
   })
 
+  it('switching the container to "share Maxwell\'s Void" hides the own-slots fields and submits a pocketDimension container', async () => {
+    const onSave = vi.fn()
+    render(<StructureForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_structure'), { target: { value: 'voidchest' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Void Chest' } })
+    fireEvent.change(screen.getByLabelText('Description (inspect)'), { target: { value: 'A chest' } })
+
+    fireEvent.click(screen.getByText("It's a container (chest/box with slots)"))
+    fireEvent.click(screen.getByText("Share Maxwell's Void"))
+
+    expect(screen.queryByText('Only accepts items with a specific tag')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add structure' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.container).toEqual({ source: 'pocketDimension', dimension: 'shadow' })
+  })
+
   it('enabling the rest station checkbox reveals its fields with sane defaults, and submits a custom value', async () => {
     const onSave = vi.fn()
     render(<StructureForm onSave={onSave} />)

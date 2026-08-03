@@ -19,7 +19,7 @@ export const portableSupplyCrate: ModProject = {
       animation: { source: 'vanilla', build: 'treasurechest' },
       loot: [],
       deployMode: 'deployableItem',
-      container: { widget: { source: 'vanilla', reusePrefab: 'treasurechest' }, sideWidget: false },
+      container: { source: 'own', widget: { source: 'vanilla', reusePrefab: 'treasurechest' }, sideWidget: false },
       recipe: {
         ingredients: [
           { prefab: 'boards', amount: 4 },

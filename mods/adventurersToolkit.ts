@@ -46,6 +46,7 @@ export const adventurersToolkit: ModProject = {
       description: 'A container reusing a vanilla widget.',
       category: 'generic',
       container: {
+        source: 'own',
         widget: { source: 'vanilla', reusePrefab: 'krampus_sack' },
         sideWidget: true,
       },
@@ -61,6 +62,7 @@ export const adventurersToolkit: ModProject = {
       description: 'A container with a custom slot grid.',
       category: 'generic',
       container: {
+        source: 'own',
         widget: { source: 'custom', slots: 6, columns: 3 },
         sideWidget: false,
         acceptsTag: 'sharp',

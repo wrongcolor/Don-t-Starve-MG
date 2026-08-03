@@ -8,6 +8,7 @@ import {
   VANILLA_ITEM_BUILDS,
   PROTOTYPER_CATEGORIES,
   ROOM_SIZES,
+  POCKET_DIMENSIONS,
   type StructureDef,
 } from '../../types/modProject'
 import { FormField, Fieldset, FormHeader, FormFooter, InfoTip, inputClass, btnDanger } from './FormField'
@@ -50,9 +51,11 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
   )
   const watched = watch()
   const enableContainer = watched.container !== undefined
-  const containerWidgetSource = watched.container?.widget?.source ?? 'vanilla'
-  const enableAcceptsTag = watched.container?.acceptsTag !== undefined
-  const enablePreservation = watched.container?.preservation !== undefined
+  const containerSource = watched.container?.source === 'pocketDimension' ? 'pocketDimension' : 'own'
+  const containerDimension = watched.container?.source === 'pocketDimension' ? watched.container.dimension : undefined
+  const containerWidgetSource = watched.container?.source === 'own' ? (watched.container.widget?.source ?? 'vanilla') : 'vanilla'
+  const enableAcceptsTag = watched.container?.source === 'own' && watched.container.acceptsTag !== undefined
+  const enablePreservation = watched.container?.source === 'own' && watched.container.preservation !== undefined
   const enableTeleportPair = watched.teleportPair === true
   const enableDaySpawner = watched.daySpawner !== undefined
   const enableResident = watched.resident !== undefined
@@ -230,7 +233,7 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
                     setValue(
                       'container',
                       e.target.checked
-                        ? { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: false }
+                        ? { source: 'own', widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: false }
                         : undefined,
                     )
                   }
@@ -242,20 +245,31 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
               <>
                 <div className="icon-toggle-row" style={{ marginBottom: 12 }}>
                   <div
-                    className={`icon-toggle ${containerWidgetSource === 'vanilla' ? 'active' : ''}`}
-                    onClick={() => setValue('container.widget', { source: 'vanilla', reusePrefab: 'sacred_chest' })}
+                    className={`icon-toggle ${containerSource === 'own' ? 'active' : ''}`}
+                    onClick={() =>
+                      setValue('container', { source: 'own', widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: false })
+                    }
                   >
-                    Reuse a vanilla widget
+                    Own slots
                   </div>
-                  <div
-                    className={`icon-toggle ${containerWidgetSource === 'custom' ? 'active' : ''}`}
-                    onClick={() => setValue('container.widget', { source: 'custom', slots: 8, columns: 2 })}
-                  >
-                    Custom widget (own UI art)
-                  </div>
+                  {POCKET_DIMENSIONS.map((d) => (
+                    <div
+                      key={d.value}
+                      className={`icon-toggle ${containerDimension === d.value ? 'active' : ''}`}
+                      onClick={() => setValue('container', { source: 'pocketDimension', dimension: d.value })}
+                    >
+                      Share {d.label}
+                    </div>
+                  ))}
                 </div>
 
-                {containerWidgetSource === 'vanilla' ? (
+                {containerSource === 'pocketDimension' ? (
+                  <p style={{ fontSize: 14, color: 'var(--ink-soft)', margin: '0 0 12px' }}>
+                    Its slots are shared with any other container linked to the same vanilla pocket dimension — including the
+                    base game's own Chester (shadow skin), the Magician's Top Hat, and the Magician Chest. No UI art needed;
+                    the game already defines this widget.
+                  </p>
+                ) : containerWidgetSource === 'vanilla' ? (
                   <FormField
                     label="Reuse this container's widget (prefab id)"
                     hint='Clones its exact skin and slot grid at runtime — no UI art needed. e.g. "sacred_chest", "icebox", "treasurechest".'
@@ -288,57 +302,61 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
                   </div>
                 )}
 
-                <div className="checks">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={enableAcceptsTag}
-                      onChange={(e) => setValue('container.acceptsTag', e.target.checked ? '' : undefined)}
-                    />
-                    Only accepts items with a specific tag
-                  </label>
-                </div>
-                {enableAcceptsTag && (
-                  <FormField label="Required tag (e.g. pocketwatch)">
-                    <input className={inputClass} {...register('container.acceptsTag')} />
-                  </FormField>
-                )}
+                {containerSource === 'own' && (
+                  <>
+                    <div className="checks">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={enableAcceptsTag}
+                          onChange={(e) => setValue('container.acceptsTag' as const, e.target.checked ? '' : undefined)}
+                        />
+                        Only accepts items with a specific tag
+                      </label>
+                    </div>
+                    {enableAcceptsTag && (
+                      <FormField label="Required tag (e.g. pocketwatch)">
+                        <input className={inputClass} {...register('container.acceptsTag' as const)} />
+                      </FormField>
+                    )}
 
-                <div className="checks" style={{ marginTop: 12 }}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={enablePreservation}
-                      onChange={(e) =>
-                        setValue('container.preservation', e.target.checked ? { perishRateMultiplier: 0.25 } : undefined)
-                      }
-                    />
-                    Preserves contents (like an icebox)
-                  </label>
-                </div>
-                {enablePreservation && (
-                  <div className="row-2">
-                    <FormField label="Spoilage rate (0 = never spoils, 1 = normal)">
-                      <input
-                        type="number"
-                        step="0.05"
-                        min="0"
-                        max="1"
-                        className={inputClass}
-                        {...register('container.preservation.perishRateMultiplier', { valueAsNumber: true })}
-                      />
-                    </FormField>
-                    <FormField label="Temperature effect rate (optional, 1 = normal)">
-                      <input
-                        type="number"
-                        step="0.05"
-                        min="0"
-                        max="1"
-                        className={inputClass}
-                        {...register('container.preservation.temperatureRateMultiplier', { valueAsNumber: true })}
-                      />
-                    </FormField>
-                  </div>
+                    <div className="checks" style={{ marginTop: 12 }}>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={enablePreservation}
+                          onChange={(e) =>
+                            setValue('container.preservation' as const, e.target.checked ? { perishRateMultiplier: 0.25 } : undefined)
+                          }
+                        />
+                        Preserves contents (like an icebox)
+                      </label>
+                    </div>
+                    {enablePreservation && (
+                      <div className="row-2">
+                        <FormField label="Spoilage rate (0 = never spoils, 1 = normal)">
+                          <input
+                            type="number"
+                            step="0.05"
+                            min="0"
+                            max="1"
+                            className={inputClass}
+                            {...register('container.preservation.perishRateMultiplier' as const, { valueAsNumber: true })}
+                          />
+                        </FormField>
+                        <FormField label="Temperature effect rate (optional, 1 = normal)">
+                          <input
+                            type="number"
+                            step="0.05"
+                            min="0"
+                            max="1"
+                            className={inputClass}
+                            {...register('container.preservation.temperatureRateMultiplier' as const, { valueAsNumber: true })}
+                          />
+                        </FormField>
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )}

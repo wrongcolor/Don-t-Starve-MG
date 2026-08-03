@@ -4,6 +4,7 @@ import type { StructureDef } from '../../types/modProject'
 // (patterns.md#20) — we never know its slot count ourselves, so show what we
 // DO know (which prefab it's copying) instead of guessing a number.
 function containerSlotsLabel(container: NonNullable<StructureDef['container']>): string {
+  if (container.source === 'pocketDimension') return `shared (${container.dimension})`
   const widget = container.widget
   return widget.source === 'vanilla' ? `like ${widget.reusePrefab || '?'}` : String(widget.slots)
 }
@@ -14,7 +15,7 @@ export function StructurePreview({ structure }: { structure: Partial<StructureDe
       ? ['🎒 Crafts to an inventory item first — deployed, and hammered back into that same item']
       : ['🏗️ Structure (hammer-destroy, not an inventory item)']
   if (structure.container) tags.push('🎒 Container')
-  if (structure.container?.preservation) tags.push('🧊 Preserves contents')
+  if (structure.container?.source === 'own' && structure.container.preservation) tags.push('🧊 Preserves contents')
   if (structure.teleportPair) tags.push('🌀 Teleporter pair')
   if (structure.daySpawner) tags.push('🌙 Chance to spawn a mob each day')
   if (structure.resident) tags.push('🐷 Houses a resident')

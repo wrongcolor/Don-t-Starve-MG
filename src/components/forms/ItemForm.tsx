@@ -11,6 +11,7 @@ import {
   ON_HIT_EFFECTS,
   SPELL_EFFECTS,
   FOOD_TYPES,
+  POCKET_DIMENSIONS,
   type ItemDef,
 } from '../../types/modProject'
 import { FormField, Fieldset, FormHeader, FormFooter, InfoTip, inputClass, btnDanger } from './FormField'
@@ -211,9 +212,12 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const hasDurabilityModel = enableFiniteuses || enableArmor || enablePerishable
   const enableCombinable = watched.combinable === true
   const enableContainer = watched.container !== undefined
-  const containerWidgetSource = watched.container?.widget?.source ?? 'vanilla'
-  const enableAcceptsTag = watched.container?.acceptsTag !== undefined
-  const enablePreservation = watched.container?.preservation !== undefined
+  const containerSource = watched.container?.source === 'pocketDimension' ? 'pocketDimension' : 'own'
+  const containerDimension = watched.container?.source === 'pocketDimension' ? watched.container.dimension : undefined
+  const containerWidgetSource = watched.container?.source === 'own' ? (watched.container.widget?.source ?? 'vanilla') : 'vanilla'
+  const enableAcceptsTag = watched.container?.source === 'own' && watched.container.acceptsTag !== undefined
+  const enablePreservation = watched.container?.source === 'own' && watched.container.preservation !== undefined
+  const containerAcceptsPrefabs = watched.container?.source === 'own' ? (watched.container.acceptsPrefabs ?? []) : []
   const spellbookSource = watched.spellbook?.source ?? 'static'
   const enableSpellDef = watched.spellDef !== undefined
   const handheld = category === 'tool' || enableWeapon
@@ -998,7 +1002,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     setValue(
                       'container',
                       e.target.checked
-                        ? { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true }
+                        ? { source: 'own', widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true }
                         : undefined,
                     )
                   }
@@ -1010,20 +1014,31 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
               <>
                 <div className="icon-toggle-row" style={{ marginBottom: 12 }}>
                   <div
-                    className={`icon-toggle ${containerWidgetSource === 'vanilla' ? 'active' : ''}`}
-                    onClick={() => setValue('container.widget', { source: 'vanilla', reusePrefab: 'sacred_chest' })}
+                    className={`icon-toggle ${containerSource === 'own' ? 'active' : ''}`}
+                    onClick={() =>
+                      setValue('container', { source: 'own', widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true })
+                    }
                   >
-                    Reuse a vanilla widget
+                    Own slots
                   </div>
-                  <div
-                    className={`icon-toggle ${containerWidgetSource === 'custom' ? 'active' : ''}`}
-                    onClick={() => setValue('container.widget', { source: 'custom', slots: 8, columns: 2 })}
-                  >
-                    Custom widget (own UI art)
-                  </div>
+                  {POCKET_DIMENSIONS.map((d) => (
+                    <div
+                      key={d.value}
+                      className={`icon-toggle ${containerDimension === d.value ? 'active' : ''}`}
+                      onClick={() => setValue('container', { source: 'pocketDimension', dimension: d.value })}
+                    >
+                      Share {d.label}
+                    </div>
+                  ))}
                 </div>
 
-                {containerWidgetSource === 'vanilla' ? (
+                {containerSource === 'pocketDimension' ? (
+                  <p style={{ fontSize: 14, color: 'var(--ink-soft)', margin: '0 0 12px' }}>
+                    Its slots are shared with any other container linked to the same vanilla pocket dimension — including the
+                    base game's own Chester (shadow skin), the Magician's Top Hat, and the Magician Chest. No UI art needed;
+                    the game already defines this widget.
+                  </p>
+                ) : containerWidgetSource === 'vanilla' ? (
                   <FormField
                     label="Reuse this container's widget (prefab id)"
                     hint='Clones its exact skin and slot grid at runtime — no UI art needed. e.g. "sacred_chest", "icebox", "treasurechest". Must be a real container-having prefab.'
@@ -1056,101 +1071,110 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   </div>
                 )}
 
-                <div className="checks">
-                  <label>
-                    <input type="checkbox" {...register('container.sideWidget')} />
-                    Auto-opens as a side panel while carried (like a backpack)
-                  </label>
-                </div>
-
-                <div className="checks">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={enableAcceptsTag}
-                      onChange={(e) => setValue('container.acceptsTag', e.target.checked ? '' : undefined)}
-                    />
-                    Only accepts items with a specific tag
-                  </label>
-                </div>
-                {enableAcceptsTag && (
-                  <FormField label="Required tag (e.g. pocketwatch)">
-                    <input className={inputClass} {...register('container.acceptsTag')} />
-                  </FormField>
-                )}
-
-                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', margin: '12px 0 8px' }}>
-                  Or accept a specific list of prefabs (OR'd with the tag above)
-                </span>
-                {(watched.container?.acceptsPrefabs ?? []).map((prefab, index) => {
-                  const list = watched.container?.acceptsPrefabs ?? []
-                  const updatePrefabAt = (value: string) => {
-                    const next = [...list]
-                    next[index] = value
-                    setValue('container.acceptsPrefabs', next, { shouldDirty: true })
-                  }
-                  return (
-                    <div key={index} className="ingredient-row">
-                      <input
-                        className={inputClass}
-                        placeholder="prefab id (e.g. sewing_tape)"
-                        value={prefab}
-                        onChange={(e) => updatePrefabAt(e.target.value)}
-                      />
-                      <PrefabPickerButton onSelect={updatePrefabAt} />
-                      <button
-                        type="button"
-                        className={btnDanger}
-                        onClick={() => setValue('container.acceptsPrefabs', list.filter((_, i) => i !== index), { shouldDirty: true })}
-                      >
-                        Remove
-                      </button>
+                {containerSource === 'own' && (
+                  <>
+                    <div className="checks">
+                      <label>
+                        <input type="checkbox" {...register('container.sideWidget' as const)} />
+                        Auto-opens as a side panel while carried (like a backpack)
+                      </label>
                     </div>
-                  )
-                })}
-                <button
-                  type="button"
-                  className="add-ingredient"
-                  onClick={() => setValue('container.acceptsPrefabs', [...(watched.container?.acceptsPrefabs ?? []), ''])}
-                >
-                  + Add accepted prefab
-                </button>
 
-                <div className="checks" style={{ marginTop: 12 }}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={enablePreservation}
-                      onChange={(e) =>
-                        setValue('container.preservation', e.target.checked ? { perishRateMultiplier: 0.25 } : undefined)
+                    <div className="checks">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={enableAcceptsTag}
+                          onChange={(e) => setValue('container.acceptsTag' as const, e.target.checked ? '' : undefined)}
+                        />
+                        Only accepts items with a specific tag
+                      </label>
+                    </div>
+                    {enableAcceptsTag && (
+                      <FormField label="Required tag (e.g. pocketwatch)">
+                        <input className={inputClass} {...register('container.acceptsTag' as const)} />
+                      </FormField>
+                    )}
+
+                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', margin: '12px 0 8px' }}>
+                      Or accept a specific list of prefabs (OR'd with the tag above)
+                    </span>
+                    {containerAcceptsPrefabs.map((prefab, index) => {
+                      const updatePrefabAt = (value: string) => {
+                        const next = [...containerAcceptsPrefabs]
+                        next[index] = value
+                        setValue('container.acceptsPrefabs' as const, next, { shouldDirty: true })
                       }
-                    />
-                    Preserves contents (like an icebox)
-                  </label>
-                </div>
-                {enablePreservation && (
-                  <div className="row-2">
-                    <FormField label="Spoilage rate (0 = never spoils, 1 = normal)">
-                      <input
-                        type="number"
-                        step="0.05"
-                        min="0"
-                        max="1"
-                        className={inputClass}
-                        {...register('container.preservation.perishRateMultiplier', { valueAsNumber: true })}
-                      />
-                    </FormField>
-                    <FormField label="Temperature effect rate (optional, 1 = normal)">
-                      <input
-                        type="number"
-                        step="0.05"
-                        min="0"
-                        max="1"
-                        className={inputClass}
-                        {...register('container.preservation.temperatureRateMultiplier', { valueAsNumber: true })}
-                      />
-                    </FormField>
-                  </div>
+                      return (
+                        <div key={index} className="ingredient-row">
+                          <input
+                            className={inputClass}
+                            placeholder="prefab id (e.g. sewing_tape)"
+                            value={prefab}
+                            onChange={(e) => updatePrefabAt(e.target.value)}
+                          />
+                          <PrefabPickerButton onSelect={updatePrefabAt} />
+                          <button
+                            type="button"
+                            className={btnDanger}
+                            onClick={() =>
+                              setValue(
+                                'container.acceptsPrefabs' as const,
+                                containerAcceptsPrefabs.filter((_, i) => i !== index),
+                                { shouldDirty: true },
+                              )
+                            }
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )
+                    })}
+                    <button
+                      type="button"
+                      className="add-ingredient"
+                      onClick={() => setValue('container.acceptsPrefabs' as const, [...containerAcceptsPrefabs, ''], { shouldDirty: true })}
+                    >
+                      + Add accepted prefab
+                    </button>
+
+                    <div className="checks" style={{ marginTop: 12 }}>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={enablePreservation}
+                          onChange={(e) =>
+                            setValue('container.preservation' as const, e.target.checked ? { perishRateMultiplier: 0.25 } : undefined)
+                          }
+                        />
+                        Preserves contents (like an icebox)
+                      </label>
+                    </div>
+                    {enablePreservation && (
+                      <div className="row-2">
+                        <FormField label="Spoilage rate (0 = never spoils, 1 = normal)">
+                          <input
+                            type="number"
+                            step="0.05"
+                            min="0"
+                            max="1"
+                            className={inputClass}
+                            {...register('container.preservation.perishRateMultiplier' as const, { valueAsNumber: true })}
+                          />
+                        </FormField>
+                        <FormField label="Temperature effect rate (optional, 1 = normal)">
+                          <input
+                            type="number"
+                            step="0.05"
+                            min="0"
+                            max="1"
+                            className={inputClass}
+                            {...register('container.preservation.temperatureRateMultiplier' as const, { valueAsNumber: true })}
+                          />
+                        </FormField>
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )}

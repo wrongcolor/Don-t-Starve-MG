@@ -3243,3 +3243,67 @@ patterns.md#62).
 verificação em jogo, já que a criatura é passiva e nunca deveria entrar em
 combate de verdade. Se a stategraph reclamar de algum desses clipes ao
 testar, são os primeiros candidatos a ajustar.
+
+## 66. Container ligado a uma pocket dimension vanilla (ex: "shadow"/Void do Maxwell) — **implementado**
+
+Motivação: pedido do usuário, investigando como a cartola de mágico do
+Maxwell guarda itens — descobrir se dava pra generalizar esse "baú de
+bolso" pra qualquer Item/Estrutura do gerador.
+
+**Confirmado, mecanismo real:**
+- `Original/prefabs/prefabs/hats.lua` (`top_convert_to_magician`,
+  `top_onstartusing`), `Original/prefabs/prefabs/chester.lua`
+  (`AttachShadowContainer`, ligado a `ChesterState.SHADOW`) e
+  `Original/prefabs/prefabs/magician_chest.lua` (`AttachShadowContainer`)
+  fazem literalmente a MESMA chamada:
+  `inst.components.container_proxy:SetMaster(TheWorld:GetPocketDimensionContainer("shadow"))`.
+  As três entidades apontam pro mesmo container mestre — compartilham slots
+  de verdade, não é coincidência.
+- O container mestre em si (`Original/scripts/prefabs/
+  pocketdimensioncontainers.lua`) é um prefab `CLASSIFIED` só com
+  `AddComponent("container")` + `WidgetSetup` de verdade — quem aponta pra
+  ele usa `container_proxy` (um componente-proxy que só encaminha
+  open/close/slots), nunca `container` direto.
+- `TheWorld:GetPocketDimensionContainer`/`SetPocketDimensionContainer`
+  (`Original/prefabs/prefabs/world.lua:387-392`) já existem em QUALQUER
+  mundo do jogo base — um dicionário genérico indexado por string, não algo
+  específico da cartola. Isso significa que reaproveitar a chave `"shadow"`
+  não exige nenhum hook de `AddPrefabPostInit("world", ...)` nem prefab
+  `CLASSIFIED` próprio — o jogo já garante que esse container mestre existe
+  e persiste sozinho entre saves.
+- Existe uma segunda pocket dimension real, `"rabbitkinghorn"`
+  (`Original/prefabs/prefabs/rabbitkinghorn_chest.lua`,
+  `pocketdimensioncontainer_defs.lua`) — mecanicamente idêntica, mas
+  amarrada a uma quest específica do jogo base. Deixada de fora por decisão
+  do usuário (só `"shadow"` é exposto por enquanto).
+
+**Descartado (mais arriscado, sem necessidade real):** criar uma dimensão
+TOTALMENTE nova e exclusiva do mod, via `AddPrefabPostInit("world", ...)`
+spawnando um prefab `CLASSIFIED` próprio. Funcionaria em teoria, mas sem uma
+forma confirmável de garantir persistência real entre saves (o jogo base só
+garante isso pra suas próprias pocket dimensions via
+`Original/scripts/worldentities.lua`, que injeta as entidades no savedata —
+um arquivo que não editamos). Reaproveitar `"shadow"` elimina esse problema
+inteiro, já que o jogo persiste esse container mestre sozinho.
+
+**Implementado:**
+- `containerSchema` (`src/types/modProject.ts`) virou
+  `z.discriminatedUnion('source', [...])`: `'own'` é o shape antigo
+  (widget/sideWidget/acceptsTag/acceptsPrefabs/preservation) sem mudança de
+  comportamento; `'pocketDimension'` é novo, só `{ dimension }` — hoje só
+  aceita `"shadow"` (`POCKET_DIMENSIONS`).
+- `src/generators/item.ts`/`structure.ts`: pra `source: 'pocketDimension'`,
+  `AddComponent("container_proxy")` no lugar de
+  `AddComponent("container") + WidgetSetup`, mais
+  `inst.OnLoadPostPass = AttachSharedContainer` e
+  `if not POPULATING then AttachSharedContainer(inst) end` — replica
+  exatamente `magician_chest.lua`. `linkedDimensionAttachFunctionBlock`
+  (item.ts) gera essa função e é reaproveitada por structure.ts.
+- `src/generators/modmain.ts`: `containers.params.<id>` só é gerado pra
+  containers `'own'` — um `container_proxy` de pocket dimension não chama
+  `WidgetSetup`, então não precisa de entrada nesse registro (o widget da
+  `"shadow"` já é definido pelo próprio jogo).
+- UI (`ItemForm.tsx`/`StructureForm.tsx`): o fieldset "Container" ganhou um
+  segundo icon-toggle — "Own slots" vs "Share Maxwell's Void" — que troca o
+  `container` inteiro entre as duas formas; os campos de widget/tag/
+  preservação somem quando `pocketDimension` está selecionado.

@@ -1,5 +1,6 @@
 import JSZip from 'jszip'
 import type { ModProject } from '../types/modProject'
+import { POCKET_DIMENSIONS } from '../types/modProject'
 import { generateModInfo } from './modinfo'
 import { generateModMain } from './modmain'
 import { generateItemFiles, isHandheld, containerCustomWidgetBuild } from './item'
@@ -10,6 +11,10 @@ import { generateCreatureFiles } from './creature'
 import { resolveCreatureAnimation, isVanillaCreatureAnimation, isIslandAdventuresShipwreckedAnimation } from './creatureAnimation'
 import { generateWorldContentFiles } from './worldContent'
 import { generateManaComponentFile, generateManaBadgeWidgetFile } from './mana'
+
+function pocketDimensionLabel(dimension: string): string {
+  return POCKET_DIMENSIONS.find((d) => d.value === dimension)?.label ?? dimension
+}
 
 function generateReadme(project: ModProject): string {
   const lines: string[] = []
@@ -50,9 +55,14 @@ function generateReadme(project: ModProject): string {
       // widget always needs its own separate UI skin (patterns.md#20), even
       // when the item's body reuses a vanilla build (e.g. a book skin) with
       // no anim/*.zip of its own.
-      if (item.container?.widget.source === 'custom') {
+      if (item.container?.source === 'own' && item.container.widget.source === 'custom') {
         lines.push(
           `    - Também precisa de \`anim/${containerCustomWidgetBuild(item.id)}.zip\` (arte de UI do contêiner, ${item.container.widget.slots} slots).`,
+        )
+      }
+      if (item.container?.source === 'pocketDimension') {
+        lines.push(
+          `    - Contêiner compartilhado com a dimensão de bolso vanilla "${pocketDimensionLabel(item.container.dimension)}" — mesmo conteúdo do Chester em modo sombra, da cartola do mágico e do baú do mágico (jogo base); nenhuma arte de UI de contêiner é necessária.`,
         )
       }
     }
@@ -67,9 +77,14 @@ function generateReadme(project: ModProject): string {
       } else {
         lines.push(`  - \`${structure.id}\`: precisa de \`anim/${structure.id}.zip\` (build/bank "${structure.id}", animação "idle").`)
       }
-      if (structure.container?.widget.source === 'custom') {
+      if (structure.container?.source === 'own' && structure.container.widget.source === 'custom') {
         lines.push(
           `    - Também precisa de \`anim/${containerCustomWidgetBuild(structure.id)}.zip\` (arte de UI do contêiner, ${structure.container.widget.slots} slots).`,
+        )
+      }
+      if (structure.container?.source === 'pocketDimension') {
+        lines.push(
+          `    - Contêiner compartilhado com a dimensão de bolso vanilla "${pocketDimensionLabel(structure.container.dimension)}" — mesmo conteúdo do Chester em modo sombra, da cartola do mágico e do baú do mágico (jogo base); nenhuma arte de UI de contêiner é necessária.`,
         )
       }
     }
@@ -234,7 +249,7 @@ function findBrokenSpellbookContainerLink(project: ModProject): string | undefin
     if (target.container === undefined) {
       return `Item "${item.id}"'s spellbook points to "${containerItemId}", but that item has no container set up.`
     }
-    if (target.container.acceptsTag !== 'spell') {
+    if (target.container.source !== 'own' || target.container.acceptsTag !== 'spell') {
       return `Item "${item.id}"'s spellbook points to "${containerItemId}"'s container, but that container's "accepts tag" isn't set to "spell" — it would reject every spell item placed in it.`
     }
   }

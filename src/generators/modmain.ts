@@ -244,7 +244,10 @@ function characterTuningBlock(character: CharacterDef): string[] {
 }
 
 function needsContainerParams(project: ModProject): boolean {
-  return project.items.some((item) => item.container) || project.structures.some((structure) => structure.container)
+  return (
+    project.items.some((item) => item.container?.source === 'own') ||
+    project.structures.some((structure) => structure.container?.source === 'own')
+  )
 }
 
 // Adapted from TWO real published Workshop mods (see docs/dst-knowledge/
@@ -253,7 +256,7 @@ function needsContainerParams(project: ModProject): boolean {
 // modmain.lua (the prefab script just calls WidgetSetup with this id). Shared
 // by Item and Structure containers alike — takes the id + container config
 // directly rather than a whole ItemDef.
-function containerParamsBlock(id: string, container: Container): string[] {
+function containerParamsBlock(id: string, container: Extract<Container, { source: 'own' }>): string[] {
   const widget = container.widget
   const lines: string[] = []
 
@@ -508,13 +511,13 @@ export function generateModMain(project: ModProject): string {
     sections.push('local containers = require("containers")')
     sections.push('local params = containers.params')
     for (const item of project.items) {
-      if (item.container) {
+      if (item.container?.source === 'own') {
         sections.push('')
         sections.push(...containerParamsBlock(item.id, item.container))
       }
     }
     for (const structure of project.structures) {
-      if (structure.container) {
+      if (structure.container?.source === 'own') {
         sections.push('')
         sections.push(...containerParamsBlock(structure.id, structure.container))
       }

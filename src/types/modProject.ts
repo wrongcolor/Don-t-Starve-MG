@@ -298,7 +298,27 @@ export const containerWidgetSchema = z.discriminatedUnion('source', [
   }),
 ])
 
-export const containerSchema = z.object({
+// Confirmed real, pre-existing pocket dimensions every DST world already manages
+// via TheWorld:GetPocketDimensionContainer/SetPocketDimensionContainer (world.lua:
+// 387-392, prefabs/pocketdimensioncontainers.lua) — "shadow" is Maxwell's Void, the
+// same master container Chester's shadow skin (chester.lua's AttachShadowContainer),
+// the Magician's Top Hat (hats.lua's top_convert_to_magician), and the Magician
+// Chest (magician_chest.lua's AttachShadowContainer) all attach to via the identical
+// container_proxy:SetMaster(TheWorld:GetPocketDimensionContainer("shadow")) call.
+// Pointing two of our OWN containers at it (or one of ours + a vanilla one above)
+// makes them share the exact same slots — that's the point, not a bug — and
+// persistence comes for free, since the game already saves/loads this master
+// container on its own. Only "shadow" is exposed for now (see patterns.md) —
+// "rabbitkinghorn" is mechanically identical (rabbitkinghorn_chest.lua) but tied to
+// a specific base-game quest reward, left out as a deliberate scope cut.
+export const POCKET_DIMENSIONS = [{ value: 'shadow', label: "Maxwell's Void" }] as const
+
+// A container is either its own private stash ('own', the original/default shape)
+// or a proxy into an existing vanilla pocket dimension ('pocketDimension', see
+// POCKET_DIMENSIONS above) — mutually exclusive, since a shared dimension's widget/
+// slots/accept-rules are already defined by the base game, not by us.
+export const ownContainerSchema = z.object({
+  source: z.literal('own'),
   widget: containerWidgetSchema,
   // Confirmed in the source mod: containers you simply carry (not equipped to
   // a body slot) still auto-open as a side panel while in your inventory when
@@ -326,6 +346,13 @@ export const containerSchema = z.object({
     })
     .optional(),
 })
+
+export const pocketDimensionContainerSchema = z.object({
+  source: z.literal('pocketDimension'),
+  dimension: z.enum(POCKET_DIMENSIONS.map((d) => d.value) as [string, ...string[]]),
+})
+
+export const containerSchema = z.discriminatedUnion('source', [ownContainerSchema, pocketDimensionContainerSchema])
 
 // Keys of the game's FOODTYPE table (constants.lua) — used by the "edible" component
 // to gate which characters/creatures will eat an item (e.g. Wormwood only eats VEGGIE).

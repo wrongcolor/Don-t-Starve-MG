@@ -35,7 +35,7 @@ export const pigVillage: ModProject = {
       animation: { source: 'vanilla', build: 'pig_house' },
       loot: [{ prefab: 'boards', chance: 0.5 }],
       resident: { prefab: 'lumberjack', respawnDelayDays: 3 },
-      container: { widget: { source: 'custom', slots: 6, columns: 3 }, sideWidget: false },
+      container: { source: 'own', widget: { source: 'custom', slots: 6, columns: 3 }, sideWidget: false },
       recipe: {
         ingredients: [
           { prefab: 'boards', amount: 4 },
@@ -52,7 +52,7 @@ export const pigVillage: ModProject = {
       animation: { source: 'vanilla', build: 'pig_house' },
       loot: [{ prefab: 'rocks', chance: 0.5 }],
       resident: { prefab: 'miner', respawnDelayDays: 3 },
-      container: { widget: { source: 'custom', slots: 6, columns: 3 }, sideWidget: false },
+      container: { source: 'own', widget: { source: 'custom', slots: 6, columns: 3 }, sideWidget: false },
       recipe: {
         ingredients: [
           { prefab: 'cutstone', amount: 4 },
@@ -69,7 +69,7 @@ export const pigVillage: ModProject = {
       animation: { source: 'vanilla', build: 'pig_house' },
       loot: [{ prefab: 'seeds', chance: 0.5 }],
       resident: { prefab: 'farmer', respawnDelayDays: 3 },
-      container: { widget: { source: 'custom', slots: 6, columns: 3 }, sideWidget: false },
+      container: { source: 'own', widget: { source: 'custom', slots: 6, columns: 3 }, sideWidget: false },
       recipe: {
         ingredients: [
           { prefab: 'boards', amount: 3 },

@@ -57,11 +57,28 @@ describe('generateStructureFiles', () => {
     const container: StructureDef = {
       ...structure,
       id: 'teststructurebag',
-      container: { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: false },
+      container: { source: 'own', widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: false },
     }
     const code = generateStructurePrefab(container)
     expect(code).toContain('inst:AddComponent("container")')
     expect(code).not.toContain('SetOnPutInInventoryFn')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('wires container_proxy + AttachSharedContainer for a pocketDimension container, not AddComponent("container")', () => {
+    const voidChest: StructureDef = {
+      ...structure,
+      id: 'testvoidchest',
+      container: { source: 'pocketDimension', dimension: 'shadow' },
+    }
+    const code = generateStructurePrefab(voidChest)
+    expect(code).toContain('inst:AddComponent("container_proxy")')
+    expect(code).not.toContain('inst:AddComponent("container")')
+    expect(code).toContain('local function AttachSharedContainer(inst)')
+    expect(code).toContain('inst.components.container_proxy:SetMaster(TheWorld:GetPocketDimensionContainer("shadow"))')
+    expect(code).toContain('inst.OnLoadPostPass = AttachSharedContainer')
+    expect(code).toContain('if not POPULATING then')
 
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
@@ -276,7 +293,7 @@ describe('generateStructureFiles (deployMode: deployableItem)', () => {
     const withContainer: StructureDef = {
       ...portable,
       id: 'testportablebag',
-      container: { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: false },
+      container: { source: 'own', widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: false },
     }
     const code = generateStructurePrefab(withContainer)
     expect(code).toContain('inst:AddComponent("container")')

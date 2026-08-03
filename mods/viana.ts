@@ -36,6 +36,7 @@ export const viana: ModProject = {
       category: 'generic',
       animation: { source: 'vanilla', build: 'books', idleClip: 'book_light' },
       container: {
+        source: 'own',
         widget: { source: 'custom', slots: 3, columns: 3 },
         sideWidget: true,
         acceptsTag: 'spell',

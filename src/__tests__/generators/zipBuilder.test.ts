@@ -92,11 +92,23 @@ describe('buildModFiles', () => {
     const codex = {
       ...sampleProject.items[1],
       id: 'testcodex',
-      container: { widget: { source: 'custom' as const, slots: 3, columns: 3 }, sideWidget: true },
+      container: { source: 'own' as const, widget: { source: 'custom' as const, slots: 3, columns: 3 }, sideWidget: true },
     }
     const project = { ...sampleProject, items: [...sampleProject.items, codex] }
     const readme = buildModFiles(project)['README.md']
     expect(readme).toContain('anim/ui_testcodex.zip')
+  })
+
+  it('notes a pocketDimension container is shared with the vanilla dimension and needs no UI art', () => {
+    const voidBag = {
+      ...sampleProject.items[1],
+      id: 'testvoidbag',
+      container: { source: 'pocketDimension' as const, dimension: 'shadow' as const },
+    }
+    const project = { ...sampleProject, items: [...sampleProject.items, voidBag] }
+    const readme = buildModFiles(project)['README.md']
+    expect(readme).toContain('dimensão de bolso vanilla')
+    expect(readme).not.toContain('anim/ui_testvoidbag.zip')
   })
 
   it('tells apart vanilla-build items (no anim.zip needed) from custom-build items in the README', () => {
@@ -187,7 +199,7 @@ describe('buildModFiles', () => {
       const codexWithWrongTag = {
         ...trinket,
         id: 'testcodex',
-        container: { widget: { source: 'custom' as const, slots: 3, columns: 3 }, sideWidget: true, acceptsTag: 'trinket' },
+        container: { source: 'own' as const, widget: { source: 'custom' as const, slots: 3, columns: 3 }, sideWidget: true, acceptsTag: 'trinket' },
       }
       const project = { ...sampleProject, items: [...sampleProject.items, staff, codexWithWrongTag] }
       expect(() => buildModFiles(project)).toThrow('spell')
@@ -197,7 +209,7 @@ describe('buildModFiles', () => {
       const codex = {
         ...trinket,
         id: 'testcodex',
-        container: { widget: { source: 'custom' as const, slots: 3, columns: 3 }, sideWidget: true, acceptsTag: 'spell' },
+        container: { source: 'own' as const, widget: { source: 'custom' as const, slots: 3, columns: 3 }, sideWidget: true, acceptsTag: 'spell' },
       }
       const project = { ...sampleProject, items: [...sampleProject.items, staff, codex] }
       expect(() => buildModFiles(project)).not.toThrow()

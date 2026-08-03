@@ -182,6 +182,26 @@ describe('ItemForm', () => {
     expect(saved.spellbook).toEqual({ source: 'linkedContainer', containerItemId: 'suncodex' })
   })
 
+  it('switching the container to "share Maxwell\'s Void" hides the own-slots fields and submits a pocketDimension container', async () => {
+    const onSave = vi.fn()
+    render(<ItemForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_item'), { target: { value: 'voidbag' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Void Bag' } })
+    fireEvent.change(screen.getByLabelText('Description (crafting + inspect)'), { target: { value: 'A bag' } })
+
+    fireEvent.click(screen.getByText("It's a container (bag/box with slots)"))
+    fireEvent.click(screen.getByText("Share Maxwell's Void"))
+
+    expect(screen.queryByText('Auto-opens as a side panel while carried (like a backpack)')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.container).toEqual({ source: 'pocketDimension', dimension: 'shadow' })
+  })
+
   it('marking an item as a spell disables its own spellbook checkbox, and submits the spellDef', async () => {
     const onSave = vi.fn()
     render(<ItemForm onSave={onSave} />)

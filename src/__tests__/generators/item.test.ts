@@ -724,7 +724,7 @@ describe('generateItemFiles', () => {
     const bag: ItemDef = {
       ...trinket,
       id: 'testbag',
-      container: { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true },
+      container: { source: 'own', widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true },
     }
     const code = generateItemPrefab(bag)
     expect(code).toContain('inst:AddComponent("container")')
@@ -737,14 +737,14 @@ describe('generateItemFiles', () => {
     const vanillaBag: ItemDef = {
       ...trinket,
       id: 'testbag',
-      container: { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true },
+      container: { source: 'own', widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true },
     }
     expect(generateItemPrefab(vanillaBag)).not.toContain('ui_testbag')
 
     const customBag: ItemDef = {
       ...trinket,
       id: 'testcustombag',
-      container: { widget: { source: 'custom', slots: 8, columns: 2 }, sideWidget: false, acceptsTag: 'pocketwatch' },
+      container: { source: 'own', widget: { source: 'custom', slots: 8, columns: 2 }, sideWidget: false, acceptsTag: 'pocketwatch' },
     }
     const customCode = generateItemPrefab(customBag)
     expect(customCode).toContain('Asset("ANIM", "anim/ui_testcustombag.zip")')
@@ -756,6 +756,7 @@ describe('generateItemFiles', () => {
       ...trinket,
       id: 'testcooler',
       container: {
+        source: 'own',
         widget: { source: 'vanilla', reusePrefab: 'sacred_chest' },
         sideWidget: false,
         preservation: { perishRateMultiplier: 0.25, temperatureRateMultiplier: 0.5 },
@@ -773,7 +774,7 @@ describe('generateItemFiles', () => {
     const plainBag: ItemDef = {
       ...trinket,
       id: 'testplainbag',
-      container: { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true },
+      container: { source: 'own', widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true },
     }
     const code = generateItemPrefab(plainBag)
     expect(code).not.toContain('preserver')
@@ -783,11 +784,29 @@ describe('generateItemFiles', () => {
     const bag: ItemDef = {
       ...trinket,
       id: 'testbag',
-      container: { widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true },
+      container: { source: 'own', widget: { source: 'vanilla', reusePrefab: 'sacred_chest' }, sideWidget: true },
     }
     const code = generateItemPrefab(bag)
     expect(code).toContain('inst.components.inventoryitem:SetOnPutInInventoryFn(function(inst)')
     expect(code).toContain('inst.components.container:Close()')
+  })
+
+  it('wires container_proxy + AttachSharedContainer for a pocketDimension container, not AddComponent("container")', () => {
+    const bag: ItemDef = {
+      ...trinket,
+      id: 'testvoidbag',
+      container: { source: 'pocketDimension', dimension: 'shadow' },
+    }
+    const code = generateItemPrefab(bag)
+    expect(code).toContain('inst:AddComponent("container_proxy")')
+    expect(code).not.toContain('inst:AddComponent("container")')
+    expect(code).toContain('local function AttachSharedContainer(inst)')
+    expect(code).toContain('inst.components.container_proxy:SetMaster(TheWorld:GetPocketDimensionContainer("shadow"))')
+    expect(code).toContain('inst.OnLoadPostPass = AttachSharedContainer')
+    expect(code).toContain('if not POPULATING then')
+    expect(code).toContain('inst.components.container_proxy:Close()')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
   it('keeps an item a normal inventory item, never obstacle-physics/hammerable (that is a Structure thing now)', () => {
