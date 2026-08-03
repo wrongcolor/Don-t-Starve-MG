@@ -106,4 +106,35 @@ describe('StructureForm', () => {
     const saved = onSave.mock.calls[0][0]
     expect(saved.interior).toEqual({ size: 'large' })
   })
+
+  it('enabling the dungeon checkbox reveals min/max room fields, and submits a maze with a bonus loot prefab', async () => {
+    const onSave = vi.fn()
+    render(<StructureForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_structure'), { target: { value: 'ruinsdungeon' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Ruins Dungeon' } })
+    fireEvent.change(screen.getByLabelText('Description (inspect)'), { target: { value: 'Enter it' } })
+
+    fireEvent.click(screen.getByText('Walking through its door leads to a separate interior room'))
+    expect(screen.queryByLabelText('Min rooms')).toBeNull()
+
+    fireEvent.click(screen.getByText('Randomly generated dungeon (multiple connected rooms) instead of a single room'))
+    expect((screen.getByLabelText('Min rooms') as HTMLInputElement).value).toBe('4')
+    expect((screen.getByLabelText('Max rooms') as HTMLInputElement).value).toBe('8')
+
+    fireEvent.change(screen.getByLabelText('Min rooms'), { target: { value: '3' } })
+    fireEvent.change(screen.getByLabelText('Max rooms'), { target: { value: '6' } })
+
+    fireEvent.click(screen.getByText('One dead-end room gets a bonus loot prefab'))
+    fireEvent.change(screen.getByPlaceholderText('goldnugget'), { target: { value: 'goldnugget' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add structure' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.interior).toEqual({
+      size: 'tiny',
+      maze: { roomCount: { min: 3, max: 6 }, bonusLootPrefab: 'goldnugget' },
+    })
+  })
 })

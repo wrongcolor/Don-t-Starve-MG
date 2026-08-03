@@ -612,6 +612,35 @@ export const PROTOTYPER_CATEGORIES = [
 // CreateRoom accepts without a console warning.
 export const ROOM_SIZES = ['tiny', 'small', 'medium', 'large'] as const
 
+// Confirmed in the same mod's scripts/prefabs/pig_ruins_entrance.lua
+// (BuildMaze/InitMaze, ~650 lines) — the real "Pig Ruins" random-dungeon
+// generator: a random walk starting from the entrance room, connecting a
+// random count of extra rooms via CreateRoom's own `exits` param (each exit
+// wired bidirectionally, using the component's real EAST/WEST/NORTH/SOUTH
+// direction vectors), until the target room count is reached. That target
+// count is itself sometimes a fixed number and sometimes randomized in the
+// real mod (RUINS_SMALL = function() return math.random(6, 8) end) — so a
+// min/max range here mirrors a real case, not an invention. Once the walk
+// finishes, the real mod marks one dead-end room (exactly 1 exit) as a
+// "treasure" room; bonusLootPrefab is the generalized version of that (spawn
+// one user-chosen prefab there instead of a Pig-Ruins-specific relic).
+// Deliberately NOT modeled (Pig-Ruins-specific flavor, not a generalizable
+// mechanic): secret rooms cut into shared walls, vine-locked doors requiring
+// a "hack" action, an alternate "blue ruins" palette, a second exit, and the
+// per-room decoration/trap system (room_type-driven addprops).
+export const interiorMazeSchema = z
+  .object({
+    roomCount: z.object({
+      min: z.number().int().min(2).max(24),
+      max: z.number().int().min(2).max(24),
+    }),
+    bonusLootPrefab: z.string().min(1).optional(),
+  })
+  .refine((maze) => maze.roomCount.max >= maze.roomCount.min, {
+    message: 'Max must be greater than or equal to the min',
+    path: ['roomCount', 'max'],
+  })
+
 export const structureDefSchema = z.object({
   id: luaIdentifier,
   displayName: z.string().min(1, 'Required'),
@@ -702,8 +731,11 @@ export const structureDefSchema = z.object({
   // modinfo.ts derives mod_dependencies automatically from this field, no
   // separate toggle). Only the room size is exposed — wall/floor/door look
   // is a single confirmed preset (the real mod's own "wood house" set),
-  // curated rather than exposing unconfirmed texture paths.
-  interior: z.object({ size: z.enum(ROOM_SIZES) }).optional(),
+  // curated rather than exposing unconfirmed texture paths. `maze` turns the
+  // single room into a randomly-generated multi-room dungeon instead — see
+  // interiorMazeSchema above. Every room in the maze still uses this same
+  // `size` (one preset, same simplification the single-room case already made).
+  interior: z.object({ size: z.enum(ROOM_SIZES), maze: interiorMazeSchema.optional() }).optional(),
   recipe: z.object({
     ingredients: z.array(ingredientSchema).min(1, 'Add at least 1 ingredient'),
     techLevel: z.enum(TECH_LEVELS),
@@ -1064,6 +1096,7 @@ export type CharacterMana = z.infer<typeof characterManaSchema>
 export type ModMeta = z.infer<typeof modMetaSchema>
 export type Ingredient = z.infer<typeof ingredientSchema>
 export type GroundAttackConfig = z.infer<typeof groundAttackSchema>
+export type InteriorMaze = z.infer<typeof interiorMazeSchema>
 export type ItemDef = z.infer<typeof itemDefSchema>
 export type StructureDef = z.infer<typeof structureDefSchema>
 export type CharacterDef = z.infer<typeof characterDefSchema>

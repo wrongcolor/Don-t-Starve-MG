@@ -63,6 +63,8 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
   const enableRestStation = watched.restStation !== undefined
   const enableRestStationUses = watched.restStation?.maxUses !== undefined
   const enableInterior = watched.interior !== undefined
+  const enableMaze = watched.interior?.maze !== undefined
+  const enableBonusLoot = watched.interior?.maze?.bonusLootPrefab !== undefined
 
   const onSubmit = (data: StructureDef) => onSave(data)
 
@@ -519,15 +521,82 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
               </label>
             </div>
             {enableInterior && (
-              <FormField label="Room size">
-                <select className={inputClass} {...register('interior.size')}>
-                  {ROOM_SIZES.map((size) => (
-                    <option key={size} value={size}>
-                      {size[0].toUpperCase() + size.slice(1)}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
+              <>
+                <FormField label="Room size">
+                  <select className={inputClass} {...register('interior.size')}>
+                    {ROOM_SIZES.map((size) => (
+                      <option key={size} value={size}>
+                        {size[0].toUpperCase() + size.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+
+                <div className="checks" style={{ marginTop: 12 }}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableMaze}
+                      onChange={(e) =>
+                        setValue('interior.maze' as const, e.target.checked ? { roomCount: { min: 4, max: 8 } } : undefined)
+                      }
+                    />
+                    Randomly generated dungeon (multiple connected rooms) instead of a single room
+                    <InfoTip text="Real mechanism from 'Above the Clouds' (BuildMaze/pig_ruins_entrance.lua) — a random walk connects N rooms starting from the entrance. Secret rooms, vine-locked doors, and per-room decoration from the source mod aren't modeled, just the room count/connection graph." />
+                  </label>
+                </div>
+                {enableMaze && (
+                  <>
+                    <div className="row-2">
+                      <FormField label="Min rooms">
+                        <input
+                          type="number"
+                          min={2}
+                          max={24}
+                          className={inputClass}
+                          {...register('interior.maze.roomCount.min' as const, { valueAsNumber: true })}
+                        />
+                      </FormField>
+                      <FormField label="Max rooms">
+                        <input
+                          type="number"
+                          min={2}
+                          max={24}
+                          className={inputClass}
+                          {...register('interior.maze.roomCount.max' as const, { valueAsNumber: true })}
+                        />
+                      </FormField>
+                    </div>
+
+                    <div className="checks">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={enableBonusLoot}
+                          onChange={(e) =>
+                            setValue('interior.maze.bonusLootPrefab' as const, e.target.checked ? '' : undefined)
+                          }
+                        />
+                        One dead-end room gets a bonus loot prefab
+                      </label>
+                    </div>
+                    {enableBonusLoot && (
+                      <FormField label="Loot prefab id">
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <input
+                            className={inputClass}
+                            {...register('interior.maze.bonusLootPrefab' as const)}
+                            placeholder="goldnugget"
+                          />
+                          <PrefabPickerButton
+                            onSelect={(id) => setValue('interior.maze.bonusLootPrefab' as const, id, { shouldDirty: true })}
+                          />
+                        </div>
+                      </FormField>
+                    )}
+                  </>
+                )}
+              </>
             )}
           </Fieldset>
         </div>

@@ -219,6 +219,55 @@ describe('generateStructureFiles', () => {
     expect(code).toContain('TUNING.ROOM_MEDIUM_DEPTH')
   })
 
+  // Confirmed in the same mod's scripts/prefabs/pig_ruins_entrance.lua
+  // (BuildMaze/InitMaze) — a random walk connecting a random count of rooms
+  // via CreateRoom's own `exits` param, see docs/dst-knowledge/patterns.md#67.
+  it('wires a random-walk maze instead of a single room when interior.maze is set', () => {
+    const dungeon: StructureDef = {
+      ...structure,
+      id: 'testdungeon',
+      interior: { size: 'medium', maze: { roomCount: { min: 4, max: 8 } } },
+    }
+    const code = generateStructurePrefab(dungeon)
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+
+    expect(code).toContain('local room_count = math.random(4, 8)')
+    expect(code).toContain('while #rooms < room_count do')
+    expect(code).toContain('blocked_exits = { interior_spawner:GetNorth() }')
+    expect(code).toContain('interior_spawner:GetDir()')
+    expect(code).toContain('interior_spawner:GetDirOpposite()')
+    expect(code).toContain('for _, room in pairs(rooms) do')
+    expect(code).toContain('interior_spawner:CreateRoom({')
+    expect(code).toContain('TUNING.ROOM_MEDIUM_WIDTH')
+    // Only one CreateRoom call site, inside the per-room loop — not one fixed call.
+    expect(code.split('interior_spawner:CreateRoom({').length - 1).toBe(1)
+  })
+
+  it('does not compute a bonus loot room when maze.bonusLootPrefab is not set', () => {
+    const dungeon: StructureDef = {
+      ...structure,
+      id: 'testdungeonnoloot',
+      interior: { size: 'tiny', maze: { roomCount: { min: 3, max: 5 } } },
+    }
+    const code = generateStructurePrefab(dungeon)
+    expect(code).not.toContain('dead_ends')
+    expect(code).not.toContain('bonusloot')
+  })
+
+  it('marks a random dead-end room with the bonus loot prefab when maze.bonusLootPrefab is set', () => {
+    const dungeon: StructureDef = {
+      ...structure,
+      id: 'testdungeonloot',
+      interior: { size: 'tiny', maze: { roomCount: { min: 3, max: 5 }, bonusLootPrefab: 'goldnugget' } },
+    }
+    const code = generateStructurePrefab(dungeon)
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+
+    expect(code).toContain('local dead_ends = {}')
+    expect(code).toContain('dead_ends[math.random(#dead_ends)].bonusloot = true')
+    expect(code).toContain('table.insert(addprops, { name = "goldnugget", x_offset = 0, z_offset = 0 })')
+  })
+
   it('does not touch OnSave/OnLoad/door for a structure with no interior', () => {
     const code = generateStructurePrefab(structure)
     expect(code).not.toContain('EnsureInterior')

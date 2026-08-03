@@ -3307,3 +3307,83 @@ inteiro, já que o jogo persiste esse container mestre sozinho.
   segundo icon-toggle — "Own slots" vs "Share Maxwell's Void" — que troca o
   `container` inteiro entre as duas formas; os campos de widget/tag/
   preservação somem quando `pocketDimension` está selecionado.
+
+## 67. Masmorra aleatória (interior com múltiplas salas via random walk) — **implementado**
+
+Motivação: o usuário lembrava que o mod "Above the Clouds" tem um "sistema
+de masmorras" (as Ruínas dos Porcos) e pediu pra generalizar isso em cima
+do `StructureDef.interior` já existente (patterns.md#64), que até então só
+gerava uma sala fixa.
+
+**Confirmado, mecanismo real** (`BuildMaze`/`InitMaze` em
+`scripts/prefabs/pig_ruins_entrance.lua`, ~650 linhas, na mesma cópia local
+`DST_Mods_20260719_0250\Above the Clouds - Chinese Edition`):
+- Direções reais e seus vetores: `EAST={x=1,y=0}`, `WEST={x=-1,y=0}`,
+  `NORTH={x=0,y=1}`, `SOUTH={x=0,y=-1}` (`interiorspawner.lua:308-311`),
+  expostas via `GetDir()`/`GetDirOpposite()` (duas listas paralelas) e
+  `GetNorth()`/etc.
+- Random walk: parte da sala de entrada em `(0,0)` com o norte bloqueado
+  (`blocked_exits = {interior_spawner:GetNorth()}` — copiado como está da
+  fonte; o motivo exato não foi confirmado, mas é inofensivo manter).
+  Repete até atingir a contagem de salas alvo: sorteia uma sala já
+  existente + uma direção; descarta a tentativa (sem contar) se a direção
+  está bloqueada nessa sala OU a célula do grid já está ocupada; senão cria
+  uma sala nova e liga as DUAS pontas via `exits[direção] = {target_room =
+  <id>, bank, build, room = <id própria>}` — bidirecional, usando os
+  próprios objetos de direção (`EAST`/`WEST`/...) como chave da tabela,
+  exatamente o que `CreateRoom` espera (seu próprio `if heading == NORTH
+  then ...`).
+- A contagem de salas no mod real tanto é fixa (`RUINS_1 = 24`) quanto uma
+  função sorteando um intervalo (`RUINS_SMALL = function() return
+  math.random(6, 8) end`) — um min/max configurável no nosso schema
+  reflete um caso real, não é invenção.
+- Só depois do grafo inteiro resolvido (`exits` de toda sala já
+  preenchidos) que o mod roda o loop final chamando
+  `interior_spawner:CreateRoom({group_id, roomindex = room.id,
+  interior_coordinate_x = room.x, interior_coordinate_y = room.y, exits =
+  room.exits, ...})` uma vez por sala — os `exits` já resolvem os `bank`/
+  `build` da porta de conexão sozinhos dentro do próprio `CreateRoom`, não
+  precisa de um `addprops` manual pra portas internas (só a porta externa
+  da sala de entrada precisa, mesma exatamente já usada na sala única).
+- Sala de recompensa: o mod escolhe entre as salas "sem saída" (exatamente
+  1 exit) e marca uma com `.treasure = true`. É a única parte do sistema de
+  recompensa generalizável sem inventar asset/API — o resto do `room_type`
+  (decoração/trap por tipo de sala) é específico dos assets da Pig Ruins.
+
+**Fora de escopo** (flavor específico da Pig Ruins, não generalizável sem
+inventar textura/mecânica não confirmada): salas secretas cortadas em
+paredes compartilhadas (`CreateSecretRoom`), portas bloqueadas por
+trepadeiras que exigem uma ação de "hackear" (`doorvines`/`OnHacked`),
+paleta alternativa "ruínas azuis" (`deepruins`), segunda saída
+(`entrance2`), e o sistema de `room_type` com decoração/trap distinta por
+sala via `GenerateProps`.
+
+**Implementado:**
+- `interiorMazeSchema` (`src/types/modProject.ts`) — `roomCount: {min, max}`
+  + `bonusLootPrefab` opcional (generalização do `.treasure`/relic real:
+  spawna um prefab escolhido pelo usuário na sala sem saída sorteada, em
+  vez de um relic específico da Pig Ruins). Aninhado em
+  `StructureDef.interior.maze` — todas as salas da masmorra continuam
+  usando o mesmo `size` já existente (mesma simplificação "um preset só"
+  da sala única).
+- `src/generators/structure.ts`: `interiorFunctionBlock` agora emite duas
+  variantes de `EnsureInterior` (`singleRoomEnsureInteriorBlock`/
+  `mazeEnsureInteriorBlock`) por `structure.interior?.maze` — sem `maze`,
+  comportamento 100% inalterado (testado por regressão). Com `maze`, o
+  algoritmo acima é gerado como Lua de verdade (não pré-computado em TS,
+  já que a contagem é aleatória por instância): `math.random(min, max)`,
+  `while #rooms < room_count do ... end` replicando o random walk, seleção
+  de sala sem saída só quando `bonusLootPrefab` está definido, e um loop
+  final `for _, room in pairs(rooms) do interior_spawner:CreateRoom({...})
+  end` — um único call site dentro do loop, não um `CreateRoom` fixo.
+  Portas internas reaproveitam os bank/build reais confirmados
+  (`doorway_ruins`/`pig_ruins_door`, asset do próprio mod dependência).
+- UI (`StructureForm.tsx`): dentro do bloco de `interior` já existente, um
+  segundo checkbox "Randomly generated dungeon" revela min/max de salas +
+  um checkbox opcional de prefab de recompensa (reaproveitando
+  `PrefabPickerButton`, mesmo padrão de `container.acceptsPrefabs`).
+
+Verificação em jogo (andar pela masmorra de verdade) não foi feita nesta
+sessão — mesma limitação já registrada pro `interior` de sala única
+(patterns.md#64): só o Lua gerado foi conferido (`luaparse` + leitura
+manual comparando com o algoritmo real).

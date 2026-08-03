@@ -1,4 +1,4 @@
-import type { StructureDef, RoomSize } from '../types/modProject'
+import type { StructureDef, RoomSize, InteriorMaze } from '../types/modProject'
 import { luaString, sanitizeLuaComment, toUpperSnake } from './luaUtils'
 import { containerCustomWidgetBuild, linkedDimensionAttachFunctionBlock } from './item'
 
@@ -136,19 +136,8 @@ const ROOM_SIZE_TUNING: Record<RoomSize, string> = {
 // across save/load so CreateRoom only ever runs once per structure instance
 // — deferred one tick (DoTaskInTime(0, ...)) so a same-tick OnLoad has
 // already restored interiorID before this checks it.
-function interiorFunctionBlock(structure: StructureDef): string[] {
-  const size = ROOM_SIZE_TUNING[structure.interior?.size ?? 'tiny']
+function singleRoomEnsureInteriorBlock(size: string): string[] {
   return [
-    'local function OnSave(inst, data)',
-    '    data.interiorID = inst.interiorID',
-    'end',
-    '',
-    'local function OnLoad(inst, data)',
-    '    if data and data.interiorID then',
-    '        inst.interiorID = data.interiorID',
-    '    end',
-    'end',
-    '',
     'local function EnsureInterior(inst)',
     '    if inst.interiorID ~= nil then',
     '        TheWorld.components.interiorspawner:AddDoor(inst, {',
@@ -196,6 +185,189 @@ function interiorFunctionBlock(structure: StructureDef): string[] {
     '    })',
     'end',
     '',
+  ]
+}
+
+// Confirmed in the same mod's scripts/prefabs/pig_ruins_entrance.lua
+// (BuildMaze/InitMaze) — a random walk from the entrance room, connecting a
+// random number of extra rooms via CreateRoom's real `exits` param (each
+// wired bidirectionally with the component's own EAST/WEST/NORTH/SOUTH
+// direction tables as keys, exactly as CreateRoom itself expects — see its
+// `if heading == NORTH then ...` branches). blocked_exits on the entrance
+// room (north blocked) is copied as-is from the source; the exact reason
+// isn't confirmed, but it's cheap and harmless to keep faithful. Only the
+// dead-end-room "treasure" selection is generalized (bonusLootPrefab) — the
+// rest of the real mod's reward/flavor system (secret rooms, vine-locked
+// doors, alternate palette, second exit, per-room decoration) is Pig-Ruins
+// specific and deliberately not modeled (see patterns.md).
+function mazeEnsureInteriorBlock(size: string, maze: InteriorMaze): string[] {
+  const lines = [
+    'local function EnsureInterior(inst)',
+    '    if inst.interiorID ~= nil then',
+    '        TheWorld.components.interiorspawner:AddDoor(inst, {',
+    '            my_door_id = inst.prefab .. "_door",',
+    '            target_door_id = inst.interiorID .. "_exit",',
+    '            target_interior = inst.interiorID,',
+    '        })',
+    '        return',
+    '    end',
+    '',
+    '    local interior_spawner = TheWorld.components.interiorspawner',
+    '    local id = interior_spawner:GetNewID()',
+    '    inst.interiorID = id',
+    '',
+    '    local exterior_door_def = {',
+    '        my_door_id = inst.prefab .. "_door",',
+    '        target_door_id = id .. "_exit",',
+    '        target_interior = id,',
+    '    }',
+    '    interior_spawner:AddDoor(inst, exterior_door_def)',
+    '',
+    '    local dir = interior_spawner:GetDir()',
+    '    local dir_opposite = interior_spawner:GetDirOpposite()',
+    '',
+    '    local rooms = {',
+    '        {',
+    '            x = 0,',
+    '            y = 0,',
+    '            id = id,',
+    '            exits = {},',
+    '            blocked_exits = { interior_spawner:GetNorth() },',
+    '        },',
+    '    }',
+    '',
+    `    local room_count = math.random(${maze.roomCount.min}, ${maze.roomCount.max})`,
+    '    while #rooms < room_count do',
+    '        local dir_choice = math.random(#dir)',
+    '        local room_connecting_to = rooms[math.random(#rooms)]',
+    '',
+    '        local blocked = false',
+    '        for _, exit in pairs(room_connecting_to.blocked_exits) do',
+    '            if dir[dir_choice] == exit then',
+    '                blocked = true',
+    '            end',
+    '        end',
+    '',
+    '        if not blocked then',
+    '            local occupied = false',
+    '            for _, room in pairs(rooms) do',
+    '                if room.x == room_connecting_to.x + dir[dir_choice].x and room.y == room_connecting_to.y + dir[dir_choice].y then',
+    '                    occupied = true',
+    '                    break',
+    '                end',
+    '            end',
+    '',
+    '            if not occupied then',
+    '                local new_room = {',
+    '                    x = room_connecting_to.x + dir[dir_choice].x,',
+    '                    y = room_connecting_to.y + dir[dir_choice].y,',
+    '                    id = interior_spawner:GetNewID(),',
+    '                    exits = {},',
+    '                    blocked_exits = {},',
+    '                }',
+    '',
+    '                room_connecting_to.exits[dir[dir_choice]] = {',
+    '                    target_room = new_room.id,',
+    '                    bank = "doorway_ruins",',
+    '                    build = "pig_ruins_door",',
+    '                    room = room_connecting_to.id,',
+    '                }',
+    '                new_room.exits[dir_opposite[dir_choice]] = {',
+    '                    target_room = room_connecting_to.id,',
+    '                    bank = "doorway_ruins",',
+    '                    build = "pig_ruins_door",',
+    '                    room = new_room.id,',
+    '                }',
+    '',
+    '                table.insert(rooms, new_room)',
+    '            end',
+    '        end',
+    '    end',
+    '',
+  ]
+
+  if (maze.bonusLootPrefab) {
+    lines.push(
+      '    local dead_ends = {}',
+      '    for _, room in pairs(rooms) do',
+      '        local exit_count = 0',
+      '        for _ in pairs(room.exits) do',
+      '            exit_count = exit_count + 1',
+      '        end',
+      '        if exit_count == 1 then',
+      '            table.insert(dead_ends, room)',
+      '        end',
+      '    end',
+      '    if #dead_ends > 0 then',
+      '        dead_ends[math.random(#dead_ends)].bonusloot = true',
+      '    end',
+      '',
+    )
+  }
+
+  lines.push(
+    '    for _, room in pairs(rooms) do',
+    '        local addprops = {}',
+    '        if room.id == id then',
+    '            table.insert(addprops, {',
+    '                name = "prop_door",',
+    '                x_offset = 5,',
+    '                z_offset = 0,',
+    '                animdata = { bank = "pig_shop_doormats", build = "pig_shop_doormats", anim = "idle_old", background = true },',
+    '                my_door_id = exterior_door_def.target_door_id,',
+    '                target_door_id = exterior_door_def.my_door_id,',
+    '                is_exit = true,',
+    '            })',
+    '        end',
+  )
+  if (maze.bonusLootPrefab) {
+    lines.push(
+      '        if room.bonusloot then',
+      `            table.insert(addprops, { name = ${luaString(maze.bonusLootPrefab)}, x_offset = 0, z_offset = 0 })`,
+      '        end',
+    )
+  }
+  lines.push(
+    '',
+    '        interior_spawner:CreateRoom({',
+    `            width = TUNING.ROOM_${size}_WIDTH,`,
+    `            depth = TUNING.ROOM_${size}_DEPTH,`,
+    '            group_id = id,',
+    '            roomindex = room.id,',
+    '            interior_coordinate_x = room.x,',
+    '            interior_coordinate_y = room.y,',
+    '            walltexture = "levels/textures/interiors/shop_wall_woodwall.tex",',
+    '            floortexture = "levels/textures/noise_woodfloor.tex",',
+    '            minimaptexture = "levels/textures/map_interior/mini_floor_wood.tex",',
+    '            colour_cube = "images/colour_cubes/pigshop_interior_cc.tex",',
+    '            footstep_tile = WORLD_TILES.WOODFLOOR,',
+    '            playerroom = true,',
+    '            addprops = addprops,',
+    '            exits = room.exits,',
+    '        })',
+    '    end',
+    'end',
+    '',
+  )
+
+  return lines
+}
+
+function interiorFunctionBlock(structure: StructureDef): string[] {
+  const size = ROOM_SIZE_TUNING[structure.interior?.size ?? 'tiny']
+  const maze = structure.interior?.maze
+  return [
+    'local function OnSave(inst, data)',
+    '    data.interiorID = inst.interiorID',
+    'end',
+    '',
+    'local function OnLoad(inst, data)',
+    '    if data and data.interiorID then',
+    '        inst.interiorID = data.interiorID',
+    '    end',
+    'end',
+    '',
+    ...(maze ? mazeEnsureInteriorBlock(size, maze) : singleRoomEnsureInteriorBlock(size)),
   ]
 }
 
