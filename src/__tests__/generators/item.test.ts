@@ -138,6 +138,112 @@ describe('generateItemFiles', () => {
     expect(itemDefSchema.safeParse(both).success).toBe(false)
   })
 
+  it('wires a chain-return weapon to fire a self-generated projectile, keeping the plain ranged/melee fields off', () => {
+    const chakram: ItemDef = {
+      ...sword,
+      weapon: { damage: 20, chainReturn: { range: 15, speed: 20, maxChainHits: 5, searchRadius: 8 } },
+    }
+    const code = generateItemPrefab(chakram)
+    expect(code).toContain('inst.components.weapon:SetRange(TUNING.TESTSWORD_RANGE)')
+    expect(code).toContain('inst.components.weapon:SetProjectile("testsword_proj")')
+    expect(code).not.toContain('SetProjectile("fire_projectile")')
+  })
+
+  it('rejects a chain-return weapon combined with ranged or melee mode, since it generates its own projectile', () => {
+    const chakram = { ...sword, weapon: { damage: 20, chainReturn: { range: 15, speed: 20, maxChainHits: 5, searchRadius: 8 } } }
+    expect(itemDefSchema.safeParse(chakram).success).toBe(true)
+    expect(itemDefSchema.safeParse({ ...chakram, weapon: { ...chakram.weapon, ranged: firestaff.weapon!.ranged } }).success).toBe(false)
+    expect(itemDefSchema.safeParse({ ...chakram, weapon: { ...chakram.weapon, meleeRange: 3 } }).success).toBe(false)
+  })
+
+  it('generates a second prefab file for the chain-return projectile, reusing the weapon\'s own build', () => {
+    const chakram: ItemDef = {
+      ...sword,
+      animation: { source: 'vanilla', build: 'boomerang' },
+      weapon: { damage: 20, chainReturn: { range: 15, speed: 20, maxChainHits: 5, searchRadius: 8, projectileClip: 'spin_loop' } },
+    }
+    const files = generateItemFiles(chakram)
+    expect(Object.keys(files).sort()).toEqual(['scripts/prefabs/testsword.lua', 'scripts/prefabs/testsword_proj.lua'].sort())
+
+    const projCode = files['scripts/prefabs/testsword_proj.lua']
+    expect(projCode).toContain('-- Build "boomerang" reaproveitado do jogo base, sem asset próprio necessário.')
+    expect(projCode).toContain('inst.AnimState:SetBank("boomerang")')
+    expect(projCode).toContain('inst.AnimState:SetBuild("boomerang")')
+    expect(projCode).toContain('inst.AnimState:PlayAnimation("spin_loop", true)')
+    expect(projCode).toContain('inst:AddComponent("projectile")')
+    expect(projCode).toContain('inst.components.projectile:SetHoming(true)')
+    expect(projCode).toContain('inst.components.projectile.has_damage_set = true')
+    expect(() => parse(projCode, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('chains into the next nearby enemy on hit, up to the configured max, then returns to the player who threw it', () => {
+    const chakram: ItemDef = {
+      ...sword,
+      weapon: { damage: 20, chainReturn: { range: 15, speed: 20, maxChainHits: 5, searchRadius: 8 } },
+    }
+    const files = generateItemFiles(chakram)
+    const projCode = files['scripts/prefabs/testsword_proj.lua']
+    expect(projCode).toContain('local function OnHit(inst, attacker, target)')
+    expect(projCode).toContain('inst._hit[target] = true')
+    expect(projCode).toContain('if inst._hitcount < TUNING.TESTSWORD_PROJ_MAX_CHAIN_HITS then')
+    expect(projCode).toContain('inst.components.projectile:Throw(inst._weapon, nexttarget, inst._player)')
+    expect(projCode).toContain('local function ReturnToOwner(inst)')
+    expect(projCode).toContain('inst.components.projectile:Stop()')
+    expect(projCode).toContain('local function OnMiss(inst)')
+    expect(projCode).toContain('local function OnUpdate(inst, dt)')
+    expect(projCode).toContain('local targetpos = inst._player:GetPosition()')
+    expect(projCode).toContain('if distsq(pos, targetpos) < 1 then')
+    expect(projCode).toContain('inst:Remove()')
+  })
+
+  it('tracks the wielding player (not the weapon item) for the return flight, since an equipped item does not track the player\'s live position', () => {
+    const chakram: ItemDef = {
+      ...sword,
+      weapon: { damage: 20, chainReturn: { range: 15, speed: 20, maxChainHits: 5, searchRadius: 8 } },
+    }
+    const files = generateItemFiles(chakram)
+    const projCode = files['scripts/prefabs/testsword_proj.lua']
+    expect(projCode).toContain('local function OnThrown(inst, owner, target, attacker)')
+    expect(projCode).toContain('if inst._weapon == nil then')
+    expect(projCode).toContain('inst._weapon = owner')
+    expect(projCode).toContain('inst._player = attacker')
+    expect(projCode).toContain('if not inst._returning or inst._player == nil or not inst._player:IsValid() then')
+    expect(projCode).not.toContain('inst._owner')
+  })
+
+  it('locks the chakram (via rechargeable, nulling range/projectile) the instant it is thrown, and only unlocks once the projectile is gone', () => {
+    const chakram: ItemDef = {
+      ...sword,
+      weapon: { damage: 20, chainReturn: { range: 15, speed: 20, maxChainHits: 5, searchRadius: 8 } },
+    }
+    const code = generateItemPrefab(chakram)
+    expect(code).toContain('inst:AddComponent("rechargeable")')
+    expect(code).toContain('inst.components.rechargeable:SetOnDischargedFn(OnChakramDischarged)')
+    expect(code).toContain('inst.components.rechargeable:SetOnChargedFn(OnChakramCharged)')
+    expect(code).toContain('local function OnChakramDischarged(inst)')
+    expect(code).toContain('inst.components.weapon:SetRange(nil)')
+    expect(code).toContain('inst.components.weapon:SetProjectile(nil)')
+    expect(code).toContain('local function OnChakramCharged(inst)')
+    expect(code).toContain('inst.components.weapon:SetRange(TUNING.TESTSWORD_RANGE)')
+    expect(code).toContain('inst.components.weapon:SetProjectile("testsword_proj")')
+
+    const files = generateItemFiles(chakram)
+    const projCode = files['scripts/prefabs/testsword_proj.lua']
+    expect(projCode).toContain('inst._weapon.components.rechargeable:Discharge(999999)')
+    expect(projCode).toContain('local function OnRemoved(inst)')
+    expect(projCode).toContain('inst._weapon.components.rechargeable:SetPercent(1)')
+    expect(projCode).toContain('inst.OnRemoveEntity = OnRemoved')
+  })
+
+  it('rejects a chain-return weapon combined with the generic rechargeable durability field, since both would fight over the same component', () => {
+    const chakram: ItemDef = {
+      ...sword,
+      weapon: { damage: 20, chainReturn: { range: 15, speed: 20, maxChainHits: 5, searchRadius: 8 } },
+    }
+    expect(itemDefSchema.safeParse(chakram).success).toBe(true)
+    expect(itemDefSchema.safeParse({ ...chakram, rechargeable: { cooldownSeconds: 5 } }).success).toBe(false)
+  })
+
   it('combines sanity cost and on-hit effect into a single onattack callback', () => {
     const code = generateItemPrefab(firestaff)
     expect(code).toContain('local function onattack(inst, attacker, target)')

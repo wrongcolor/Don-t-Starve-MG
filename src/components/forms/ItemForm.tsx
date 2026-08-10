@@ -201,6 +201,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const enableSolarBattery = watched.solarBattery !== undefined
   const enableRanged = watched.weapon?.ranged !== undefined
   const enableMeleeRange = watched.weapon?.meleeRange !== undefined
+  const enableChainReturn = watched.weapon?.chainReturn !== undefined
   const enableSanityCost = watched.weapon?.sanityCostOnUse !== undefined
   const enableWalkSpeedMult = watched.equipWalkSpeedMult !== undefined
   const enableSpellEffect = watched.spellEffect !== undefined
@@ -513,8 +514,11 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
 
                   <div className="icon-toggle-row" style={{ marginBottom: 12 }}>
                     <div
-                      className={`icon-toggle ${!enableRanged ? 'active' : ''}`}
-                      onClick={() => setValue('weapon.ranged', undefined)}
+                      className={`icon-toggle ${!enableRanged && !enableChainReturn ? 'active' : ''}`}
+                      onClick={() => {
+                        setValue('weapon.ranged', undefined)
+                        setValue('weapon.chainReturn', undefined)
+                      }}
                     >
                       🪓 Melee
                     </div>
@@ -522,6 +526,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       className={`icon-toggle ${enableRanged ? 'active' : ''}`}
                       onClick={() => {
                         setValue('weapon.meleeRange', undefined)
+                        setValue('weapon.chainReturn', undefined)
                         setValue('weapon.ranged', {
                           minRange: 6,
                           maxRange: 10,
@@ -532,7 +537,47 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                     >
                       🏹 Ranged
                     </div>
+                    <div
+                      className={`icon-toggle ${enableChainReturn ? 'active' : ''}`}
+                      onClick={() => {
+                        setValue('weapon.meleeRange', undefined)
+                        setValue('weapon.ranged', undefined)
+                        setValue('weapon.chainReturn', { range: 15, speed: 20, maxChainHits: 5, searchRadius: 8 })
+                      }}
+                    >
+                      🪃 Chain-return
+                    </div>
                   </div>
+
+                  {enableChainReturn && (
+                    <div className="row-2">
+                      <FormField label="Throw range">
+                        <input type="number" className={inputClass} {...register('weapon.chainReturn.range', { valueAsNumber: true })} />
+                      </FormField>
+                      <FormField label="Flight speed">
+                        <input type="number" className={inputClass} {...register('weapon.chainReturn.speed', { valueAsNumber: true })} />
+                      </FormField>
+                      <FormField label="Max enemies chained">
+                        <input
+                          type="number"
+                          min="1"
+                          max="10"
+                          className={inputClass}
+                          {...register('weapon.chainReturn.maxChainHits', { valueAsNumber: true })}
+                        />
+                      </FormField>
+                      <FormField label="Radius to find the next enemy">
+                        <input
+                          type="number"
+                          className={inputClass}
+                          {...register('weapon.chainReturn.searchRadius', { valueAsNumber: true })}
+                        />
+                      </FormField>
+                      <FormField label="Projectile animation clip (blank = idle)">
+                        <input className={inputClass} {...register('weapon.chainReturn.projectileClip')} />
+                      </FormField>
+                    </div>
+                  )}
 
                   {enableRanged ? (
                     <div className="row-2">
@@ -558,7 +603,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                         </select>
                       </FormField>
                     </div>
-                  ) : (
+                  ) : !enableChainReturn ? (
                     <>
                       <div className="checks">
                         <label>
@@ -576,7 +621,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                         </FormField>
                       )}
                     </>
-                  )}
+                  ) : null}
 
                   <div className="checks">
                     <label>

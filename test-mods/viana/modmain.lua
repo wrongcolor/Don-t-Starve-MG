@@ -4,7 +4,7 @@ local TUNING = GLOBAL.TUNING
 local TECH = GLOBAL.TECH
 local Ingredient = GLOBAL.Ingredient
 
-PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "suntotem", "solarprism", "viana", "sunorb", "sunwisp" }
+PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "suntotem", "solarprism", "solarchakram", "viana", "sunorb", "sunwisp" }
 
 -- Items: tuning + strings
 GLOBAL.TUNING.SOLARLANTERN_MAX_FUEL = 100
@@ -43,6 +43,16 @@ GLOBAL.TUNING.SOLARPRISM_CHARGE_RATE = 0.5
 STRINGS.NAMES.SOLARPRISM = "Solar Prism"
 STRINGS.RECIPE_DESC.SOLARPRISM = "Set it on the ground and activate it: under open sky by day, it drinks in sunlight. Use it on the Solar Lantern or Sun Totem to top off their charge, or use it on yourself to feed your own Solar Energy."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARPRISM = "Set it on the ground and activate it: under open sky by day, it drinks in sunlight. Use it on the Solar Lantern or Sun Totem to top off their charge, or use it on yourself to feed your own Solar Energy."
+GLOBAL.TUNING.SOLARCHAKRAM_DAMAGE = 20
+GLOBAL.TUNING.SOLARCHAKRAM_RANGE = 15
+GLOBAL.TUNING.SOLARCHAKRAM_PROJ_DAMAGE = 20
+GLOBAL.TUNING.SOLARCHAKRAM_PROJ_SPEED = 20
+GLOBAL.TUNING.SOLARCHAKRAM_PROJ_RANGE = 15
+GLOBAL.TUNING.SOLARCHAKRAM_PROJ_MAX_CHAIN_HITS = 5
+GLOBAL.TUNING.SOLARCHAKRAM_PROJ_SEARCH_RADIUS = 8
+STRINGS.NAMES.SOLARCHAKRAM = "Solar Chakram"
+STRINGS.RECIPE_DESC.SOLARCHAKRAM = "Throw it and it bites five times over: on every hit it seeks out the next enemy nearby and leaps to it, up to 5 in a row, before spinning back into her hand."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARCHAKRAM = "Throw it and it bites five times over: on every hit it seeks out the next enemy nearby and leaps to it, up to 5 in a row, before spinning back into her hand."
 
 -- Items: recipes
 AddRecipe2("solarlantern", { Ingredient("twigs", 2), Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 1) }, TECH.MAGIC_TWO, {
@@ -71,6 +81,9 @@ AddRecipe2("suntotem", { Ingredient("twigs", 3), Ingredient("goldnugget", 2), In
     }, { "MAGIC" })
 AddRecipe2("solarprism", { Ingredient("goldnugget", 3), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
         image = "gems.tex",
+    }, { "MAGIC" })
+AddRecipe2("solarchakram", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
+        image = "boomerang.tex",
     }, { "MAGIC" })
 
 -- Solar battery charge action (shared by every solar battery item)

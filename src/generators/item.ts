@@ -534,6 +534,30 @@ function stackableComponentBlock(item: ItemDef): string[] {
   return ['', '    inst:AddComponent("stackable")', `    inst.components.stackable:SetMaxSize(TUNING.${upper}_STACK_SIZE)`]
 }
 
+export function chakramProjectileId(item: ItemDef): string {
+  return `${item.id}_proj`
+}
+
+function needsChainReturnLock(item: ItemDef): boolean {
+  return item.weapon?.chainReturn !== undefined
+}
+
+function chainReturnLockFunctionBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  return [
+    'local function OnChakramDischarged(inst)',
+    '    inst.components.weapon:SetRange(nil)',
+    '    inst.components.weapon:SetProjectile(nil)',
+    'end',
+    '',
+    'local function OnChakramCharged(inst)',
+    `    inst.components.weapon:SetRange(TUNING.${upper}_RANGE)`,
+    `    inst.components.weapon:SetProjectile(${luaString(chakramProjectileId(item))})`,
+    'end',
+    '',
+  ]
+}
+
 function weaponComponentBlock(item: ItemDef): string[] {
   const upper = toUpperSnake(item.id)
   const weapon = item.weapon!
@@ -541,6 +565,12 @@ function weaponComponentBlock(item: ItemDef): string[] {
   if (weapon.ranged) {
     lines.push(`    inst.components.weapon:SetRange(TUNING.${upper}_MIN_RANGE, TUNING.${upper}_MAX_RANGE)`)
     lines.push(`    inst.components.weapon:SetProjectile(${luaString(weapon.ranged.projectilePrefab)})`)
+  } else if (weapon.chainReturn) {
+    lines.push(`    inst.components.weapon:SetRange(TUNING.${upper}_RANGE)`)
+    lines.push(`    inst.components.weapon:SetProjectile(${luaString(chakramProjectileId(item))})`)
+    lines.push('    inst:AddComponent("rechargeable")')
+    lines.push('    inst.components.rechargeable:SetOnDischargedFn(OnChakramDischarged)')
+    lines.push('    inst.components.rechargeable:SetOnChargedFn(OnChakramCharged)')
   } else if (weapon.meleeRange !== undefined) {
     lines.push(`    inst.components.weapon:SetRange(TUNING.${upper}_MELEE_RANGE)`)
   }
@@ -1035,6 +1065,9 @@ export function generateItemPrefab(item: ItemDef): string {
   if (needsOnAttack(item)) {
     lines.push(...onAttackFunctionBlock(item))
   }
+  if (needsChainReturnLock(item)) {
+    lines.push(...chainReturnLockFunctionBlock(item))
+  }
   if (needsSpellcaster(item)) {
     lines.push(...spellFunctionBlock(item))
   }
@@ -1251,6 +1284,137 @@ function generateSmokeCloudPrefab(item: ItemDef): string {
   return lines.join('\n') + '\n'
 }
 
+function generateChainReturnProjectilePrefab(item: ItemDef): string {
+  const id = chakramProjectileId(item)
+  const upper = toUpperSnake(id)
+  const build = resolveAnimationBuild(item)
+  const clip = item.weapon!.chainReturn!.projectileClip ?? 'idle'
+  const lines: string[] = []
+
+  lines.push('local assets =')
+  lines.push('{')
+  if (isVanillaAnimation(item)) {
+    lines.push(`    -- Build "${sanitizeLuaComment(build)}" reaproveitado do jogo base, sem asset próprio necessário.`)
+  } else {
+    lines.push(`    Asset("ANIM", "anim/${id}.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)`)
+  }
+  lines.push('}')
+  lines.push('')
+  lines.push('local CHAIN_MUST_TAGS = { "_combat" }')
+  lines.push('local CHAIN_CANT_TAGS = { "INLIMBO", "player", "flying" }')
+  lines.push('local CHAIN_ONEOF_TAGS = { "hostile" }')
+  lines.push('')
+  lines.push('local function FindNextChainTarget(inst)')
+  lines.push(`    return FindEntity(inst, TUNING.${upper}_SEARCH_RADIUS, function(ent)`)
+  lines.push('        return ent.components.health ~= nil and not ent.components.health:IsDead() and not inst._hit[ent]')
+  lines.push('    end, CHAIN_MUST_TAGS, CHAIN_CANT_TAGS, CHAIN_ONEOF_TAGS)')
+  lines.push('end')
+  lines.push('')
+  lines.push('local function ReturnToOwner(inst)')
+  lines.push('    inst._returning = true')
+  lines.push('    inst.components.projectile:Stop()')
+  lines.push('    inst.Physics:ClearCollidesWith(COLLISION.LIMITS)')
+  lines.push('end')
+  lines.push('')
+  lines.push('local function OnHit(inst, attacker, target)')
+  lines.push('    inst._hit[target] = true')
+  lines.push('    inst._hitcount = inst._hitcount + 1')
+  lines.push(`    if inst._hitcount < TUNING.${upper}_MAX_CHAIN_HITS then`)
+  lines.push('        local nexttarget = FindNextChainTarget(inst)')
+  lines.push('        if nexttarget ~= nil then')
+  lines.push('            inst.components.projectile:Throw(inst._weapon, nexttarget, inst._player)')
+  lines.push('            return')
+  lines.push('        end')
+  lines.push('    end')
+  lines.push('    ReturnToOwner(inst)')
+  lines.push('end')
+  lines.push('')
+  lines.push('local function OnMiss(inst)')
+  lines.push('    ReturnToOwner(inst)')
+  lines.push('end')
+  lines.push('')
+  lines.push('local function OnThrown(inst, owner, target, attacker)')
+  lines.push('    if inst._weapon == nil then')
+  lines.push('        inst._weapon = owner')
+  lines.push('        inst._player = attacker')
+  lines.push('        inst._hitcount = 0')
+  lines.push('        inst._hit = {}')
+  lines.push('        if inst._weapon.components.rechargeable ~= nil then')
+  lines.push('            inst._weapon.components.rechargeable:Discharge(999999)')
+  lines.push('        end')
+  lines.push('    end')
+  lines.push('end')
+  lines.push('')
+  lines.push('local function OnRemoved(inst)')
+  lines.push('    if inst._weapon ~= nil and inst._weapon:IsValid() and inst._weapon.components.rechargeable ~= nil then')
+  lines.push('        inst._weapon.components.rechargeable:SetPercent(1)')
+  lines.push('    end')
+  lines.push('end')
+  lines.push('')
+  lines.push('local function OnUpdate(inst, dt)')
+  lines.push('    if not inst._returning or inst._player == nil or not inst._player:IsValid() then')
+  lines.push('        return')
+  lines.push('    end')
+  lines.push('    local pos = inst:GetPosition()')
+  lines.push('    local targetpos = inst._player:GetPosition()')
+  lines.push('    if distsq(pos, targetpos) < 1 then')
+  lines.push('        inst:Remove()')
+  lines.push('        return')
+  lines.push('    end')
+  lines.push('    inst:FacePoint(targetpos)')
+  lines.push(`    inst.Physics:SetMotorVel(TUNING.${upper}_SPEED, 0, 0)`)
+  lines.push('end')
+  lines.push('')
+  lines.push('local function fn()')
+  lines.push('    local inst = CreateEntity()')
+  lines.push('')
+  lines.push('    inst.entity:AddTransform()')
+  lines.push('    inst.entity:AddAnimState()')
+  lines.push('    inst.entity:AddSoundEmitter()')
+  lines.push('    inst.entity:AddNetwork()')
+  lines.push('')
+  lines.push('    MakeProjectilePhysics(inst)')
+  lines.push('')
+  lines.push(`    inst.AnimState:SetBank(${luaString(build)})`)
+  lines.push(`    inst.AnimState:SetBuild(${luaString(build)})`)
+  lines.push(`    inst.AnimState:PlayAnimation(${luaString(clip)}, true)`)
+  lines.push('')
+  lines.push('    inst:AddTag("weapon")')
+  lines.push('    inst:AddTag("projectile")')
+  lines.push('    inst:AddTag("NOCLICK")')
+  lines.push('    inst:AddTag("NOBLOCK")')
+  lines.push('')
+  lines.push('    inst.entity:SetPristine()')
+  lines.push('    if not TheWorld.ismastersim then')
+  lines.push('        return inst')
+  lines.push('    end')
+  lines.push('')
+  lines.push('    inst.persists = false')
+  lines.push('    inst.OnRemoveEntity = OnRemoved')
+  lines.push('')
+  lines.push('    inst:AddComponent("weapon")')
+  lines.push(`    inst.components.weapon:SetDamage(TUNING.${upper}_DAMAGE)`)
+  lines.push('')
+  lines.push('    inst:AddComponent("projectile")')
+  lines.push(`    inst.components.projectile:SetSpeed(TUNING.${upper}_SPEED)`)
+  lines.push(`    inst.components.projectile:SetRange(TUNING.${upper}_RANGE)`)
+  lines.push('    inst.components.projectile:SetHoming(true)')
+  lines.push('    inst.components.projectile:SetOnThrownFn(OnThrown)')
+  lines.push('    inst.components.projectile:SetOnHitFn(OnHit)')
+  lines.push('    inst.components.projectile:SetOnMissFn(OnMiss)')
+  lines.push('    inst.components.projectile.has_damage_set = true')
+  lines.push('')
+  lines.push('    inst:AddComponent("updatelooper")')
+  lines.push('    inst.components.updatelooper:AddOnUpdateFn(OnUpdate)')
+  lines.push('')
+  lines.push('    return inst')
+  lines.push('end')
+  lines.push('')
+  lines.push(`return Prefab(${luaString(id)}, fn, assets)`)
+
+  return lines.join('\n') + '\n'
+}
+
 export function generateItemFiles(item: ItemDef): Record<string, string> {
   const files: Record<string, string> = {
     [`scripts/prefabs/${item.id}.lua`]: generateItemPrefab(item),
@@ -1260,6 +1424,9 @@ export function generateItemFiles(item: ItemDef): Record<string, string> {
   }
   if (item.smokeBomb !== undefined) {
     files[`scripts/prefabs/${smokeCloudId(item)}.lua`] = generateSmokeCloudPrefab(item)
+  }
+  if (item.weapon?.chainReturn !== undefined) {
+    files[`scripts/prefabs/${chakramProjectileId(item)}.lua`] = generateChainReturnProjectilePrefab(item)
   }
   return files
 }

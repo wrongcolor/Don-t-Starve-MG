@@ -1,6 +1,6 @@
 import type { ModProject, ItemDef, StructureDef, CharacterDef, CreatureDef, Container, GroundAttackConfig } from '../types/modProject'
 import { luaString, luaStringArray, toUpperSnake } from './luaUtils'
-import { containerColumns, containerSlotCount, containerCustomWidgetBuild, itemRecipeIcon } from './item'
+import { containerColumns, containerSlotCount, containerCustomWidgetBuild, itemRecipeIcon, chakramProjectileId } from './item'
 import { structureRecipeIcon } from './structure'
 import { generateWorldEventBlock, isWorldScopedTrigger, pickRandomOnlinePlayerBlock, worldEventTuningBlock } from './worldEvent'
 
@@ -120,6 +120,14 @@ function itemTuningBlock(item: ItemDef): string[] {
     if (item.weapon.ranged) {
       lines.push(`GLOBAL.TUNING.${upper}_MIN_RANGE = ${item.weapon.ranged.minRange}`)
       lines.push(`GLOBAL.TUNING.${upper}_MAX_RANGE = ${item.weapon.ranged.maxRange}`)
+    } else if (item.weapon.chainReturn) {
+      const projUpper = toUpperSnake(chakramProjectileId(item))
+      lines.push(`GLOBAL.TUNING.${upper}_RANGE = ${item.weapon.chainReturn.range}`)
+      lines.push(`GLOBAL.TUNING.${projUpper}_DAMAGE = ${item.weapon.damage}`)
+      lines.push(`GLOBAL.TUNING.${projUpper}_SPEED = ${item.weapon.chainReturn.speed}`)
+      lines.push(`GLOBAL.TUNING.${projUpper}_RANGE = ${item.weapon.chainReturn.range}`)
+      lines.push(`GLOBAL.TUNING.${projUpper}_MAX_CHAIN_HITS = ${item.weapon.chainReturn.maxChainHits}`)
+      lines.push(`GLOBAL.TUNING.${projUpper}_SEARCH_RADIUS = ${item.weapon.chainReturn.searchRadius}`)
     } else if (item.weapon.meleeRange !== undefined) {
       lines.push(`GLOBAL.TUNING.${upper}_MELEE_RANGE = ${item.weapon.meleeRange}`)
     }

@@ -405,10 +405,28 @@ export const itemDefSchema = z
             path: ['maxRange'],
           })
           .optional(),
+        chainReturn: z.object({
+          range: z.number().min(1).max(30),
+          speed: z.number().min(1).max(40),
+          maxChainHits: z.number().int().min(1).max(10),
+          searchRadius: z.number().min(1).max(30),
+          projectileClip: z
+            .string()
+            .transform((v) => (v ? v : undefined))
+            .optional(),
+        }).optional(),
       })
       .refine((w) => w.meleeRange === undefined || w.ranged === undefined, {
         message: 'Melee range only applies to a melee weapon — turn off ranged mode first',
         path: ['meleeRange'],
+      })
+      .refine((w) => w.chainReturn === undefined || w.ranged === undefined, {
+        message: 'A chain-return weapon generates its own projectile — turn off ranged mode first',
+        path: ['chainReturn'],
+      })
+      .refine((w) => w.chainReturn === undefined || w.meleeRange === undefined, {
+        message: 'A chain-return weapon is thrown, not melee — turn off melee range first',
+        path: ['chainReturn'],
       })
       .optional(),
     finiteuses: z
@@ -564,6 +582,10 @@ export const itemDefSchema = z
   })
   .refine((item) => !item.rechargeable || (item.finiteuses === undefined && item.perishable === undefined), {
     message: 'Rechargeable is an alternative durability model — turn off max uses/perishable first',
+    path: ['rechargeable'],
+  })
+  .refine((item) => !item.rechargeable || item.weapon?.chainReturn === undefined, {
+    message: 'A chain-return weapon already uses rechargeable internally to lock itself while its projectile is out — turn off the durability field first',
     path: ['rechargeable'],
   })
   .refine((item) => item.spellbook === undefined || item.spellEffect === undefined, {

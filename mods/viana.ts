@@ -165,6 +165,25 @@ export const viana: ModProject = {
         filters: ['MAGIC'],
       },
     },
+    {
+      id: 'solarchakram',
+      displayName: 'Solar Chakram',
+      description: "Throw it and it bites five times over: on every hit it seeks out the next enemy nearby and leaps to it, up to 5 in a row, before spinning back into her hand.",
+      category: 'weapon',
+      animation: { source: 'vanilla', build: 'boomerang' },
+      weapon: {
+        damage: 20,
+        chainReturn: { range: 15, speed: 20, maxChainHits: 5, searchRadius: 8, projectileClip: 'spin_loop' },
+      },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 2 },
+          { prefab: 'nightmarefuel', amount: 3 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+      },
+    },
   ],
   characters: [
     {
