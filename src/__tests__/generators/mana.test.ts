@@ -44,7 +44,7 @@ describe('generateManaBadgeWidgetFile', () => {
 
   it('extends the base game\'s own generic widgets/badge, no bespoke art required', () => {
     expect(code).toContain('require("widgets/badge")')
-    expect(code).toContain('Class(Badge, function(self, owner)')
+    expect(code).toContain('Class(Badge, function(self, owner, tint)')
     expect(code).toContain('Badge._ctor(self, nil, owner,')
     expect(code).toContain('return ManaBadge')
   })

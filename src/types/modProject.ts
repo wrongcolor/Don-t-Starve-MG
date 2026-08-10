@@ -118,7 +118,7 @@ export const VANILLA_HAT_BUILDS = [
 // damageMultiplier/hungerRateMultiplier/walkSpeedMultiplier fields below
 // (patterns.md#21) — a fixed perk is just one specific value of the same
 // mechanism, no need for two ways to express it.
-export const CHARACTER_PERKS = ['no_sanity_drain', 'fire_immune', 'freeze_immune', 'night_vision'] as const
+export const CHARACTER_PERKS = ['no_sanity_drain', 'fire_immune', 'freeze_immune', 'night_vision', 'can_read_books'] as const
 
 export const configOptionSchema = z.object({
   name: luaIdentifier,
@@ -851,9 +851,30 @@ export const characterAnimationSchema = z.discriminatedUnion('source', [
 // AddClassPostConstruct("widgets/statusdisplays", ...) injects a badge that
 // reuses the base game's own generic widgets/badge (just a custom tint — no
 // art required). See docs/dst-knowledge/patterns.md#61.
+const optionalFormLabel = z
+  .string()
+  .transform((v) => (v.trim().length > 0 ? v : undefined))
+  .optional()
+
 export const characterManaSchema = z.object({
   max: z.number().min(1),
   regenPerSecond: z.number().min(0).optional(),
+  label: optionalFormLabel,
+  badgeTint: z
+    .tuple([z.number().min(0).max(1), z.number().min(0).max(1), z.number().min(0).max(1), z.number().min(0).max(1)])
+    .optional(),
+})
+
+export const characterOverheatSchema = z.object({
+  triggerTemp: z.number().min(-20).max(90),
+  damageMultiplier: z.number().min(1).max(5),
+  sanityDrainPerSecond: z.number().min(0).max(20),
+  igniteChance: z.number().min(0).max(1),
+})
+
+export const characterShadowAffinitySchema = z.object({
+  damageDealtMultiplier: z.number().min(1).max(5),
+  damageTakenMultiplier: z.number().min(1).max(5),
 })
 
 export const characterDefSchema = z.object({
@@ -875,9 +896,19 @@ export const characterDefSchema = z.object({
   damageMultiplier: z.number().min(0.01).max(5).optional(),
   hungerRateMultiplier: z.number().min(0).max(5).optional(),
   walkSpeedMultiplier: z.number().min(0.1).max(5).optional(),
+  sanityDayGain: z.number().min(0).max(10).optional(),
+  sanityNightDrainMultiplier: z.number().min(0).max(5).optional(),
+  pauseHungerDuringDay: z.boolean().optional(),
+  hungerNightMultiplier: z.number().min(0).max(5).optional(),
+  wetnessSanityPenalty: z.number().min(0).max(10).optional(),
+  summerStatBonus: z.number().min(0).max(300).optional(),
+  summerWalkSpeedBonusPercent: z.number().min(0).max(200).optional(),
+  winterStatPenalty: z.number().min(0).max(300).optional(),
   foodTypeAffinities: z.array(foodTypeAffinitySchema),
   skillTree: skillTreeSchema.optional(),
   mana: characterManaSchema.optional(),
+  overheat: characterOverheatSchema.optional(),
+  shadowAffinity: characterShadowAffinitySchema.optional(),
   backstab: z
     .object({
       multiplier: z.number().min(1.1).max(10),

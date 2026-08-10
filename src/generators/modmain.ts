@@ -424,7 +424,7 @@ function characterManaHudBlock(character: CharacterDef): string[] {
     '        return',
     '    end',
     '',
-    `    self.${id}mana = self:AddChild(ManaBadge(self.owner))`,
+    `    self.${id}mana = self:AddChild(ManaBadge(self.owner${character.mana?.badgeTint !== undefined ? `, { ${character.mana.badgeTint.join(', ')} }` : ''}))`,
     '    local stomachpos = self.stomach:GetPosition()',
     `    self.${id}mana:SetPosition(stomachpos.x - 65, stomachpos.y, stomachpos.z)`,
     '',

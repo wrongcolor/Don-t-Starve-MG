@@ -202,11 +202,25 @@ const emptyCharacter: CharacterDef = {
   foodTypeAffinities: [],
 }
 
+function tintToHex(tint?: [number, number, number, number]): string {
+  const [r, g, b] = tint ?? [0.3, 0.5, 1, 1]
+  const toHex = (v: number) => Math.round(v * 255).toString(16).padStart(2, '0')
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+}
+
+function hexToTint(hex: string): [number, number, number, number] {
+  const r = parseInt(hex.slice(1, 3), 16) / 255
+  const g = parseInt(hex.slice(3, 5), 16) / 255
+  const b = parseInt(hex.slice(5, 7), 16) / 255
+  return [r, g, b, 1]
+}
+
 const PERK_LABELS: Record<(typeof CHARACTER_PERKS)[number], string> = {
   no_sanity_drain: 'Sanity doesn\'t drain naturally',
   fire_immune: 'Fire immune',
   freeze_immune: 'Freeze immune',
   night_vision: 'Sees in the dark',
+  can_read_books: 'Can read any book',
 }
 
 export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterFormProps) {
@@ -231,9 +245,18 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
   const enableDamageMultiplier = watched.damageMultiplier !== undefined
   const enableHungerRateMultiplier = watched.hungerRateMultiplier !== undefined
   const enableWalkSpeedMultiplier = watched.walkSpeedMultiplier !== undefined
+  const enableSanityDayGain = watched.sanityDayGain !== undefined
+  const enableSanityNightDrainMultiplier = watched.sanityNightDrainMultiplier !== undefined
+  const enableHungerNightMultiplier = watched.hungerNightMultiplier !== undefined
+  const enableWetnessSanityPenalty = watched.wetnessSanityPenalty !== undefined
+  const enableSummerStatBonus = watched.summerStatBonus !== undefined
+  const enableSummerWalkSpeedBonusPercent = watched.summerWalkSpeedBonusPercent !== undefined
+  const enableWinterStatPenalty = watched.winterStatPenalty !== undefined
+  const enableShadowAffinity = watched.shadowAffinity !== undefined
   const enableSkillTree = watched.skillTree !== undefined
   const enableMana = watched.mana !== undefined
   const enableManaRegen = watched.mana?.regenPerSecond !== undefined
+  const enableOverheat = watched.overheat !== undefined
 
   const onSubmit = (data: CharacterDef) => onSave(data)
 
@@ -457,7 +480,210 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
             </button>
           </Fieldset>
 
-          <Fieldset legend="Mana (optional)" step={8}>
+          <Fieldset legend="Day/night & weather habits (optional)" step={8}>
+            <div className="row-2">
+              <div>
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableSanityDayGain}
+                      onChange={(e) => setValue('sanityDayGain', e.target.checked ? 1 : undefined)}
+                    />
+                    Recovers sanity during the day
+                  </label>
+                </div>
+                {enableSanityDayGain && (
+                  <FormField label="Sanity gained per second while it's day">
+                    <input type="number" step="0.1" min="0" className={inputClass} {...register('sanityDayGain', { valueAsNumber: true })} />
+                  </FormField>
+                )}
+              </div>
+              <div>
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableSanityNightDrainMultiplier}
+                      onChange={(e) => setValue('sanityNightDrainMultiplier', e.target.checked ? 2 : undefined)}
+                    />
+                    Loses more sanity at night
+                  </label>
+                </div>
+                {enableSanityNightDrainMultiplier && (
+                  <FormField label="Night sanity loss multiplier (1 = normal)">
+                    <input
+                      type="number"
+                      step="0.05"
+                      min="0"
+                      className={inputClass}
+                      {...register('sanityNightDrainMultiplier', { valueAsNumber: true })}
+                    />
+                  </FormField>
+                )}
+              </div>
+              <div>
+                <div className="checks">
+                  <label>
+                    <input type="checkbox" {...register('pauseHungerDuringDay')} />
+                    Doesn't lose hunger during the day
+                  </label>
+                </div>
+              </div>
+              <div>
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableHungerNightMultiplier}
+                      onChange={(e) => setValue('hungerNightMultiplier', e.target.checked ? 2 : undefined)}
+                    />
+                    Loses more hunger at night
+                  </label>
+                </div>
+                {enableHungerNightMultiplier && (
+                  <FormField label="Night hunger rate multiplier (1 = normal)">
+                    <input
+                      type="number"
+                      step="0.05"
+                      min="0"
+                      className={inputClass}
+                      {...register('hungerNightMultiplier', { valueAsNumber: true })}
+                    />
+                  </FormField>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <div className="checks">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={enableWetnessSanityPenalty}
+                    onChange={(e) => setValue('wetnessSanityPenalty', e.target.checked ? 3 : undefined)}
+                  />
+                  Hates being wet
+                </label>
+              </div>
+              {enableWetnessSanityPenalty && (
+                <FormField label="Extra sanity lost per second at max wetness">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    className={inputClass}
+                    {...register('wetnessSanityPenalty', { valueAsNumber: true })}
+                  />
+                </FormField>
+              )}
+            </div>
+          </Fieldset>
+
+          <Fieldset legend="Seasons (optional)" step={9}>
+            <div className="row-2">
+              <div>
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableSummerStatBonus}
+                      onChange={(e) => setValue('summerStatBonus', e.target.checked ? 75 : undefined)}
+                    />
+                    Gains max health/hunger/sanity in summer
+                  </label>
+                </div>
+                {enableSummerStatBonus && (
+                  <FormField label="Summer stat bonus">
+                    <input type="number" min="0" className={inputClass} {...register('summerStatBonus', { valueAsNumber: true })} />
+                  </FormField>
+                )}
+              </div>
+              <div>
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableSummerWalkSpeedBonusPercent}
+                      onChange={(e) => setValue('summerWalkSpeedBonusPercent', e.target.checked ? 15 : undefined)}
+                    />
+                    Walks faster in summer
+                  </label>
+                </div>
+                {enableSummerWalkSpeedBonusPercent && (
+                  <FormField label="Summer walk speed bonus (%)">
+                    <input
+                      type="number"
+                      min="0"
+                      className={inputClass}
+                      {...register('summerWalkSpeedBonusPercent', { valueAsNumber: true })}
+                    />
+                  </FormField>
+                )}
+              </div>
+              <div>
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableWinterStatPenalty}
+                      onChange={(e) => setValue('winterStatPenalty', e.target.checked ? 50 : undefined)}
+                    />
+                    Loses max health/hunger/sanity in winter
+                  </label>
+                </div>
+                {enableWinterStatPenalty && (
+                  <FormField label="Winter stat penalty">
+                    <input type="number" min="0" className={inputClass} {...register('winterStatPenalty', { valueAsNumber: true })} />
+                  </FormField>
+                )}
+              </div>
+            </div>
+          </Fieldset>
+
+          <Fieldset legend="Shadow affinity (optional)" step={10}>
+            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+              Real vanilla tag (Original/prefabs/shadowcreature.lua and friends) — insanity-spawned Shadow Creatures,
+              Terrorbeaks, and similar all carry the "shadowcreature" tag. This multiplies damage against targets
+              with that tag, and damage taken from attackers with that tag.
+            </p>
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableShadowAffinity}
+                  onChange={(e) =>
+                    setValue('shadowAffinity', e.target.checked ? { damageDealtMultiplier: 1.5, damageTakenMultiplier: 1.5 } : undefined)
+                  }
+                />
+                Deals and takes extra damage from shadow creatures
+              </label>
+            </div>
+            {enableShadowAffinity && (
+              <div className="row-2">
+                <FormField label="Damage dealt multiplier">
+                  <input
+                    type="number"
+                    step="0.05"
+                    min="1"
+                    className={inputClass}
+                    {...register('shadowAffinity.damageDealtMultiplier', { valueAsNumber: true })}
+                  />
+                </FormField>
+                <FormField label="Damage taken multiplier">
+                  <input
+                    type="number"
+                    step="0.05"
+                    min="1"
+                    className={inputClass}
+                    {...register('shadowAffinity.damageTakenMultiplier', { valueAsNumber: true })}
+                  />
+                </FormField>
+              </div>
+            )}
+          </Fieldset>
+
+          <Fieldset legend="Mana (optional)" step={11}>
             <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
               Sourced from a real published character mod's own from-scratch resource bar (see
               docs/dst-knowledge/patterns.md#61) — same spirit as Wigfrid's Inspiration, but far simpler: no shared
@@ -476,32 +702,109 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
               </label>
             </div>
             {enableMana && (
-              <div className="row-2">
-                <FormField label="Max mana">
-                  <input type="number" min="1" className={inputClass} {...register('mana.max', { valueAsNumber: true })} />
-                </FormField>
-                <div>
-                  <div className="checks">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={enableManaRegen}
-                        onChange={(e) => setValue('mana.regenPerSecond', e.target.checked ? 1 : undefined)}
-                      />
-                      Regenerates over time
-                    </label>
+              <>
+                <div className="row-2">
+                  <FormField label="Max mana">
+                    <input type="number" min="1" className={inputClass} {...register('mana.max', { valueAsNumber: true })} />
+                  </FormField>
+                  <div>
+                    <div className="checks">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={enableManaRegen}
+                          onChange={(e) => setValue('mana.regenPerSecond', e.target.checked ? 1 : undefined)}
+                        />
+                        Regenerates over time
+                      </label>
+                    </div>
+                    {enableManaRegen && (
+                      <FormField label="Mana per second">
+                        <input type="number" step="0.1" min="0" className={inputClass} {...register('mana.regenPerSecond', { valueAsNumber: true })} />
+                      </FormField>
+                    )}
                   </div>
-                  {enableManaRegen && (
-                    <FormField label="Mana per second">
-                      <input type="number" step="0.1" min="0" className={inputClass} {...register('mana.regenPerSecond', { valueAsNumber: true })} />
-                    </FormField>
-                  )}
                 </div>
+                <div className="row-2">
+                  <FormField label="Resource name (shown in this tool's preview only)">
+                    <input className={inputClass} placeholder="Mana" {...register('mana.label')} />
+                  </FormField>
+                  <FormField label="Badge color">
+                    <input
+                      type="color"
+                      className={inputClass}
+                      value={tintToHex(watched.mana?.badgeTint)}
+                      onChange={(e) => setValue('mana.badgeTint', hexToTint(e.target.value))}
+                    />
+                  </FormField>
+                </div>
+              </>
+            )}
+          </Fieldset>
+
+          <Fieldset legend="Overheat (optional)" step={12}>
+            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+              Sourced from real vanilla APIs (see Original/components/temperature.lua and heater.lua) — a
+              "temperaturedelta" listener compares the character's own body temperature against a trigger point of
+              your choosing, independent of the base game's own 70°C hyperthermia. While active: extra outgoing
+              damage, a personal light and heat aura (the same heater component campfires use), a steady sanity
+              drain, and a chance each tick to set nearby flammable things smoldering.
+            </p>
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableOverheat}
+                  onChange={(e) =>
+                    setValue(
+                      'overheat',
+                      e.target.checked
+                        ? { triggerTemp: 65, damageMultiplier: 1.5, sanityDrainPerSecond: 5, igniteChance: 0.15 }
+                        : undefined,
+                    )
+                  }
+                />
+                Enters an overheat mode above a body temperature threshold
+              </label>
+            </div>
+            {enableOverheat && (
+              <div className="row-2">
+                <FormField label="Trigger temperature (°C)">
+                  <input type="number" className={inputClass} {...register('overheat.triggerTemp', { valueAsNumber: true })} />
+                </FormField>
+                <FormField label="Damage multiplier while overheated">
+                  <input
+                    type="number"
+                    step="0.05"
+                    min="1"
+                    className={inputClass}
+                    {...register('overheat.damageMultiplier', { valueAsNumber: true })}
+                  />
+                </FormField>
+                <FormField label="Extra sanity lost per second">
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    className={inputClass}
+                    {...register('overheat.sanityDrainPerSecond', { valueAsNumber: true })}
+                  />
+                </FormField>
+                <FormField label="Chance per tick to ignite nearby flammable things">
+                  <input
+                    type="number"
+                    step="0.05"
+                    min="0"
+                    max="1"
+                    className={inputClass}
+                    {...register('overheat.igniteChance', { valueAsNumber: true })}
+                  />
+                </FormField>
               </div>
             )}
           </Fieldset>
 
-          <Fieldset legend="Skill tree (optional)" step={9}>
+          <Fieldset legend="Skill tree (optional)" step={13}>
             <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
               Sourced from the base game's own skilltree_defs.lua and skilltree_wilson.lua (see
               docs/dst-knowledge/patterns.md#28) — skilltreeupdater is already on every character, this just registers

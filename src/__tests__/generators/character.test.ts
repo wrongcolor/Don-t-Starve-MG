@@ -96,6 +96,57 @@ describe('generateCharacterPrefab', () => {
     expect(code).not.toContain('CustomCombatDamage')
     expect(code).not.toContain('customdamagemultfn')
   })
+
+  it('wires shadow damage dealt/taken multipliers, keyed off the real shadowcreature tag', () => {
+    const wanda = { ...character, shadowAffinity: { damageDealtMultiplier: 2, damageTakenMultiplier: 1.5 } }
+    const wandaCode = generateCharacterPrefab(wanda)
+    expect(wandaCode).toContain('local function CustomCombatDamage(inst, target, weapon, multiplier, mount)')
+    expect(wandaCode).toContain('if target:HasTag("shadowcreature") then')
+    expect(wandaCode).toContain('return 2')
+    expect(wandaCode).toContain('inst.components.combat.customdamagemultfn = CustomCombatDamage')
+    expect(wandaCode).toContain('local function ShadowDamageTakenMultiplier(inst, attacker, weapon)')
+    expect(wandaCode).toContain('return (attacker ~= nil and attacker:HasTag("shadowcreature")) and 1.5 or 1')
+    expect(wandaCode).toContain('inst.components.combat:AddConditionExternalDamageTakenMultiplier(ShadowDamageTakenMultiplier)')
+  })
+
+  it('combines backstab and shadow affinity into one customdamagemultfn instead of one overwriting the other', () => {
+    const rogue = {
+      ...character,
+      backstab: { multiplier: 3, arcDegrees: 90 },
+      shadowAffinity: { damageDealtMultiplier: 2, damageTakenMultiplier: 1.5 },
+    }
+    const rogueCode = generateCharacterPrefab(rogue)
+    expect(rogueCode).toContain('local mult = 1')
+    expect(rogueCode).toContain('mult = mult * TUNING.TESTCHAR_BACKSTAB_MULT')
+    expect(rogueCode).toContain('mult = mult * 2')
+    expect(rogueCode).toContain('return mult')
+    expect((rogueCode.match(/local function CustomCombatDamage/g) ?? []).length).toBe(1)
+  })
+
+  it('recalculates max health/hunger/sanity by season, preserving current percent, and grants a summer speed bonus', () => {
+    const sunwitch = { ...character, summerStatBonus: 75, summerWalkSpeedBonusPercent: 15, winterStatPenalty: 50 }
+    const seasonCode = generateCharacterPrefab(sunwitch)
+    expect(seasonCode).toContain('local function OnSeasonChange(inst, season)')
+    expect(seasonCode).toContain('local statbonus = (season == "summer" and 75) or (season == "winter" and -50) or 0')
+    expect(seasonCode).toContain('local healthpercent = inst.components.health:GetPercent()')
+    expect(seasonCode).toContain('inst.components.health:SetMaxHealth(TUNING.TESTCHAR_HEALTH + statbonus)')
+    expect(seasonCode).toContain('inst.components.health:SetPercent(healthpercent)')
+    expect(seasonCode).toContain('inst.components.locomotor:SetExternalSpeedMultiplier(inst, "testchar_summer_speed", 1.15)')
+    expect(seasonCode).toContain('inst.components.locomotor:RemoveExternalSpeedMultiplier(inst, "testchar_summer_speed")')
+    expect(seasonCode).toContain('inst:WatchWorldState("season", OnSeasonChange)')
+    expect(seasonCode).toContain('OnSeasonChange(inst, TheWorld.state.season)')
+  })
+
+  it('omits season behavior entirely when no seasonal field is set', () => {
+    expect(code).not.toContain('OnSeasonChange')
+    expect(code).not.toContain('WatchWorldState')
+  })
+
+  it('adds the real reader component when the can_read_books perk is set', () => {
+    const scholar = { ...character, perks: ['can_read_books' as const] }
+    const scholarCode = generateCharacterPrefab(scholar)
+    expect(scholarCode).toContain('inst:AddComponent("reader")')
+  })
 })
 
 describe('generateSpeechFile', () => {

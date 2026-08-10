@@ -33,6 +33,9 @@ function perkLines(character: CharacterDef): string[] {
         lines.push('        inst.components.playervision:ToggleNightVision(true)')
         lines.push('    end')
         break
+      case 'can_read_books':
+        lines.push('    inst:AddComponent("reader")')
+        break
     }
   }
   return lines
@@ -62,6 +65,125 @@ function statMultiplierLines(character: CharacterDef): string[] {
   return lines
 }
 
+function needsHungerPhaseListener(character: CharacterDef): boolean {
+  return character.pauseHungerDuringDay === true || character.hungerNightMultiplier !== undefined
+}
+
+function dayNightBehaviorLines(character: CharacterDef): string[] {
+  const lines: string[] = []
+  if (character.sanityDayGain !== undefined) {
+    lines.push('    inst.components.sanity.custom_rate_fn = CustomSanityRateFn')
+  }
+  if (character.sanityNightDrainMultiplier !== undefined) {
+    lines.push(`    inst.components.sanity.night_drain_mult = ${character.sanityNightDrainMultiplier}`)
+  }
+  if (needsHungerPhaseListener(character)) {
+    lines.push('    inst:ListenForEvent("phasechanged", function(src, phase) OnPhaseChanged(inst, phase) end, TheWorld)')
+    lines.push('    OnPhaseChanged(inst, TheWorld.state.phase)')
+  }
+  if (character.wetnessSanityPenalty !== undefined) {
+    lines.push('    inst:ListenForEvent("moisturedelta", OnMoistureDelta)')
+  }
+  return lines
+}
+
+function sanityDayGainFunctionBlock(character: CharacterDef): string[] {
+  return [
+    'local function CustomSanityRateFn(inst)',
+    `    return TheWorld.state.isday and ${character.sanityDayGain} or 0`,
+    'end',
+    '',
+  ]
+}
+
+function hungerPhaseFunctionBlock(character: CharacterDef): string[] {
+  const lines = ['local function OnPhaseChanged(inst, phase)']
+  if (character.pauseHungerDuringDay) {
+    lines.push('    if phase == "day" then')
+    lines.push('        inst.components.hunger:Pause()')
+    lines.push('        return')
+    lines.push('    end')
+    lines.push('    inst.components.hunger:Resume()')
+  }
+  if (character.hungerNightMultiplier !== undefined) {
+    lines.push(
+      `    inst.components.hunger:SetRate(phase == "night" and ${character.hungerNightMultiplier} * TUNING.WILSON_HUNGER_RATE or TUNING.WILSON_HUNGER_RATE)`,
+    )
+  }
+  lines.push('end', '')
+  return lines
+}
+
+function wetnessDislikeFunctionBlock(character: CharacterDef): string[] {
+  return [
+    'local function OnMoistureDelta(inst)',
+    '    local percent = inst.components.moisture:GetMoisturePercent()',
+    '    if percent > 0 then',
+    `        inst.components.sanity.externalmodifiers:SetModifier(inst, -${character.wetnessSanityPenalty} * percent, "hates_wet")`,
+    '    else',
+    '        inst.components.sanity.externalmodifiers:RemoveModifier(inst, "hates_wet")',
+    '    end',
+    'end',
+    '',
+  ]
+}
+
+function overheatFunctionBlock(character: CharacterDef): string[] {
+  const overheat = character.overheat!
+  return [
+    'local function OverheatIgniteTick(inst)',
+    '    local x, y, z = inst.Transform:GetWorldPosition()',
+    '    local ents = TheSim:FindEntities(x, y, z, 3, nil, { "INLIMBO", "player" })',
+    '    for _, v in ipairs(ents) do',
+    `        if v ~= inst and v.components.burnable ~= nil and math.random() < ${overheat.igniteChance} then`,
+    '            v.components.burnable:StartWildfire()',
+    '        end',
+    '    end',
+    'end',
+    '',
+    'local function SetOverheatActive(inst, active)',
+    '    if active then',
+    `        inst.components.combat.externaldamagemultipliers:SetModifier(inst, ${overheat.damageMultiplier}, "overheat")`,
+    `        inst.components.sanity.externalmodifiers:SetModifier(inst, -${overheat.sanityDrainPerSecond}, "overheat")`,
+    `        inst.components.heater.heat = ${overheat.triggerTemp}`,
+    '        inst.Light:SetRadius(.6)',
+    '        inst.Light:SetFalloff(.8)',
+    '        inst.Light:SetIntensity(.8)',
+    '        inst.Light:SetColour(255 / 255, 140 / 255, 20 / 255)',
+    '        inst.Light:Enable(true)',
+    '        if inst._overheatignitetask == nil then',
+    '            inst._overheatignitetask = inst:DoPeriodicTask(2, OverheatIgniteTick, nil, inst)',
+    '        end',
+    '    else',
+    '        inst.components.combat.externaldamagemultipliers:RemoveModifier(inst, "overheat")',
+    '        inst.components.sanity.externalmodifiers:RemoveModifier(inst, "overheat")',
+    '        inst.components.heater.heat = nil',
+    '        inst.Light:Enable(false)',
+    '        if inst._overheatignitetask ~= nil then',
+    '            inst._overheatignitetask:Cancel()',
+    '            inst._overheatignitetask = nil',
+    '        end',
+    '    end',
+    'end',
+    '',
+    'local function OnOverheatTemperatureDelta(inst, data)',
+    `    SetOverheatActive(inst, data.new > ${overheat.triggerTemp})`,
+    'end',
+    '',
+  ]
+}
+
+function overheatSetupLines(character: CharacterDef): string[] {
+  if (character.overheat === undefined) {
+    return []
+  }
+  return [
+    '    inst:AddComponent("heater")',
+    '    inst:ListenForEvent("temperaturedelta", OnOverheatTemperatureDelta)',
+    `    SetOverheatActive(inst, inst.components.temperature:GetCurrent() > ${character.overheat.triggerTemp})`,
+  ]
+}
+
 function backstabFunctionBlock(character: CharacterDef): string[] {
   const upper = toUpperSnake(character.id)
   const backstab = character.backstab!
@@ -80,6 +202,114 @@ function backstabFunctionBlock(character: CharacterDef): string[] {
   }
   lines.push(`        return TUNING.${upper}_BACKSTAB_MULT`, '    end', 'end', '')
   return lines
+}
+
+function shadowDamageDealtFunctionBlock(character: CharacterDef): string[] {
+  return [
+    'local function CustomCombatDamage(inst, target, weapon, multiplier, mount)',
+    '    if target:HasTag("shadowcreature") then',
+    `        return ${character.shadowAffinity!.damageDealtMultiplier}`,
+    '    end',
+    'end',
+    '',
+  ]
+}
+
+function backstabAndShadowDamageDealtFunctionBlock(character: CharacterDef): string[] {
+  const upper = toUpperSnake(character.id)
+  const backstab = character.backstab!
+  const lines = [
+    'local function CustomCombatDamage(inst, target, weapon, multiplier, mount)',
+    '    local mult = 1',
+    '    local angletoattacker = target:GetAngleToPoint(inst.Transform:GetWorldPosition())',
+    `    local isbehind = DiffAngle(target.Transform:GetRotation(), angletoattacker) >= (180 - TUNING.${upper}_BACKSTAB_ARC)`,
+  ]
+  if (backstab.bonusWhenTargetDistracted) {
+    lines.push(
+      '    local isdistracted = target.components.combat ~= nil and target.components.combat:HasTarget() and target.components.combat.target ~= inst',
+      '    if isbehind or isdistracted then',
+    )
+  } else {
+    lines.push('    if isbehind then')
+  }
+  lines.push(`        mult = mult * TUNING.${upper}_BACKSTAB_MULT`, '    end')
+  lines.push('    if target:HasTag("shadowcreature") then')
+  lines.push(`        mult = mult * ${character.shadowAffinity!.damageDealtMultiplier}`)
+  lines.push('    end')
+  lines.push('    return mult', 'end', '')
+  return lines
+}
+
+function needsCustomCombatDamage(character: CharacterDef): boolean {
+  return character.backstab !== undefined || character.shadowAffinity !== undefined
+}
+
+function customCombatDamageFunctionBlock(character: CharacterDef): string[] {
+  if (character.backstab !== undefined && character.shadowAffinity !== undefined) {
+    return backstabAndShadowDamageDealtFunctionBlock(character)
+  }
+  if (character.backstab !== undefined) {
+    return backstabFunctionBlock(character)
+  }
+  return shadowDamageDealtFunctionBlock(character)
+}
+
+function shadowDamageTakenFunctionBlock(character: CharacterDef): string[] {
+  return [
+    'local function ShadowDamageTakenMultiplier(inst, attacker, weapon)',
+    `    return (attacker ~= nil and attacker:HasTag("shadowcreature")) and ${character.shadowAffinity!.damageTakenMultiplier} or 1`,
+    'end',
+    '',
+  ]
+}
+
+function needsSeasonBehavior(character: CharacterDef): boolean {
+  return (
+    character.summerStatBonus !== undefined ||
+    character.summerWalkSpeedBonusPercent !== undefined ||
+    character.winterStatPenalty !== undefined
+  )
+}
+
+function seasonFunctionBlock(character: CharacterDef): string[] {
+  const upper = toUpperSnake(character.id)
+  const summerBonus = character.summerStatBonus ?? 0
+  const winterPenalty = character.winterStatPenalty ?? 0
+  const lines = [
+    'local function OnSeasonChange(inst, season)',
+    `    local statbonus = (season == "summer" and ${summerBonus}) or (season == "winter" and -${winterPenalty}) or 0`,
+    '',
+    '    local healthpercent = inst.components.health:GetPercent()',
+    `    inst.components.health:SetMaxHealth(TUNING.${upper}_HEALTH + statbonus)`,
+    '    inst.components.health:SetPercent(healthpercent)',
+    '',
+    '    local hungerpercent = inst.components.hunger:GetPercent()',
+    `    inst.components.hunger:SetMax(TUNING.${upper}_HUNGER + statbonus)`,
+    '    inst.components.hunger:SetPercent(hungerpercent)',
+    '',
+    '    local sanitypercent = inst.components.sanity:GetPercent()',
+    `    inst.components.sanity:SetMax(TUNING.${upper}_SANITY + statbonus)`,
+    '    inst.components.sanity:SetPercent(sanitypercent)',
+  ]
+  if (character.summerWalkSpeedBonusPercent !== undefined) {
+    lines.push(
+      '',
+      '    if season == "summer" then',
+      `        inst.components.locomotor:SetExternalSpeedMultiplier(inst, "${character.id}_summer_speed", ${1 + character.summerWalkSpeedBonusPercent / 100})`,
+      '    else',
+      `        inst.components.locomotor:RemoveExternalSpeedMultiplier(inst, "${character.id}_summer_speed")`,
+      '    end',
+    )
+  }
+  lines.push('end', '')
+  return lines
+}
+
+function seasonSetupLines(character: CharacterDef): string[] {
+  if (!needsSeasonBehavior(character)) {
+    return []
+  }
+  return ['    inst:WatchWorldState("season", OnSeasonChange)', '    OnSeasonChange(inst, TheWorld.state.season)']
 }
 
 // Assets: when the character reuses a vanilla build (animation.source ===
@@ -108,8 +338,26 @@ export function generateCharacterPrefab(character: CharacterDef): string {
   lines.push('')
   lines.push(`local start_inv = ${luaStringArray(character.startingInventory)}`)
   lines.push('')
-  if (character.backstab !== undefined) {
-    lines.push(...backstabFunctionBlock(character))
+  if (needsCustomCombatDamage(character)) {
+    lines.push(...customCombatDamageFunctionBlock(character))
+  }
+  if (character.shadowAffinity !== undefined) {
+    lines.push(...shadowDamageTakenFunctionBlock(character))
+  }
+  if (needsSeasonBehavior(character)) {
+    lines.push(...seasonFunctionBlock(character))
+  }
+  if (character.sanityDayGain !== undefined) {
+    lines.push(...sanityDayGainFunctionBlock(character))
+  }
+  if (needsHungerPhaseListener(character)) {
+    lines.push(...hungerPhaseFunctionBlock(character))
+  }
+  if (character.wetnessSanityPenalty !== undefined) {
+    lines.push(...wetnessDislikeFunctionBlock(character))
+  }
+  if (character.overheat !== undefined) {
+    lines.push(...overheatFunctionBlock(character))
   }
   lines.push('local function common_postinit(inst)')
   lines.push(`    inst.MiniMapEntity:SetIcon("${character.id}.tex") -- PLACEHOLDER: ícone do minimapa`)
@@ -132,6 +380,11 @@ export function generateCharacterPrefab(character: CharacterDef): string {
     lines.push('')
     lines.push(...multipliers)
   }
+  const dayNightBehavior = dayNightBehaviorLines(character)
+  if (dayNightBehavior.length > 0) {
+    lines.push('')
+    lines.push(...dayNightBehavior)
+  }
   if (character.mana !== undefined) {
     lines.push('')
     lines.push('    inst:AddComponent("mana")')
@@ -140,9 +393,22 @@ export function generateCharacterPrefab(character: CharacterDef): string {
       lines.push(`    inst.components.mana:SetRegenRate(TUNING.${upper}_MANA_REGEN)`)
     }
   }
-  if (character.backstab !== undefined) {
+  const overheatSetup = overheatSetupLines(character)
+  if (overheatSetup.length > 0) {
+    lines.push('')
+    lines.push(...overheatSetup)
+  }
+  const seasonSetup = seasonSetupLines(character)
+  if (seasonSetup.length > 0) {
+    lines.push('')
+    lines.push(...seasonSetup)
+  }
+  if (needsCustomCombatDamage(character)) {
     lines.push('')
     lines.push('    inst.components.combat.customdamagemultfn = CustomCombatDamage')
+  }
+  if (character.shadowAffinity !== undefined) {
+    lines.push('    inst.components.combat:AddConditionExternalDamageTakenMultiplier(ShadowDamageTakenMultiplier)')
   }
   lines.push('end')
   lines.push('')

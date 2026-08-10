@@ -6,6 +6,7 @@ const PERK_TAGS: Record<string, string> = {
   fire_immune: '🔥 Fire immune',
   freeze_immune: '❄️ Cold immune',
   night_vision: '🌙 Night vision',
+  can_read_books: '📖 Can read any book',
 }
 
 export function CharacterPreview({ character }: { character: Partial<CharacterDef> }) {
@@ -54,10 +55,24 @@ export function CharacterPreview({ character }: { character: Partial<CharacterDe
           )}
           {character.mana !== undefined && (
             <div className="preview-stat">
-              <span className="lbl">🔷 Max mana</span>
+              <span className="lbl">🔷 Max {character.mana.label ?? 'mana'}</span>
               <span className="val">
                 {character.mana.max}
                 {character.mana.regenPerSecond !== undefined ? ` (+${character.mana.regenPerSecond}/s)` : ''}
+              </span>
+            </div>
+          )}
+          {character.overheat !== undefined && (
+            <div className="preview-stat">
+              <span className="lbl">🔥 Overheats above</span>
+              <span className="val">{character.overheat.triggerTemp}°C</span>
+            </div>
+          )}
+          {character.shadowAffinity !== undefined && (
+            <div className="preview-stat">
+              <span className="lbl">🌑 Shadow damage x</span>
+              <span className="val">
+                {character.shadowAffinity.damageDealtMultiplier} dealt / {character.shadowAffinity.damageTakenMultiplier} taken
               </span>
             </div>
           )}

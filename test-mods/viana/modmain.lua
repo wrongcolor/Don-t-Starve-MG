@@ -133,7 +133,7 @@ local function VianaStatusPostConstruct(self)
         return
     end
 
-    self.vianamana = self:AddChild(ManaBadge(self.owner))
+    self.vianamana = self:AddChild(ManaBadge(self.owner, { 1, 0.75, 0.15, 1 }))
     local stomachpos = self.stomach:GetPosition()
     self.vianamana:SetPosition(stomachpos.x - 65, stomachpos.y, stomachpos.z)
 
