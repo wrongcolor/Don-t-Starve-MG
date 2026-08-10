@@ -162,6 +162,10 @@ function itemTuningBlock(item: ItemDef): string[] {
     lines.push(`GLOBAL.TUNING.${upper}_DRAIN_RATE = ${item.summonTotem.drainPerSecond}`)
     lines.push(`GLOBAL.TUNING.${upper}_RECHARGE_RATE = ${item.summonTotem.rechargePerSecondInSunlight}`)
   }
+  if (item.solarBattery) {
+    lines.push(`GLOBAL.TUNING.${upper}_MAX_CHARGE = ${item.solarBattery.maxCharge}`)
+    lines.push(`GLOBAL.TUNING.${upper}_CHARGE_RATE = ${item.solarBattery.chargePerSecondInSunlight}`)
+  }
   if (item.tameBomb) {
     const cloudUpper = toUpperSnake(`${item.id}_cloud`)
     lines.push(`GLOBAL.TUNING.${cloudUpper}_RADIUS = ${item.tameBomb.radius}`)
@@ -363,6 +367,39 @@ function combineActionBlock(): string[] {
   ]
 }
 
+function needsSolarBatteryAction(project: ModProject): boolean {
+  return project.items.some((item) => item.solarBattery)
+}
+
+function solarBatteryActionBlock(): string[] {
+  return [
+    'local ACTIONS = GLOBAL.ACTIONS',
+    'local ActionHandler = GLOBAL.ActionHandler',
+    '',
+    'local CHARGE_SOLAR_ACTION = AddAction("CHARGE_SOLAR", "Charge", function(act)',
+    '    if act.invobject == nil then',
+    '        return false',
+    '    end',
+    '    if act.target ~= nil and act.target.components.fueled ~= nil and act.target:HasTag("solarfueled") then',
+    '        return act.invobject:DrainIntoTarget(act.target)',
+    '    elseif act.doer ~= nil then',
+    '        return act.invobject:DrainIntoMana(act.doer)',
+    '    end',
+    '    return false',
+    'end)',
+    'CHARGE_SOLAR_ACTION.mount_valid = true',
+    '',
+    'AddComponentAction("USEITEM", "inventoryitem", function(inst, doer, target, actions, right)',
+    '    if right and inst:HasTag("solarprism") then',
+    '        table.insert(actions, ACTIONS.CHARGE_SOLAR)',
+    '    end',
+    'end)',
+    '',
+    'AddStategraphActionHandler("wilson", ActionHandler(ACTIONS.CHARGE_SOLAR, "doshortaction"))',
+    'AddStategraphActionHandler("wilson_client", ActionHandler(ACTIONS.CHARGE_SOLAR, "doshortaction"))',
+  ]
+}
+
 function characterStringsAndRegistrationBlock(character: CharacterDef): string[] {
   const upper = toUpperSnake(character.id)
   return [
@@ -517,6 +554,12 @@ export function generateModMain(project: ModProject): string {
     sections.push('')
     sections.push('-- Combine action (shared by every combinable item)')
     sections.push(...combineActionBlock())
+  }
+
+  if (needsSolarBatteryAction(project)) {
+    sections.push('')
+    sections.push('-- Solar battery charge action (shared by every solar battery item)')
+    sections.push(...solarBatteryActionBlock())
   }
 
   if (needsContainerParams(project)) {

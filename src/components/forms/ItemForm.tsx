@@ -198,6 +198,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const enableArmor = watched.armor !== undefined
   const enableSolarLantern = watched.solarLantern !== undefined
   const enableSummonTotem = watched.summonTotem !== undefined
+  const enableSolarBattery = watched.solarBattery !== undefined
   const enableRanged = watched.weapon?.ranged !== undefined
   const enableMeleeRange = watched.weapon?.meleeRange !== undefined
   const enableSanityCost = watched.weapon?.sanityCostOnUse !== undefined
@@ -1043,8 +1044,45 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
             )}
           </Fieldset>
 
+          <Fieldset legend="Solar Battery" step={9}>
+            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+              A ground-placed, toggle-activated battery (the same activatable component/on-off pattern the real
+              Terrarium item uses) — charges only while active, in daylight, and sitting on the ground, unheld.
+              Right-click it on a Solar Lantern or Sun Totem to top off their charge, or right-click it with no
+              target to feed your own Solar Energy instead — either way it drains what it stores into the target.
+            </p>
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableSolarBattery}
+                  onChange={(e) =>
+                    setValue('solarBattery', e.target.checked ? { maxCharge: 200, chargePerSecondInSunlight: 0.5 } : undefined)
+                  }
+                />
+                Stores solar charge that can recharge other solar items or Solar Energy
+              </label>
+            </div>
+            {enableSolarBattery && (
+              <div className="row-2">
+                <FormField label="Max charge">
+                  <input type="number" min="1" className={inputClass} {...register('solarBattery.maxCharge', { valueAsNumber: true })} />
+                </FormField>
+                <FormField label="Charge gained per second in sunlight">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    className={inputClass}
+                    {...register('solarBattery.chargePerSecondInSunlight', { valueAsNumber: true })}
+                  />
+                </FormField>
+              </div>
+            )}
+          </Fieldset>
+
           {category === 'food' && (
-            <Fieldset legend="Food (Edible)" step={9}>
+            <Fieldset legend="Food (Edible)" step={10}>
               <div className="row-2">
                 <FormField label="Food type">
                   <select className={inputClass} {...register('edible.foodType')}>
@@ -1105,7 +1143,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
             </Fieldset>
           )}
 
-          <Fieldset legend="Container" step={10}>
+          <Fieldset legend="Container" step={11}>
             <div className="checks">
               <label>
                 <input
@@ -1293,7 +1331,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
             )}
           </Fieldset>
 
-          <Fieldset legend="Special mechanics" step={11}>
+          <Fieldset legend="Special mechanics" step={12}>
             <div className="checks">
               <label>
                 <input

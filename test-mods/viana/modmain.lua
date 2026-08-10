@@ -4,7 +4,7 @@ local TUNING = GLOBAL.TUNING
 local TECH = GLOBAL.TECH
 local Ingredient = GLOBAL.Ingredient
 
-PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "suntotem", "viana", "sunorb", "sunwisp" }
+PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "suntotem", "solarprism", "viana", "sunorb", "sunwisp" }
 
 -- Items: tuning + strings
 GLOBAL.TUNING.SOLARLANTERN_MAX_FUEL = 100
@@ -38,6 +38,11 @@ GLOBAL.TUNING.SUNTOTEM_RECHARGE_RATE = 0.3
 STRINGS.NAMES.SUNTOTEM = "Sun Totem"
 STRINGS.RECIPE_DESC.SUNTOTEM = "Carve this and it carves back: use it to call up a Sun Orb, or dismiss the one you have. It only drinks from the sun — no fuel item will ever refill it, and the Orb fades the moment it runs dry."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNTOTEM = "Carve this and it carves back: use it to call up a Sun Orb, or dismiss the one you have. It only drinks from the sun — no fuel item will ever refill it, and the Orb fades the moment it runs dry."
+GLOBAL.TUNING.SOLARPRISM_MAX_CHARGE = 200
+GLOBAL.TUNING.SOLARPRISM_CHARGE_RATE = 0.5
+STRINGS.NAMES.SOLARPRISM = "Solar Prism"
+STRINGS.RECIPE_DESC.SOLARPRISM = "Set it on the ground and activate it: under open sky by day, it drinks in sunlight. Use it on the Solar Lantern or Sun Totem to top off their charge, or use it on yourself to feed your own Solar Energy."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARPRISM = "Set it on the ground and activate it: under open sky by day, it drinks in sunlight. Use it on the Solar Lantern or Sun Totem to top off their charge, or use it on yourself to feed your own Solar Energy."
 
 -- Items: recipes
 AddRecipe2("solarlantern", { Ingredient("twigs", 2), Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 1) }, TECH.MAGIC_TWO, {
@@ -64,6 +69,35 @@ AddRecipe2("sunwispspell", { Ingredient("twigs", 1), Ingredient("goldnugget", 1)
 AddRecipe2("suntotem", { Ingredient("twigs", 3), Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
         image = "moonrock_idol.tex",
     }, { "MAGIC" })
+AddRecipe2("solarprism", { Ingredient("goldnugget", 3), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
+        image = "gems.tex",
+    }, { "MAGIC" })
+
+-- Solar battery charge action (shared by every solar battery item)
+local ACTIONS = GLOBAL.ACTIONS
+local ActionHandler = GLOBAL.ActionHandler
+
+local CHARGE_SOLAR_ACTION = AddAction("CHARGE_SOLAR", "Charge", function(act)
+    if act.invobject == nil then
+        return false
+    end
+    if act.target ~= nil and act.target.components.fueled ~= nil and act.target:HasTag("solarfueled") then
+        return act.invobject:DrainIntoTarget(act.target)
+    elseif act.doer ~= nil then
+        return act.invobject:DrainIntoMana(act.doer)
+    end
+    return false
+end)
+CHARGE_SOLAR_ACTION.mount_valid = true
+
+AddComponentAction("USEITEM", "inventoryitem", function(inst, doer, target, actions, right)
+    if right and inst:HasTag("solarprism") then
+        table.insert(actions, ACTIONS.CHARGE_SOLAR)
+    end
+end)
+
+AddStategraphActionHandler("wilson", ActionHandler(ACTIONS.CHARGE_SOLAR, "doshortaction"))
+AddStategraphActionHandler("wilson_client", ActionHandler(ACTIONS.CHARGE_SOLAR, "doshortaction"))
 
 -- Container widgets
 local containers = require("containers")

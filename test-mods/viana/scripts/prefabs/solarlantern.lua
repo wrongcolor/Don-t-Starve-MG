@@ -52,6 +52,7 @@ local function fn()
     inst.Light:Enable(false)
 
     inst:AddTag("item")
+    inst:AddTag("solarfueled")
 
     inst.entity:SetPristine()
     if not TheWorld.ismastersim then

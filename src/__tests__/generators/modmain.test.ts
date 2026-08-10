@@ -308,6 +308,24 @@ describe('generateModMain', () => {
     expect(combinedCode.split('AddAction("COMBINE_ITEM"').length - 1).toBe(1)
   })
 
+  it('wires the solar battery charge action once when at least one item has solarBattery, draining into a solarfueled target or the wielder\'s own mana', () => {
+    const withBattery = {
+      ...projectWithCharacter,
+      items: projectWithCharacter.items.map((item, i) =>
+        i === 0 ? { ...item, solarBattery: { maxCharge: 200, chargePerSecondInSunlight: 0.5 } } : item,
+      ),
+    }
+    const batteryCode = generateModMain(withBattery)
+    expect(batteryCode).toContain('AddAction("CHARGE_SOLAR", "Charge", function(act)')
+    expect(batteryCode).toContain('act.target.components.fueled ~= nil and act.target:HasTag("solarfueled")')
+    expect(batteryCode).toContain('return act.invobject:DrainIntoTarget(act.target)')
+    expect(batteryCode).toContain('return act.invobject:DrainIntoMana(act.doer)')
+    expect(batteryCode).toContain('AddComponentAction("USEITEM", "inventoryitem", function(inst, doer, target, actions, right)')
+    expect(batteryCode).toContain('if right and inst:HasTag("solarprism") then')
+    expect(batteryCode).toContain('AddStategraphActionHandler("wilson", ActionHandler(ACTIONS.CHARGE_SOLAR, "doshortaction"))')
+    expect(batteryCode.split('AddAction("CHARGE_SOLAR"').length - 1).toBe(1)
+  })
+
   it('does not require the containers module when no item is a container (patterns.md#20)', () => {
     expect(code).not.toContain('require("containers")')
   })

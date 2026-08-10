@@ -149,6 +149,22 @@ export const viana: ModProject = {
         filters: ['MAGIC'],
       },
     },
+    {
+      id: 'solarprism',
+      displayName: 'Solar Prism',
+      description: "Set it on the ground and activate it: under open sky by day, it drinks in sunlight. Use it on the Solar Lantern or Sun Totem to top off their charge, or use it on yourself to feed your own Solar Energy.",
+      category: 'generic',
+      animation: { source: 'vanilla', build: 'gems', idleClip: 'yellowgem_idle' },
+      solarBattery: { maxCharge: 200, chargePerSecondInSunlight: 0.5 },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 3 },
+          { prefab: 'nightmarefuel', amount: 3 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+      },
+    },
   ],
   characters: [
     {

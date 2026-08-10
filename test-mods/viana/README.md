@@ -19,6 +19,7 @@ caminhos abaixo, substituindo os placeholders:
   - `sunfedspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `sunwispspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `suntotem`: reaproveita o build "moonrock_idol" do jogo base — nenhum `anim/*.zip` próprio é necessário.
+  - `solarprism`: reaproveita o build "gems" do jogo base — nenhum `anim/*.zip` próprio é necessário.
 - **Personagens**: builds em `anim/`, ícone de seleção e ícone de minimapa.
   - `viana`: reaproveita o build "wendy" do jogo base como placeholder visual — nenhum `anim/*.zip` próprio é necessário, mas a aparência final ainda será a desse personagem vanilla até você trocar por um build real.
 - **Criaturas**: por padrão reaproveitam o build "pigman" do jogo base — só precisam de `anim/<id>.zip` próprio se a animação for explicitamente marcada como personalizada.

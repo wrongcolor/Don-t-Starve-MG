@@ -791,6 +791,7 @@ function componentBlock(item: ItemDef): string {
   if (isHandheld(item) || isWearableArmor(item) || isSolarLantern(item)) lines.push(...equippableComponentBlock(item))
   if (isSolarLantern(item)) lines.push(...solarLanternComponentBlock(item))
   if (item.summonTotem) lines.push(...summonTotemComponentBlock(item))
+  if (item.solarBattery) lines.push(...solarBatteryComponentBlock(item))
   if (needsSpellcaster(item)) lines.push(...spellcasterComponentBlock(item))
   if (needsSpellbook(item)) lines.push(...spellbookComponentBlock(item))
   if (item.perishable) lines.push(...perishableComponentBlock(item))
@@ -925,6 +926,65 @@ function solarLanternComponentBlock(item: ItemDef): string[] {
   ]
 }
 
+function solarBatteryFunctionBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  return [
+    'local function OnActivate(inst, doer)',
+    '    inst.is_on = not inst.is_on',
+    'end',
+    '',
+    'local function ChargeTick(inst)',
+    '    if inst.is_on and TheWorld.state.isday and not TheWorld:HasTag("cave")',
+    '        and inst.components.inventoryitem.owner == nil and not inst.components.fueled:IsFull() then',
+    `        inst.components.fueled:DoDelta(TUNING.${upper}_CHARGE_RATE)`,
+    '    end',
+    'end',
+    '',
+    'local function DrainIntoMana(inst, doer)',
+    '    if inst.components.fueled:IsEmpty() or doer.components.mana == nil then',
+    '        return false',
+    '    end',
+    '    local amount = inst.components.fueled.currentfuel',
+    '    doer.components.mana:DoDelta(amount)',
+    '    inst.components.fueled:DoDelta(-amount)',
+    '    return true',
+    'end',
+    '',
+    'local function DrainIntoTarget(inst, target)',
+    '    if inst.components.fueled:IsEmpty() or target.components.fueled == nil then',
+    '        return false',
+    '    end',
+    '    local amount = math.min(inst.components.fueled.currentfuel, target.components.fueled.maxfuel - target.components.fueled.currentfuel)',
+    '    if amount <= 0 then',
+    '        return false',
+    '    end',
+    '    target.components.fueled:DoDelta(amount)',
+    '    inst.components.fueled:DoDelta(-amount)',
+    '    return true',
+    'end',
+    '',
+  ]
+}
+
+function solarBatteryComponentBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  return [
+    '',
+    '    inst:AddComponent("fueled")',
+    '    inst.components.fueled.fueltype = FUELTYPE.MAGIC',
+    `    inst.components.fueled.maxfuel = TUNING.${upper}_MAX_CHARGE`,
+    '',
+    '    inst:AddComponent("activatable")',
+    '    inst.components.activatable.OnActivate = OnActivate',
+    '    inst.components.activatable.quickaction = true',
+    '',
+    '    inst.DrainIntoMana = DrainIntoMana',
+    '    inst.DrainIntoTarget = DrainIntoTarget',
+    '',
+    '    inst:DoPeriodicTask(1, ChargeTick)',
+  ]
+}
+
 // Assets: when the item reuses a vanilla build (item.animation.source === 'vanilla'),
 // no Asset("ANIM", ...) is declared — that animation data is already loaded by the
 // base game. Otherwise this is a PLACEHOLDER: the user must supply anim/<id>.zip
@@ -980,6 +1040,9 @@ export function generateItemPrefab(item: ItemDef): string {
   }
   if (item.summonTotem) {
     lines.push(...summonTotemFunctionBlock(item))
+  }
+  if (item.solarBattery) {
+    lines.push(...solarBatteryFunctionBlock(item))
   }
   if (needsSpellbook(item)) {
     lines.push(...spellbookFunctionBlock(item))
@@ -1037,6 +1100,12 @@ export function generateItemPrefab(item: ItemDef): string {
     // Same reasoning as combinable_item above: a container's itemtestfn checks
     // this tag, so it needs to be a real networked tag, not just an inst field.
     lines.push('    inst:AddTag("spell")')
+  }
+  if (isSolarLantern(item) || item.summonTotem) {
+    lines.push('    inst:AddTag("solarfueled")')
+  }
+  if (item.solarBattery) {
+    lines.push('    inst:AddTag("solarprism")')
   }
   lines.push('')
   lines.push('    inst.entity:SetPristine()')

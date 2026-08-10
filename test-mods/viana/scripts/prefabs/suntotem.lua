@@ -55,6 +55,7 @@ local function fn()
     inst.AnimState:PlayAnimation("idle")
 
     inst:AddTag("item")
+    inst:AddTag("solarfueled")
 
     inst.entity:SetPristine()
     if not TheWorld.ismastersim then

@@ -720,6 +720,54 @@ describe('generateItemFiles', () => {
     expect(itemDefSchema.safeParse({ ...totem, tameBomb: { radius: 5, cloudDurationSeconds: 5, tameDurationSeconds: 60 } }).success).toBe(false)
   })
 
+  it('wires a solar battery as a toggle-activated, ground-only charger, tagged so a Solar Prism can be targeted by other solar items', () => {
+    const prism: ItemDef = { ...trinket, solarBattery: { maxCharge: 200, chargePerSecondInSunlight: 0.5 } }
+    const code = generateItemPrefab(prism)
+    expect(code).toContain('inst:AddTag("solarprism")')
+    expect(code).toContain('inst:AddComponent("fueled")')
+    expect(code).toContain('inst.components.fueled.fueltype = FUELTYPE.MAGIC')
+    expect(code).toContain('inst.components.fueled.maxfuel = TUNING.TESTTRINKET_MAX_CHARGE')
+    expect(code).toContain('inst:AddComponent("activatable")')
+    expect(code).toContain('inst.components.activatable.OnActivate = OnActivate')
+    expect(code).toContain('local function OnActivate(inst, doer)')
+    expect(code).toContain('inst.is_on = not inst.is_on')
+    expect(code).toContain('local function ChargeTick(inst)')
+    expect(code).toContain('if inst.is_on and TheWorld.state.isday and not TheWorld:HasTag("cave")')
+    expect(code).toContain('and inst.components.inventoryitem.owner == nil and not inst.components.fueled:IsFull() then')
+    expect(code).toContain('inst.components.fueled:DoDelta(TUNING.TESTTRINKET_CHARGE_RATE)')
+    expect(code).toContain('inst:DoPeriodicTask(1, ChargeTick)')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('drains its own charge into a target\'s fuel, or into the wielder\'s mana with no target, then assigns both onto its own inst', () => {
+    const prism: ItemDef = { ...trinket, solarBattery: { maxCharge: 200, chargePerSecondInSunlight: 0.5 } }
+    const code = generateItemPrefab(prism)
+    expect(code).toContain('local function DrainIntoMana(inst, doer)')
+    expect(code).toContain('if inst.components.fueled:IsEmpty() or doer.components.mana == nil then')
+    expect(code).toContain('doer.components.mana:DoDelta(amount)')
+    expect(code).toContain('local function DrainIntoTarget(inst, target)')
+    expect(code).toContain('if inst.components.fueled:IsEmpty() or target.components.fueled == nil then')
+    expect(code).toContain('target.components.fueled:DoDelta(amount)')
+    expect(code).toContain('inst.DrainIntoMana = DrainIntoMana')
+    expect(code).toContain('inst.DrainIntoTarget = DrainIntoTarget')
+  })
+
+  it('tags the solar lantern and summoning totem as valid Solar Prism refuel targets', () => {
+    const lantern: ItemDef = {
+      ...trinket,
+      solarLantern: { maxFuel: 100, drainPerSecond: 0.1, rechargePerSecondInSunlight: 0.3, radius: 4 },
+    }
+    expect(generateItemPrefab(lantern)).toContain('inst:AddTag("solarfueled")')
+
+    const totem: ItemDef = {
+      ...trinket,
+      summonTotem: { summonPrefab: 'sunorb', maxDurability: 150, drainPerSecond: 0.1, rechargePerSecondInSunlight: 0.3 },
+    }
+    expect(generateItemPrefab(totem)).toContain('inst:AddTag("solarfueled")')
+
+    expect(generateItemPrefab(trinket)).not.toContain('solarfueled')
+  })
+
   it('wires the edible component with foodtype and TUNING-driven hunger/health/sanity values', () => {
     const code = generateItemPrefab(food)
     expect(code).toContain('inst:AddComponent("edible")')

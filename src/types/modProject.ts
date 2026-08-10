@@ -489,6 +489,12 @@ export const itemDefSchema = z
         rechargePerSecondInSunlight: z.number().min(0.01).max(10),
       })
       .optional(),
+    solarBattery: z
+      .object({
+        maxCharge: z.number().min(1).max(2000),
+        chargePerSecondInSunlight: z.number().min(0.01).max(20),
+      })
+      .optional(),
     // Confirmed in components/combat_replica.lua's Combat:CanBeAlly — a
     // creature with a `follower` component whose leader is set is treated as
     // an ally by ANY other creature's own combat targeting that checks it
