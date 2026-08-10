@@ -151,6 +151,17 @@ function itemTuningBlock(item: ItemDef): string[] {
   if (item.rechargeable) {
     lines.push(`GLOBAL.TUNING.${upper}_COOLDOWN = ${item.rechargeable.cooldownSeconds}`)
   }
+  if (item.solarLantern) {
+    lines.push(`GLOBAL.TUNING.${upper}_MAX_FUEL = ${item.solarLantern.maxFuel}`)
+    lines.push(`GLOBAL.TUNING.${upper}_DRAIN_RATE = ${item.solarLantern.drainPerSecond}`)
+    lines.push(`GLOBAL.TUNING.${upper}_RECHARGE_RATE = ${item.solarLantern.rechargePerSecondInSunlight}`)
+    lines.push(`GLOBAL.TUNING.${upper}_LIGHT_RADIUS = ${item.solarLantern.radius}`)
+  }
+  if (item.summonTotem) {
+    lines.push(`GLOBAL.TUNING.${upper}_MAX_DURABILITY = ${item.summonTotem.maxDurability}`)
+    lines.push(`GLOBAL.TUNING.${upper}_DRAIN_RATE = ${item.summonTotem.drainPerSecond}`)
+    lines.push(`GLOBAL.TUNING.${upper}_RECHARGE_RATE = ${item.summonTotem.rechargePerSecondInSunlight}`)
+  }
   if (item.tameBomb) {
     const cloudUpper = toUpperSnake(`${item.id}_cloud`)
     lines.push(`GLOBAL.TUNING.${cloudUpper}_RADIUS = ${item.tameBomb.radius}`)
@@ -190,6 +201,9 @@ function creatureTuningBlock(creature: CreatureDef): string[] {
   }
   if (creature.sanityAura !== undefined) {
     lines.push(`GLOBAL.TUNING.${upper}_SANITYAURA = ${creature.sanityAura}`)
+  }
+  if (creature.heatAura !== undefined) {
+    lines.push(`GLOBAL.TUNING.${upper}_HEATAURA = ${creature.heatAura}`)
   }
   if (creature.herd !== undefined) {
     lines.push(`GLOBAL.TUNING.${upper}HERD_MAX_SIZE = ${creature.herd.maxSize}`)

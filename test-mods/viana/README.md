@@ -10,6 +10,7 @@ separadamente com as ferramentas de arte da Klei (Spriter/ktools) e colocados no
 caminhos abaixo, substituindo os placeholders:
 
 - **Itens**: `images/inventoryimages/<id>.xml`/`.tex` (ícone de inventário, sempre necessário).
+  - `solarlantern`: reaproveita o build "lantern" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `sunstaff`: reaproveita o build "staffs" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `suncodex`: reaproveita o build "books" do jogo base — nenhum `anim/*.zip` próprio é necessário.
     - Também precisa de `anim/ui_suncodex.zip` (arte de UI do contêiner, 3 slots).
@@ -17,9 +18,11 @@ caminhos abaixo, substituindo os placeholders:
   - `solsticeblessingspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `sunfedspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `sunwispspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
+  - `suntotem`: reaproveita o build "moonrock_idol" do jogo base — nenhum `anim/*.zip` próprio é necessário.
 - **Personagens**: builds em `anim/`, ícone de seleção e ícone de minimapa.
   - `viana`: reaproveita o build "wendy" do jogo base como placeholder visual — nenhum `anim/*.zip` próprio é necessário, mas a aparência final ainda será a desse personagem vanilla até você trocar por um build real.
 - **Criaturas**: por padrão reaproveitam o build "pigman" do jogo base — só precisam de `anim/<id>.zip` próprio se a animação for explicitamente marcada como personalizada.
+  - `sunorb`: reaproveita o build "flameball_fx" do jogo base — confirme em-jogo que as animações "idle_loop"/"idle_loop"/"idle_loop"/"idle_loop"/"post" existem nesse build antes de publicar (não verificado por esta ferramenta).
   - `sunwisp`: reaproveita o build "flameball_fx" do jogo base — confirme em-jogo que as animações "idle_loop"/"idle_loop"/"idle_loop"/"idle_loop"/"post" existem nesse build antes de publicar (não verificado por esta ferramenta).
 
 Fala de personagem (`speech_<id>.lua`) usa fallback para `speech_wilson` — só as

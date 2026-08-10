@@ -13,6 +13,23 @@ export const viana: ModProject = {
   },
   items: [
     {
+      id: 'solarlantern',
+      displayName: 'Solar Lantern',
+      description: "A lantern that only drinks from the sun — no fuel item will ever refill it, only standing in daylight will.",
+      category: 'generic',
+      animation: { source: 'vanilla', build: 'lantern', idleClip: 'idle_off' },
+      solarLantern: { maxFuel: 100, drainPerSecond: 0.1, rechargePerSecondInSunlight: 0.3, radius: 4 },
+      recipe: {
+        ingredients: [
+          { prefab: 'twigs', amount: 2 },
+          { prefab: 'goldnugget', amount: 2 },
+          { prefab: 'nightmarefuel', amount: 1 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+      },
+    },
+    {
       id: 'sunstaff',
       displayName: 'Sun Staff',
       description: 'A staff that channels whatever spells are bound in her Sun Codex.',
@@ -115,6 +132,23 @@ export const viana: ModProject = {
         filters: ['MAGIC'],
       },
     },
+    {
+      id: 'suntotem',
+      displayName: 'Sun Totem',
+      description: "Carve this and it carves back: use it to call up a Sun Orb, or dismiss the one you have. It only drinks from the sun — no fuel item will ever refill it, and the Orb fades the moment it runs dry.",
+      category: 'generic',
+      animation: { source: 'vanilla', build: 'moonrock_idol' },
+      summonTotem: { summonPrefab: 'sunorb', maxDurability: 150, drainPerSecond: 0.1, rechargePerSecondInSunlight: 0.3 },
+      recipe: {
+        ingredients: [
+          { prefab: 'twigs', amount: 3 },
+          { prefab: 'goldnugget', amount: 2 },
+          { prefab: 'nightmarefuel', amount: 2 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+      },
+    },
   ],
   characters: [
     {
@@ -145,6 +179,30 @@ export const viana: ModProject = {
     },
   ],
   creatures: [
+    {
+      id: 'sunorb',
+      displayName: 'Sun Orb',
+      description: 'A living cinder of sunlight, orbiting whoever called it up — warm, bright, and quick to defend her.',
+      animation: {
+        source: 'vanilla',
+        build: 'flameball_fx',
+        clips: { idle: 'idle_loop', walk: 'idle_loop', atk: 'idle_loop', hit: 'idle_loop', death: 'post' },
+      },
+      stats: { health: 150, damage: 25, attackPeriod: 2, walkSpeed: 8, attackRange: 3 },
+      loot: [],
+      behavior: 'neutral',
+      tags: [],
+      panicCauses: [],
+      companion: {
+        followDistance: 4,
+        tasks: [],
+        orbit: { radius: 3, degreesPerSecond: 45, contactDamage: { day: 25, dusk: 15, night: 10 } },
+      },
+      light: { radius: 10, intensity: 0.8, falloff: 0.8, colour: { r: 255, g: 140, b: 20 } },
+      sanityAura: 10,
+      heatAura: 40,
+      invincible: true,
+    },
     {
       id: 'sunwisp',
       displayName: 'Sun Wisp',

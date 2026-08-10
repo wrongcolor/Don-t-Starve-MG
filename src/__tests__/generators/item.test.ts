@@ -618,6 +618,108 @@ describe('generateItemFiles', () => {
     expect(code).toContain('inst.AnimState:PlayAnimation("idle")')
   })
 
+  it('wires a solar lantern as a head-slot fueled light that never accepts fuel items', () => {
+    const lantern: ItemDef = {
+      ...trinket,
+      solarLantern: { maxFuel: 100, drainPerSecond: 0.1, rechargePerSecondInSunlight: 0.3, radius: 4 },
+    }
+    const code = generateItemPrefab(lantern)
+    expect(code).toContain('inst.entity:AddLight()')
+    expect(code).toContain('inst.Light:SetRadius(TUNING.TESTTRINKET_LIGHT_RADIUS)')
+    expect(code).toContain('inst.components.equippable.equipslot = EQUIPSLOTS.HEAD')
+    expect(code).toContain('inst:AddComponent("fueled")')
+    expect(code).toContain('inst.components.fueled.fueltype = FUELTYPE.MAGIC')
+    expect(code).toContain('inst.components.fueled:InitializeFuelLevel(TUNING.TESTTRINKET_MAX_FUEL)')
+    expect(code).toContain('inst.components.fueled.rate = TUNING.TESTTRINKET_DRAIN_RATE')
+    expect(code).not.toContain('accepting = true')
+    expect(code).not.toContain('CanAcceptFuelItem')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('only recharges a solar lantern while standing in daylight above ground, never from a held fuel item', () => {
+    const lantern: ItemDef = {
+      ...trinket,
+      solarLantern: { maxFuel: 100, drainPerSecond: 0.1, rechargePerSecondInSunlight: 0.3, radius: 4 },
+    }
+    const code = generateItemPrefab(lantern)
+    expect(code).toContain('local function SolarLanternRechargeTick(inst)')
+    expect(code).toContain('if TheWorld.state.isday and not TheWorld:HasTag("cave") and not inst.components.fueled:IsFull() then')
+    expect(code).toContain('inst.components.fueled:DoDelta(TUNING.TESTTRINKET_RECHARGE_RATE)')
+    expect(code).toContain('inst:DoPeriodicTask(1, SolarLanternRechargeTick)')
+  })
+
+  it('toggles the lantern light and fuel consumption on equip/unequip', () => {
+    const lantern: ItemDef = {
+      ...trinket,
+      solarLantern: { maxFuel: 100, drainPerSecond: 0.1, rechargePerSecondInSunlight: 0.3, radius: 4 },
+    }
+    const code = generateItemPrefab(lantern)
+    expect(code).toContain('inst.Light:Enable(true)')
+    expect(code).toContain('inst.components.fueled:StartConsuming()')
+    expect(code).toContain('inst.Light:Enable(false)')
+    expect(code).toContain('inst.components.fueled:StopConsuming()')
+  })
+
+  it('rejects a solar lantern combined with armor or a weapon, since both would claim an equip slot', () => {
+    const lantern = { ...trinket, solarLantern: { maxFuel: 100, drainPerSecond: 0.1, rechargePerSecondInSunlight: 0.3, radius: 4 } }
+    expect(itemDefSchema.safeParse(lantern).success).toBe(true)
+    expect(itemDefSchema.safeParse({ ...lantern, armor: armor.armor }).success).toBe(false)
+    expect(itemDefSchema.safeParse({ ...lantern, weapon: sword.weapon }).success).toBe(false)
+  })
+
+  it('wires a summoning totem as a fueled spellcaster that spawns/dismisses its own tracked creature', () => {
+    const totem: ItemDef = {
+      ...trinket,
+      summonTotem: { summonPrefab: 'sunorb', maxDurability: 150, drainPerSecond: 0.1, rechargePerSecondInSunlight: 0.3 },
+    }
+    const code = generateItemPrefab(totem)
+    expect(code).toContain('inst:AddComponent("fueled")')
+    expect(code).toContain('inst.components.fueled.fueltype = FUELTYPE.MAGIC')
+    expect(code).toContain('inst.components.fueled:InitializeFuelLevel(TUNING.TESTTRINKET_MAX_DURABILITY)')
+    expect(code).toContain('inst.components.fueled.rate = TUNING.TESTTRINKET_DRAIN_RATE')
+    expect(code).toContain('inst:AddComponent("reticule")')
+    expect(code).toContain('inst:AddComponent("spellcaster")')
+    expect(code).toContain('inst.components.spellcaster:SetSpellFn(summontotem)')
+    expect(code).toContain('local function summontotem(staff, target, pos)')
+    expect(code).toContain('if staff.components.fueled ~= nil and staff.components.fueled:IsEmpty() then')
+    expect(code).toContain('local creature = SpawnPrefab("sunorb")')
+    expect(code).toContain('creature.components.follower:SetLeader(staff.components.inventoryitem.owner)')
+    expect(code).toContain('staff._totemcreature = creature')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('toggles the totem: using it again while the creature is alive dismisses it instead of summoning a second one', () => {
+    const totem: ItemDef = {
+      ...trinket,
+      summonTotem: { summonPrefab: 'sunorb', maxDurability: 150, drainPerSecond: 0.1, rechargePerSecondInSunlight: 0.3 },
+    }
+    const code = generateItemPrefab(totem)
+    expect(code).toContain('if staff._totemcreature ~= nil and staff._totemcreature:IsValid() then')
+    expect(code).toContain('staff._totemcreature:Remove()')
+    expect(code).toContain('staff._totemcreature = nil')
+  })
+
+  it('despawns the totem creature as soon as its fuel runs out, and only recharges it in daylight above ground', () => {
+    const totem: ItemDef = {
+      ...trinket,
+      summonTotem: { summonPrefab: 'sunorb', maxDurability: 150, drainPerSecond: 0.1, rechargePerSecondInSunlight: 0.3 },
+    }
+    const code = generateItemPrefab(totem)
+    expect(code).toContain('local function OnTotemFuelChanged(inst)')
+    expect(code).toContain('if inst.components.fueled:IsEmpty() and inst._totemcreature ~= nil then')
+    expect(code).toContain('inst:ListenForEvent("percentusedchange", OnTotemFuelChanged)')
+    expect(code).toContain('local function TotemRechargeTick(inst)')
+    expect(code).toContain('if TheWorld.state.isday and not TheWorld:HasTag("cave") and not inst.components.fueled:IsFull() then')
+    expect(code).toContain('inst.components.fueled:DoDelta(TUNING.TESTTRINKET_RECHARGE_RATE)')
+  })
+
+  it('rejects a summoning totem combined with another spellcaster-based effect, since both share the same aim-and-cast mechanism', () => {
+    const totem = { ...trinket, summonTotem: { summonPrefab: 'sunorb', maxDurability: 150, drainPerSecond: 0.1, rechargePerSecondInSunlight: 0.3 } }
+    expect(itemDefSchema.safeParse(totem).success).toBe(true)
+    expect(itemDefSchema.safeParse({ ...totem, spellEffect: 'createLight' as const }).success).toBe(false)
+    expect(itemDefSchema.safeParse({ ...totem, tameBomb: { radius: 5, cloudDurationSeconds: 5, tameDurationSeconds: 60 } }).success).toBe(false)
+  })
+
   it('wires the edible component with foodtype and TUNING-driven hunger/health/sanity values', () => {
     const code = generateItemPrefab(food)
     expect(code).toContain('inst:AddComponent("edible")')

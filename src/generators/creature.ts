@@ -62,12 +62,80 @@ export function generateHerdPrefab(creature: CreatureDef): string {
   return lines.join('\n') + '\n'
 }
 
+function needsFollowerTracking(creature: CreatureDef): boolean {
+  return creature.companion?.defendLeader === true || creature.companion?.orbit !== undefined
+}
+
 function defendLeaderFunctionBlock(): string[] {
   return [
     'local function TryDefendLeader(inst)',
     '    local leader = FindClosestPlayerToInst(inst, 30, true)',
     '    if leader ~= nil and inst.components.follower:GetLeader() ~= leader then',
     '        inst.components.follower:SetLeader(leader)',
+    '    end',
+    'end',
+    '',
+  ]
+}
+
+const ORBIT_CONTACT_RADIUS = 1.5
+const ORBIT_TICK_PERIOD = 0.1
+
+function needsOrbitContactDamage(creature: CreatureDef): boolean {
+  return creature.companion?.orbit?.contactDamage !== undefined
+}
+
+function orbitLeaderFunctionBlock(creature: CreatureDef): string[] {
+  const orbit = creature.companion!.orbit!
+  const radiansPerTick = orbit.degreesPerSecond * (Math.PI / 180) * ORBIT_TICK_PERIOD
+  const lines: string[] = []
+  if (orbit.contactDamage !== undefined) {
+    lines.push('local ORBIT_CONTACT_TAGS = { "hostile" }', '')
+  }
+  lines.push(
+    'local function OrbitLeader(inst)',
+    '    if inst.components.combat ~= nil and inst.components.combat:HasTarget() then',
+    '        return',
+    '    end',
+    '    local leader = inst.components.follower ~= nil and inst.components.follower:GetLeader() or nil',
+    '    if leader == nil or not leader:IsValid() then',
+    '        return',
+    '    end',
+    `    inst._orbitangle = (inst._orbitangle or 0) + ${radiansPerTick}`,
+    '    local x, y, z = leader.Transform:GetWorldPosition()',
+    `    local orbitx = x + ${orbit.radius} * math.cos(inst._orbitangle)`,
+    `    local orbitz = z + ${orbit.radius} * math.sin(inst._orbitangle)`,
+    '    inst.Transform:SetPosition(orbitx, 0, orbitz)',
+  )
+  if (orbit.contactDamage !== undefined) {
+    lines.push(
+      '',
+      '    if inst.components.combat ~= nil and not inst.components.combat:InCooldown() then',
+      `        local victims = TheSim:FindEntities(orbitx, 0, orbitz, ${ORBIT_CONTACT_RADIUS}, ORBIT_CONTACT_TAGS)`,
+      '        for _, victim in ipairs(victims) do',
+      '            if victim ~= inst and victim.components.health ~= nil and not victim.components.health:IsDead() then',
+      '                inst.components.combat:StartAttack()',
+      '                inst.components.combat:DoAttack(victim)',
+      '                break',
+      '            end',
+      '        end',
+      '    end',
+    )
+  }
+  lines.push('end', '')
+  return lines
+}
+
+function orbitPhaseDamageFunctionBlock(creature: CreatureDef): string[] {
+  const damage = creature.companion!.orbit!.contactDamage!
+  return [
+    'local function OnOrbitPhaseChanged(inst, phase)',
+    '    if phase == "day" then',
+    `        inst.components.combat:SetDefaultDamage(${damage.day})`,
+    '    elseif phase == "dusk" then',
+    `        inst.components.combat:SetDefaultDamage(${damage.dusk})`,
+    '    else',
+    `        inst.components.combat:SetDefaultDamage(${damage.night})`,
     '    end',
     'end',
     '',
@@ -164,8 +232,14 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
       '',
     )
   }
-  if (creature.companion?.defendLeader) {
+  if (needsFollowerTracking(creature)) {
     lines.push(...defendLeaderFunctionBlock())
+  }
+  if (creature.companion?.orbit !== undefined) {
+    lines.push(...orbitLeaderFunctionBlock(creature))
+  }
+  if (needsOrbitContactDamage(creature)) {
+    lines.push(...orbitPhaseDamageFunctionBlock(creature))
   }
   if (creature.work !== undefined) {
     lines.push(...depositAtHomeFunctionBlock())
@@ -211,6 +285,9 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   lines.push('')
   lines.push('    inst:AddComponent("health")')
   lines.push(`    inst.components.health:SetMaxHealth(TUNING.${upper}_HEALTH)`)
+  if (creature.invincible) {
+    lines.push('    inst.components.health:SetInvincible(true)')
+  }
   lines.push('')
   lines.push('    inst:AddComponent("combat")')
   lines.push(`    inst.components.combat:SetDefaultDamage(TUNING.${upper}_DAMAGE)`)
@@ -232,6 +309,12 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
     lines.push('')
     lines.push('    inst:AddComponent("sanityaura")')
     lines.push(`    inst.components.sanityaura.aura = TUNING.${upper}_SANITYAURA`)
+  }
+
+  if (creature.heatAura !== undefined) {
+    lines.push('')
+    lines.push('    inst:AddComponent("heater")')
+    lines.push(`    inst.components.heater.heat = TUNING.${upper}_HEATAURA`)
   }
 
   if (creature.flammable) {
@@ -281,10 +364,19 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
     if (needsMine) lines.push('    inst.components.worker:SetAction(ACTIONS.MINE, 1)')
   }
 
-  if (creature.companion?.defendLeader) {
+  if (needsFollowerTracking(creature)) {
     lines.push('')
     lines.push('    inst:AddComponent("follower")')
     lines.push('    inst:DoPeriodicTask(2, TryDefendLeader)')
+  }
+
+  if (creature.companion?.orbit !== undefined) {
+    lines.push(`    inst:DoPeriodicTask(${ORBIT_TICK_PERIOD}, OrbitLeader)`)
+  }
+
+  if (needsOrbitContactDamage(creature)) {
+    lines.push('    inst:ListenForEvent("phasechanged", function(src, phase) OnOrbitPhaseChanged(inst, phase) end, TheWorld)')
+    lines.push('    OnOrbitPhaseChanged(inst, TheWorld.state.phase)')
   }
 
   if (creature.work !== undefined) {

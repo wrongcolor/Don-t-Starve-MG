@@ -68,6 +68,9 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   const enableAttackRange = watched.stats?.attackRange !== undefined
   const enableAggroRange = watched.stats?.aggroRange !== undefined
   const enableSanityAura = watched.sanityAura !== undefined
+  const enableHeatAura = watched.heatAura !== undefined
+  const enableOrbit = watched.companion?.orbit !== undefined
+  const enableOrbitContactDamage = watched.companion?.orbit?.contactDamage !== undefined
   const enableCookable = watched.cookable !== undefined
   const enableHerd = watched.herd !== undefined
   const enableKiting = watched.kiting !== undefined
@@ -275,6 +278,26 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
               )}
 
               <div className="checks">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={enableHeatAura}
+                    onChange={(e) => setValue('heatAura', e.target.checked ? 40 : undefined)}
+                  />
+                  Warms nearby survivors
+                </label>
+              </div>
+              {enableHeatAura && (
+                <FormField label="Heat given off (°C, warms things below this)">
+                  <input type="number" className={inputClass} {...register('heatAura', { valueAsNumber: true })} />
+                </FormField>
+              )}
+
+              <div className="checks">
+                <label>
+                  <input type="checkbox" {...register('invincible')} />
+                  Immune to damage
+                </label>
                 <label>
                   <input type="checkbox" {...register('flammable')} />
                   Can catch fire
@@ -505,9 +528,85 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
             </div>
             {enableCompanion && (
               <>
-                <FormField label="Follow distance">
-                  <input type="number" min="2" max="20" className={inputClass} {...register('companion.followDistance', { valueAsNumber: true })} />
-                </FormField>
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableOrbit}
+                      onChange={(e) =>
+                        setValue('companion.orbit', e.target.checked ? { radius: 3, degreesPerSecond: 60 } : undefined)
+                      }
+                    />
+                    Orbits the player in a fixed circle instead of loosely following
+                  </label>
+                </div>
+                {enableOrbit ? (
+                  <div className="row-2">
+                    <FormField label="Orbit radius">
+                      <input type="number" min="1" max="15" className={inputClass} {...register('companion.orbit.radius', { valueAsNumber: true })} />
+                    </FormField>
+                    <FormField label="Orbit speed (degrees/second)">
+                      <input
+                        type="number"
+                        min="1"
+                        max="180"
+                        className={inputClass}
+                        {...register('companion.orbit.degreesPerSecond', { valueAsNumber: true })}
+                      />
+                    </FormField>
+                  </div>
+                ) : (
+                  <FormField label="Follow distance">
+                    <input type="number" min="2" max="20" className={inputClass} {...register('companion.followDistance', { valueAsNumber: true })} />
+                  </FormField>
+                )}
+                {enableOrbit && (
+                  <>
+                    <div className="checks">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={enableOrbitContactDamage}
+                          onChange={(e) =>
+                            setValue(
+                              'companion.orbit.contactDamage',
+                              e.target.checked ? { day: 25, dusk: 15, night: 10 } : undefined,
+                            )
+                          }
+                        />
+                        Damages enemies it orbits over
+                      </label>
+                    </div>
+                    {enableOrbitContactDamage && (
+                      <div className="row-2">
+                        <FormField label="Damage by day">
+                          <input
+                            type="number"
+                            min="0"
+                            className={inputClass}
+                            {...register('companion.orbit.contactDamage.day', { valueAsNumber: true })}
+                          />
+                        </FormField>
+                        <FormField label="Damage at dusk">
+                          <input
+                            type="number"
+                            min="0"
+                            className={inputClass}
+                            {...register('companion.orbit.contactDamage.dusk', { valueAsNumber: true })}
+                          />
+                        </FormField>
+                        <FormField label="Damage by night">
+                          <input
+                            type="number"
+                            min="0"
+                            className={inputClass}
+                            {...register('companion.orbit.contactDamage.night', { valueAsNumber: true })}
+                          />
+                        </FormField>
+                      </div>
+                    )}
+                  </>
+                )}
                 <div className="checks">
                   {COMPANION_TASKS.map((task) => (
                     <label key={task}>

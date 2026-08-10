@@ -196,6 +196,8 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const enableWeapon = watched.weapon !== undefined
   const enableFiniteuses = watched.finiteuses !== undefined
   const enableArmor = watched.armor !== undefined
+  const enableSolarLantern = watched.solarLantern !== undefined
+  const enableSummonTotem = watched.summonTotem !== undefined
   const enableRanged = watched.weapon?.ranged !== undefined
   const enableMeleeRange = watched.weapon?.meleeRange !== undefined
   const enableSanityCost = watched.weapon?.sanityCostOnUse !== undefined
@@ -930,8 +932,119 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
             )}
           </Fieldset>
 
+          <Fieldset legend="Solar Lantern" step={7}>
+            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+              Sourced from the real Miner Hat (Original/prefabs/mininglantern.lua) — a head-slot fueled light, but set
+              to FUELTYPE.MAGIC ("use this one if u don't want there to be any associated fuel", per the component's
+              own source comment) so no fuel item can ever refill it. A periodic task refills it instead, but only
+              while it's out in daylight above ground.
+            </p>
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableSolarLantern}
+                  onChange={(e) =>
+                    setValue(
+                      'solarLantern',
+                      e.target.checked ? { maxFuel: 100, drainPerSecond: 0.1, rechargePerSecondInSunlight: 0.3, radius: 4 } : undefined,
+                    )
+                  }
+                />
+                A head-slot lantern that only recharges in sunlight
+              </label>
+            </div>
+            {enableSolarLantern && (
+              <div className="row-2">
+                <FormField label="Max fuel">
+                  <input type="number" min="1" className={inputClass} {...register('solarLantern.maxFuel', { valueAsNumber: true })} />
+                </FormField>
+                <FormField label="Fuel drained per second while worn">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    className={inputClass}
+                    {...register('solarLantern.drainPerSecond', { valueAsNumber: true })}
+                  />
+                </FormField>
+                <FormField label="Fuel recharged per second in sunlight">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    className={inputClass}
+                    {...register('solarLantern.rechargePerSecondInSunlight', { valueAsNumber: true })}
+                  />
+                </FormField>
+                <FormField label="Light radius">
+                  <input type="number" min="1" max="20" className={inputClass} {...register('solarLantern.radius', { valueAsNumber: true })} />
+                </FormField>
+              </div>
+            )}
+          </Fieldset>
+
+          <Fieldset legend="Summon Totem" step={8}>
+            <p style={{ fontSize: 15, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 8 }}>
+              A held item that casts itself at a fixed point in front of you (the same spellcaster mechanism as a
+              magic effect) to summon/dismiss a creature, tracked on the totem itself. Durability drains like the
+              Solar Lantern's fuel while the creature is alive, and only recharges in daylight — when it hits zero,
+              the creature disappears.
+            </p>
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableSummonTotem}
+                  onChange={(e) =>
+                    setValue(
+                      'summonTotem',
+                      e.target.checked
+                        ? { summonPrefab: '', maxDurability: 100, drainPerSecond: 0.1, rechargePerSecondInSunlight: 0.3 }
+                        : undefined,
+                    )
+                  }
+                />
+                Summons a creature companion when used
+              </label>
+            </div>
+            {enableSummonTotem && (
+              <>
+                <FormField label="Creature to summon (prefab id)">
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input className={inputClass} {...register('summonTotem.summonPrefab')} />
+                    <PrefabPickerButton onSelect={(id) => setValue('summonTotem.summonPrefab', id, { shouldDirty: true })} />
+                  </div>
+                </FormField>
+                <div className="row-2">
+                  <FormField label="Max durability">
+                    <input type="number" min="1" className={inputClass} {...register('summonTotem.maxDurability', { valueAsNumber: true })} />
+                  </FormField>
+                  <FormField label="Durability drained per second while summoned">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      className={inputClass}
+                      {...register('summonTotem.drainPerSecond', { valueAsNumber: true })}
+                    />
+                  </FormField>
+                  <FormField label="Durability recharged per second in sunlight">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      className={inputClass}
+                      {...register('summonTotem.rechargePerSecondInSunlight', { valueAsNumber: true })}
+                    />
+                  </FormField>
+                </div>
+              </>
+            )}
+          </Fieldset>
+
           {category === 'food' && (
-            <Fieldset legend="Food (Edible)" step={7}>
+            <Fieldset legend="Food (Edible)" step={9}>
               <div className="row-2">
                 <FormField label="Food type">
                   <select className={inputClass} {...register('edible.foodType')}>
@@ -992,7 +1105,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
             </Fieldset>
           )}
 
-          <Fieldset legend="Container" step={8}>
+          <Fieldset legend="Container" step={10}>
             <div className="checks">
               <label>
                 <input
@@ -1180,7 +1293,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
             )}
           </Fieldset>
 
-          <Fieldset legend="Special mechanics" step={9}>
+          <Fieldset legend="Special mechanics" step={11}>
             <div className="checks">
               <label>
                 <input

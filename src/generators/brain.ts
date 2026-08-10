@@ -240,24 +240,29 @@ export function generateBrain(creature: CreatureDef): string {
     }
   }
 
+  const orbiting = creature.companion?.orbit !== undefined
+
   if (creature.companion) {
     const tasks = creature.companion.tasks
-    requires.push('require "behaviours/follow"')
     if (tasks.length > 0) requires.push('require "behaviours/doaction"')
     if (tasks.includes('chopTrees')) localConstants.push(`local CHOP_RADIUS = ${CHOP_RADIUS}`)
     if (tasks.includes('collectItems')) localConstants.push(`local COLLECT_RADIUS = ${COLLECT_RADIUS}`)
-    localConstants.push(
-      `local FOLLOW_MIN_DIST = ${FOLLOW_MIN_DIST}`,
-      `local FOLLOW_TARGET_DIST = ${creature.companion.followDistance}`,
-      `local FOLLOW_MAX_DIST = ${creature.companion.followDistance + 4}`,
-    )
 
     const { functions, nodes } = companionTaskFunctions(creature)
     localFunctions.push('', ...functions)
     behaviorNodes.push(...nodes)
-    behaviorNodes.push(
-      `        Follow(self.inst, function() return FindClosestPlayerToInst(self.inst, ${FOLLOW_SEARCH_DIST}, true) end, FOLLOW_MIN_DIST, FOLLOW_TARGET_DIST, FOLLOW_MAX_DIST),`,
-    )
+
+    if (!orbiting) {
+      requires.push('require "behaviours/follow"')
+      localConstants.push(
+        `local FOLLOW_MIN_DIST = ${FOLLOW_MIN_DIST}`,
+        `local FOLLOW_TARGET_DIST = ${creature.companion.followDistance}`,
+        `local FOLLOW_MAX_DIST = ${creature.companion.followDistance + 4}`,
+      )
+      behaviorNodes.push(
+        `        Follow(self.inst, function() return FindClosestPlayerToInst(self.inst, ${FOLLOW_SEARCH_DIST}, true) end, FOLLOW_MIN_DIST, FOLLOW_TARGET_DIST, FOLLOW_MAX_DIST),`,
+      )
+    }
   }
 
   if (creature.work) {
@@ -273,7 +278,9 @@ export function generateBrain(creature: CreatureDef): string {
     behaviorNodes.push(...nodes)
   }
 
-  behaviorNodes.push('        Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
+  if (!orbiting) {
+    behaviorNodes.push('        Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
+  }
 
   const lines = [...requires, '', 'local BrainClass = require "brain"']
   if (localConstants.length > 0) lines.push('', ...localConstants)

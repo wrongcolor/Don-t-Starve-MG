@@ -4,9 +4,16 @@ local TUNING = GLOBAL.TUNING
 local TECH = GLOBAL.TECH
 local Ingredient = GLOBAL.Ingredient
 
-PrefabFiles = { "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "viana", "sunwisp" }
+PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "suntotem", "viana", "sunorb", "sunwisp" }
 
 -- Items: tuning + strings
+GLOBAL.TUNING.SOLARLANTERN_MAX_FUEL = 100
+GLOBAL.TUNING.SOLARLANTERN_DRAIN_RATE = 0.1
+GLOBAL.TUNING.SOLARLANTERN_RECHARGE_RATE = 0.3
+GLOBAL.TUNING.SOLARLANTERN_LIGHT_RADIUS = 4
+STRINGS.NAMES.SOLARLANTERN = "Solar Lantern"
+STRINGS.RECIPE_DESC.SOLARLANTERN = "A lantern that only drinks from the sun — no fuel item will ever refill it, only standing in daylight will."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARLANTERN = "A lantern that only drinks from the sun — no fuel item will ever refill it, only standing in daylight will."
 STRINGS.NAMES.SUNSTAFF = "Sun Staff"
 STRINGS.RECIPE_DESC.SUNSTAFF = "A staff that channels whatever spells are bound in her Sun Codex."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNSTAFF = "A staff that channels whatever spells are bound in her Sun Codex."
@@ -25,8 +32,17 @@ STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNFEDSPELL = "Bind this in the Sun Codex to
 STRINGS.NAMES.SUNWISPSPELL = "Sun Wisp Spell"
 STRINGS.RECIPE_DESC.SUNWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff call a small fire spirit that stays glowing by her side."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff call a small fire spirit that stays glowing by her side."
+GLOBAL.TUNING.SUNTOTEM_MAX_DURABILITY = 150
+GLOBAL.TUNING.SUNTOTEM_DRAIN_RATE = 0.1
+GLOBAL.TUNING.SUNTOTEM_RECHARGE_RATE = 0.3
+STRINGS.NAMES.SUNTOTEM = "Sun Totem"
+STRINGS.RECIPE_DESC.SUNTOTEM = "Carve this and it carves back: use it to call up a Sun Orb, or dismiss the one you have. It only drinks from the sun — no fuel item will ever refill it, and the Orb fades the moment it runs dry."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNTOTEM = "Carve this and it carves back: use it to call up a Sun Orb, or dismiss the one you have. It only drinks from the sun — no fuel item will ever refill it, and the Orb fades the moment it runs dry."
 
 -- Items: recipes
+AddRecipe2("solarlantern", { Ingredient("twigs", 2), Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 1) }, TECH.MAGIC_TWO, {
+        image = "lantern.tex",
+    }, { "MAGIC" })
 AddRecipe2("sunstaff", { Ingredient("twigs", 2), Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
         image = "staffs.tex",
     }, { "MAGIC" })
@@ -44,6 +60,9 @@ AddRecipe2("sunfedspell", { Ingredient("twigs", 1), Ingredient("goldnugget", 1) 
     }, { "MAGIC" })
 AddRecipe2("sunwispspell", { Ingredient("twigs", 1), Ingredient("goldnugget", 1), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
+    }, { "MAGIC" })
+AddRecipe2("suntotem", { Ingredient("twigs", 3), Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
+        image = "moonrock_idol.tex",
     }, { "MAGIC" })
 
 -- Container widgets
@@ -72,6 +91,21 @@ function params.suncodex.itemtestfn(container, item, slot)
 end
 
 -- Creatures: tuning + strings
+GLOBAL.TUNING.SUNORB_HEALTH = 150
+GLOBAL.TUNING.SUNORB_DAMAGE = 25
+GLOBAL.TUNING.SUNORB_ATTACK_PERIOD = 2
+GLOBAL.TUNING.SUNORB_WALKSPEED = 8
+GLOBAL.TUNING.SUNORB_ATTACK_RANGE = 3
+GLOBAL.TUNING.SUNORB_SANITYAURA = 10
+GLOBAL.TUNING.SUNORB_HEATAURA = 40
+GLOBAL.TUNING.SUNORB_LIGHT_RADIUS = 10
+GLOBAL.TUNING.SUNORB_LIGHT_FALLOFF = 0.8
+GLOBAL.TUNING.SUNORB_LIGHT_INTENSITY = 0.8
+GLOBAL.TUNING.SUNORB_LIGHT_COLOUR_R = 1
+GLOBAL.TUNING.SUNORB_LIGHT_COLOUR_G = 0.5490196078431373
+GLOBAL.TUNING.SUNORB_LIGHT_COLOUR_B = 0.0784313725490196
+STRINGS.NAMES.SUNORB = "Sun Orb"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNORB = "A living cinder of sunlight, orbiting whoever called it up — warm, bright, and quick to defend her."
 GLOBAL.TUNING.SUNWISP_HEALTH = 15
 GLOBAL.TUNING.SUNWISP_DAMAGE = 0
 GLOBAL.TUNING.SUNWISP_ATTACK_PERIOD = 2

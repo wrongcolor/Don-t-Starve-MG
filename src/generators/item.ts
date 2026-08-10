@@ -115,6 +115,10 @@ function armorEquipSlot(item: ItemDef): 'body' | 'head' {
   return item.armor?.equipSlot === 'head' ? 'head' : 'body'
 }
 
+export function isSolarLantern(item: ItemDef): boolean {
+  return item.solarLantern !== undefined
+}
+
 function needsArmorTakeDamage(item: ItemDef): boolean {
   return item.armor?.sanityLossOnHitPercent !== undefined
 }
@@ -184,7 +188,8 @@ function needsSpellcaster(item: ItemDef): boolean {
     item.spellEffect !== undefined ||
     item.tameBomb !== undefined ||
     item.smokeBomb !== undefined ||
-    item.groundAttack !== undefined
+    item.groundAttack !== undefined ||
+    item.summonTotem !== undefined
   )
 }
 
@@ -200,6 +205,7 @@ function spellcasterFunctionName(item: ItemDef): string {
   if (item.tameBomb !== undefined) return 'throwtamecloud'
   if (item.smokeBomb !== undefined) return 'throwsmokebomb'
   if (item.groundAttack !== undefined) return 'throwgroundattack'
+  if (item.summonTotem !== undefined) return 'summontotem'
   return 'createlight'
 }
 
@@ -239,6 +245,24 @@ function spellFunctionBlock(item: ItemDef): string[] {
       '    if staff.components.finiteuses ~= nil then',
       '        staff.components.finiteuses:Use(1)',
       '    end',
+    )
+  } else if (item.summonTotem !== undefined) {
+    lines.push(
+      'local function summontotem(staff, target, pos)',
+      '    if staff.components.fueled ~= nil and staff.components.fueled:IsEmpty() then',
+      '        return',
+      '    end',
+      '    if staff._totemcreature ~= nil and staff._totemcreature:IsValid() then',
+      '        staff._totemcreature:Remove()',
+      '        staff._totemcreature = nil',
+      '        return',
+      '    end',
+      `    local creature = SpawnPrefab(${luaString(item.summonTotem.summonPrefab)})`,
+      '    creature.Transform:SetPosition(pos:Get())',
+      '    if creature.components.follower ~= nil then',
+      '        creature.components.follower:SetLeader(staff.components.inventoryitem.owner)',
+      '    end',
+      '    staff._totemcreature = creature',
     )
   } else {
     lines.push(
@@ -585,7 +609,9 @@ function armorComponentBlock(item: ItemDef): string[] {
 
 function equippableComponentBlock(item: ItemDef): string[] {
   const lines = ['', '    inst:AddComponent("equippable")']
-  if (isWearableArmor(item)) {
+  if (isSolarLantern(item)) {
+    lines.push('    inst.components.equippable.equipslot = EQUIPSLOTS.HEAD')
+  } else if (isWearableArmor(item)) {
     lines.push(`    inst.components.equippable.equipslot = EQUIPSLOTS.${armorEquipSlot(item).toUpperCase()}`)
   }
   lines.push('    inst.components.equippable:SetOnEquip(onequip)', '    inst.components.equippable:SetOnUnequip(onunequip)')
@@ -607,6 +633,40 @@ function spellcasterComponentBlock(item: ItemDef): string[] {
     '    inst:AddComponent("spellcaster")',
     `    inst.components.spellcaster:SetSpellFn(${spellcasterFunctionName(item)})`,
     '    inst.components.spellcaster.canuseonpoint = true',
+  ]
+}
+
+function summonTotemFunctionBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  return [
+    'local function OnTotemFuelChanged(inst)',
+    '    if inst.components.fueled:IsEmpty() and inst._totemcreature ~= nil then',
+    '        if inst._totemcreature:IsValid() then',
+    '            inst._totemcreature:Remove()',
+    '        end',
+    '        inst._totemcreature = nil',
+    '    end',
+    'end',
+    '',
+    'local function TotemRechargeTick(inst)',
+    '    if TheWorld.state.isday and not TheWorld:HasTag("cave") and not inst.components.fueled:IsFull() then',
+    `        inst.components.fueled:DoDelta(TUNING.${upper}_RECHARGE_RATE)`,
+    '    end',
+    'end',
+    '',
+  ]
+}
+
+function summonTotemComponentBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  return [
+    '',
+    '    inst:AddComponent("fueled")',
+    '    inst.components.fueled.fueltype = FUELTYPE.MAGIC',
+    `    inst.components.fueled:InitializeFuelLevel(TUNING.${upper}_MAX_DURABILITY)`,
+    `    inst.components.fueled.rate = TUNING.${upper}_DRAIN_RATE`,
+    '    inst:ListenForEvent("percentusedchange", OnTotemFuelChanged)',
+    '    inst:DoPeriodicTask(1, TotemRechargeTick)',
   ]
 }
 
@@ -728,7 +788,9 @@ function componentBlock(item: ItemDef): string {
   if (item.rechargeable) lines.push(...rechargeableComponentBlock(item))
   if (item.finiteuses) lines.push(...finiteusesComponentBlock(item))
   if (item.armor) lines.push(...armorComponentBlock(item))
-  if (isHandheld(item) || isWearableArmor(item)) lines.push(...equippableComponentBlock(item))
+  if (isHandheld(item) || isWearableArmor(item) || isSolarLantern(item)) lines.push(...equippableComponentBlock(item))
+  if (isSolarLantern(item)) lines.push(...solarLanternComponentBlock(item))
+  if (item.summonTotem) lines.push(...summonTotemComponentBlock(item))
   if (needsSpellcaster(item)) lines.push(...spellcasterComponentBlock(item))
   if (needsSpellbook(item)) lines.push(...spellbookComponentBlock(item))
   if (item.perishable) lines.push(...perishableComponentBlock(item))
@@ -813,6 +875,56 @@ function hatEquipFunctionsBlock(item: ItemDef): string[] {
   ]
 }
 
+function solarLanternEquipFunctionsBlock(item: ItemDef): string[] {
+  const build = resolveAnimationBuild(item)
+  return [
+    'local function onequip(inst, owner)',
+    `    owner.AnimState:OverrideSymbol("swap_hat", ${luaString(build)}, "swap_hat")`,
+    '    owner.AnimState:Show("HAT")',
+    '    owner.AnimState:Show("HAIR_HAT")',
+    '    owner.AnimState:Hide("HAIR_NOHAT")',
+    '    owner.AnimState:Hide("HAIR")',
+    '    inst.Light:Enable(true)',
+    '    inst.components.fueled:StartConsuming()',
+    'end',
+    '',
+    'local function onunequip(inst, owner)',
+    '    owner.AnimState:ClearOverrideSymbol("swap_hat")',
+    '    owner.AnimState:Hide("HAT")',
+    '    owner.AnimState:Hide("HAIR_HAT")',
+    '    owner.AnimState:Show("HAIR_NOHAT")',
+    '    owner.AnimState:Show("HAIR")',
+    '    inst.Light:Enable(false)',
+    '    inst.components.fueled:StopConsuming()',
+    'end',
+    '',
+  ]
+}
+
+function solarLanternRechargeFunctionBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  return [
+    'local function SolarLanternRechargeTick(inst)',
+    '    if TheWorld.state.isday and not TheWorld:HasTag("cave") and not inst.components.fueled:IsFull() then',
+    `        inst.components.fueled:DoDelta(TUNING.${upper}_RECHARGE_RATE)`,
+    '    end',
+    'end',
+    '',
+  ]
+}
+
+function solarLanternComponentBlock(item: ItemDef): string[] {
+  const upper = toUpperSnake(item.id)
+  return [
+    '',
+    '    inst:AddComponent("fueled")',
+    '    inst.components.fueled.fueltype = FUELTYPE.MAGIC',
+    `    inst.components.fueled:InitializeFuelLevel(TUNING.${upper}_MAX_FUEL)`,
+    `    inst.components.fueled.rate = TUNING.${upper}_DRAIN_RATE`,
+    '    inst:DoPeriodicTask(1, SolarLanternRechargeTick)',
+  ]
+}
+
 // Assets: when the item reuses a vanilla build (item.animation.source === 'vanilla'),
 // no Asset("ANIM", ...) is declared — that animation data is already loaded by the
 // base game. Otherwise this is a PLACEHOLDER: the user must supply anim/<id>.zip
@@ -852,14 +964,22 @@ export function generateItemPrefab(item: ItemDef): string {
   lines.push('')
   if (handheld) {
     lines.push(...equipFunctionsBlock(item))
+  } else if (isSolarLantern(item)) {
+    lines.push(...solarLanternEquipFunctionsBlock(item))
   } else if (isWearableArmor(item)) {
     lines.push(...(armorEquipSlot(item) === 'head' ? hatEquipFunctionsBlock(item) : armorEquipFunctionsBlock(item)))
+  }
+  if (isSolarLantern(item)) {
+    lines.push(...solarLanternRechargeFunctionBlock(item))
   }
   if (needsOnAttack(item)) {
     lines.push(...onAttackFunctionBlock(item))
   }
   if (needsSpellcaster(item)) {
     lines.push(...spellFunctionBlock(item))
+  }
+  if (item.summonTotem) {
+    lines.push(...summonTotemFunctionBlock(item))
   }
   if (needsSpellbook(item)) {
     lines.push(...spellbookFunctionBlock(item))
@@ -888,6 +1008,9 @@ export function generateItemPrefab(item: ItemDef): string {
   lines.push('    inst.entity:AddTransform()')
   lines.push('    inst.entity:AddAnimState()')
   lines.push('    inst.entity:AddNetwork()')
+  if (isSolarLantern(item)) {
+    lines.push('    inst.entity:AddLight()')
+  }
   lines.push('')
   lines.push('    MakeInventoryPhysics(inst)')
   lines.push('')
@@ -895,6 +1018,15 @@ export function generateItemPrefab(item: ItemDef): string {
   lines.push(`    inst.AnimState:SetBuild(${luaString(build)})`)
   lines.push(`    inst.AnimState:PlayAnimation(${luaString(resolveIdleClip(item))})`)
   lines.push('')
+  if (isSolarLantern(item)) {
+    const upper = toUpperSnake(item.id)
+    lines.push(`    inst.Light:SetRadius(TUNING.${upper}_LIGHT_RADIUS)`)
+    lines.push('    inst.Light:SetFalloff(.9)')
+    lines.push('    inst.Light:SetIntensity(.7)')
+    lines.push('    inst.Light:SetColour(255 / 255, 220 / 255, 150 / 255)')
+    lines.push('    inst.Light:Enable(false)')
+    lines.push('')
+  }
   lines.push('    inst:AddTag("item")')
   if (item.combinable) {
     // Needs to be visible client-side too — it's read by the USEITEM component

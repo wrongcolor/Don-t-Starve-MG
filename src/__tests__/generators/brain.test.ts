@@ -165,6 +165,20 @@ describe('generateBrain', () => {
     expect(followIdx).toBeLessThan(wanderIdx)
   })
 
+  it('skips Follow and the Wander fallback entirely when companion.orbit is set, since a periodic task drives its position instead', () => {
+    const orbiter: CreatureDef = {
+      ...hostileMob,
+      behavior: 'neutral',
+      companion: { followDistance: 5, tasks: [], orbit: { radius: 3, degreesPerSecond: 45 } },
+    }
+    const code = generateBrain(orbiter)
+    expect(code).not.toContain('require "behaviours/follow"')
+    expect(code).not.toContain('Follow(self.inst,')
+    expect(code).not.toContain('Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
+    expect(code).toContain('WhileNode(function() return self.inst.components.combat:HasTarget() end, "Retaliate", ChaseAndAttack(self.inst, SEE_TARGET_DIST)),')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
   it('always wanders leashed to a home position, if the creature has one, instead of unleashed', () => {
     const code = generateBrain(hostileMob)
     expect(code).toContain('local MAX_WANDER_DIST = 20')

@@ -473,6 +473,22 @@ export const itemDefSchema = z
     // a cooldown and becomes usable again on its own. SetChargeTime/Discharge
     // confirmed across two mods (this one, and "Renameable Watches").
     rechargeable: z.object({ cooldownSeconds: z.number().min(1) }).optional(),
+    solarLantern: z
+      .object({
+        maxFuel: z.number().min(1).max(1000),
+        drainPerSecond: z.number().min(0.01).max(10),
+        rechargePerSecondInSunlight: z.number().min(0.01).max(10),
+        radius: z.number().min(1).max(20),
+      })
+      .optional(),
+    summonTotem: z
+      .object({
+        summonPrefab: z.string().min(1, 'Enter the creature to summon (e.g. sunorb)'),
+        maxDurability: z.number().min(1).max(1000),
+        drainPerSecond: z.number().min(0.01).max(10),
+        rechargePerSecondInSunlight: z.number().min(0.01).max(10),
+      })
+      .optional(),
     // Confirmed in components/combat_replica.lua's Combat:CanBeAlly — a
     // creature with a `follower` component whose leader is set is treated as
     // an ally by ANY other creature's own combat targeting that checks it
@@ -575,6 +591,26 @@ export const itemDefSchema = z
   .refine((item) => item.smokeBomb === undefined || item.groundAttack === undefined, {
     message: 'A smoke cloud and a ground attack both use the same aim-and-throw mechanism (spellcaster) — turn one off first',
     path: ['smokeBomb'],
+  })
+  .refine((item) => item.solarLantern === undefined || (item.armor === undefined && item.weapon === undefined), {
+    message: 'A solar lantern already claims the head equip slot — turn off armor/weapon first',
+    path: ['solarLantern'],
+  })
+  .refine((item) => item.summonTotem === undefined || item.spellEffect === undefined, {
+    message: 'A summoning totem already uses the same aim-and-cast mechanism (spellcaster) as the magic effect — turn that off first',
+    path: ['summonTotem'],
+  })
+  .refine((item) => item.summonTotem === undefined || item.tameBomb === undefined, {
+    message: 'A summoning totem and a tame cloud both use the same aim-and-cast mechanism (spellcaster) — turn one off first',
+    path: ['summonTotem'],
+  })
+  .refine((item) => item.summonTotem === undefined || item.smokeBomb === undefined, {
+    message: 'A summoning totem and a smoke cloud both use the same aim-and-cast mechanism (spellcaster) — turn one off first',
+    path: ['summonTotem'],
+  })
+  .refine((item) => item.summonTotem === undefined || item.groundAttack === undefined, {
+    message: 'A summoning totem and a ground attack both use the same aim-and-cast mechanism (spellcaster) — turn one off first',
+    path: ['summonTotem'],
   })
 
 // A structure is never handheld/wearable/edible — it's always a placed prefab
@@ -980,6 +1016,8 @@ export const creatureDefSchema = z
     behavior: z.enum(CREATURE_BEHAVIORS),
     tags: z.array(z.string().min(1)),
     sanityAura: z.number().optional(),
+    heatAura: z.number().optional(),
+    invincible: z.boolean().optional(),
     flammable: z.boolean().optional(),
     freezable: z.boolean().optional(),
     cookable: z.object({ product: z.string().min(1, 'Enter the resulting prefab (e.g. cookedsmallmeat)') }).optional(),
@@ -1021,6 +1059,19 @@ export const creatureDefSchema = z
         followDistance: z.number().min(2).max(20),
         tasks: z.array(z.enum(COMPANION_TASKS)),
         defendLeader: z.boolean().optional(),
+        orbit: z
+          .object({
+            radius: z.number().min(1).max(15),
+            degreesPerSecond: z.number().min(1).max(180),
+            contactDamage: z
+              .object({
+                day: z.number().min(0).max(200),
+                dusk: z.number().min(0).max(200),
+                night: z.number().min(0).max(200),
+              })
+              .optional(),
+          })
+          .optional(),
       })
       .optional(),
     work: z

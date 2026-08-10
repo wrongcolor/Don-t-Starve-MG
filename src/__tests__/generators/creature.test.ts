@@ -267,6 +267,69 @@ describe('generateCreatureFiles', () => {
     expect(code).toContain('inst:DoPeriodicTask(2, TryDefendLeader)')
   })
 
+  it('sets the creature invincible via the real health component flag when invincible is set', () => {
+    expect(generateCreaturePrefab(creature)).not.toContain('SetInvincible')
+
+    const orb: CreatureDef = { ...creature, invincible: true }
+    const code = generateCreaturePrefab(orb)
+    expect(code).toContain('inst.components.health:SetInvincible(true)')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('wires a heater component when heatAura is set', () => {
+    expect(generateCreaturePrefab(creature)).not.toContain('heater')
+
+    const warm: CreatureDef = { ...creature, heatAura: 40 }
+    const code = generateCreaturePrefab(warm)
+    expect(code).toContain('inst:AddComponent("heater")')
+    expect(code).toContain('inst.components.heater.heat = TUNING.TESTMOB_HEATAURA')
+  })
+
+  it('wires a follower component and its own OrbitLeader periodic task when companion.orbit is set, even without defendLeader', () => {
+    const orbiter: CreatureDef = {
+      ...creature,
+      behavior: 'neutral',
+      companion: { followDistance: 5, tasks: [], orbit: { radius: 3, degreesPerSecond: 45 } },
+    }
+    const code = generateCreaturePrefab(orbiter)
+    expect(code).toContain('inst:AddComponent("follower")')
+    expect(code).toContain('inst:DoPeriodicTask(2, TryDefendLeader)')
+    expect(code).toContain('local function OrbitLeader(inst)')
+    expect(code).toContain('if inst.components.combat ~= nil and inst.components.combat:HasTarget() then')
+    expect(code).toContain('local orbitx = x + 3 * math.cos(inst._orbitangle)')
+    expect(code).toContain('local orbitz = z + 3 * math.sin(inst._orbitangle)')
+    expect(code).toContain('inst.Transform:SetPosition(orbitx, 0, orbitz)')
+    expect(code).toContain('inst:DoPeriodicTask(0.1, OrbitLeader)')
+    expect(code).not.toContain('ORBIT_CONTACT_TAGS')
+    expect(code).not.toContain('OnOrbitPhaseChanged')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('deals contact damage to nearby hostiles while orbiting, varying by time of day via a real "phasechanged" listener', () => {
+    const orbiter: CreatureDef = {
+      ...creature,
+      behavior: 'neutral',
+      companion: {
+        followDistance: 5,
+        tasks: [],
+        orbit: { radius: 3, degreesPerSecond: 45, contactDamage: { day: 25, dusk: 15, night: 10 } },
+      },
+    }
+    const code = generateCreaturePrefab(orbiter)
+    expect(code).toContain('local ORBIT_CONTACT_TAGS = { "hostile" }')
+    expect(code).toContain('if inst.components.combat ~= nil and not inst.components.combat:InCooldown() then')
+    expect(code).toContain('local victims = TheSim:FindEntities(orbitx, 0, orbitz, 1.5, ORBIT_CONTACT_TAGS)')
+    expect(code).toContain('inst.components.combat:StartAttack()')
+    expect(code).toContain('inst.components.combat:DoAttack(victim)')
+    expect(code).toContain('local function OnOrbitPhaseChanged(inst, phase)')
+    expect(code).toContain('inst.components.combat:SetDefaultDamage(25)')
+    expect(code).toContain('inst.components.combat:SetDefaultDamage(15)')
+    expect(code).toContain('inst.components.combat:SetDefaultDamage(10)')
+    expect(code).toContain('inst:ListenForEvent("phasechanged", function(src, phase) OnOrbitPhaseChanged(inst, phase) end, TheWorld)')
+    expect(code).toContain('OnOrbitPhaseChanged(inst, TheWorld.state.phase)')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
   // Confirmed against Original/stategraphs/stategraphs/SGantlion_angry.lua's
   // SpawnSpikes/SpawnBlocks — reuses the real sandspike_*/sandblock hazard
   // prefabs, fired periodically (not frame-perfect stategraph timing like the

@@ -1,7 +1,7 @@
 require "behaviours/wander"
 require "behaviours/panic"
-require "behaviours/follow"
 require "behaviours/doaction"
+require "behaviours/follow"
 
 local BrainClass = require "brain"
 
