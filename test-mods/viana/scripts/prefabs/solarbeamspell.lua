@@ -29,15 +29,15 @@ local function fn()
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
 
-    inst.spell_label = "Ember Wisp"
-    inst.spell_summonprefab = "emberlight"
-    inst.spell_manacost = 20
+    inst.spell_label = "Solar Beam"
+    inst.spell_summonprefab = nil
+    inst.spell_manacost = 40
     inst.spell_healthdelta = nil
     inst.spell_sanitydelta = nil
     inst.spell_hungerdelta = nil
-    inst.spell_aimed = true
+    inst.spell_beam = { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = 0.5 }
 
     return inst
 end
 
-return Prefab("emberwispspell", fn, assets, prefabs)
+return Prefab("solarbeamspell", fn, assets, prefabs)

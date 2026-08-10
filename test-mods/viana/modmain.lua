@@ -4,7 +4,7 @@ local TUNING = GLOBAL.TUNING
 local TECH = GLOBAL.TECH
 local Ingredient = GLOBAL.Ingredient
 
-PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "suntotem", "solarprism", "solarchakram", "viana", "sunorb", "sunwisp" }
+PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solarbeamspell", "suntotem", "solarprism", "solarchakram", "viana", "sunorb", "sunwisp" }
 
 -- Items: tuning + strings
 GLOBAL.TUNING.SOLARLANTERN_MAX_FUEL = 100
@@ -21,8 +21,8 @@ STRINGS.NAMES.SUNCODEX = "Sun Codex"
 STRINGS.RECIPE_DESC.SUNCODEX = "Holds up to 3 spells at once — whatever is bound here is what the Sun Staff can cast."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNCODEX = "Holds up to 3 spells at once — whatever is bound here is what the Sun Staff can cast."
 STRINGS.NAMES.EMBERWISPSPELL = "Ember Wisp Spell"
-STRINGS.RECIPE_DESC.EMBERWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff summon a warm, floating ember of light."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.EMBERWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff summon a warm, floating ember of light."
+STRINGS.RECIPE_DESC.EMBERWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff summon a warm, floating ember of light where she aims."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.EMBERWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff summon a warm, floating ember of light where she aims."
 STRINGS.NAMES.SOLSTICEBLESSINGSPELL = "Solstice Blessing Spell"
 STRINGS.RECIPE_DESC.SOLSTICEBLESSINGSPELL = "Bind this in the Sun Codex to let the Sun Staff mend her wounds with the sun's warmth."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLSTICEBLESSINGSPELL = "Bind this in the Sun Codex to let the Sun Staff mend her wounds with the sun's warmth."
@@ -30,8 +30,11 @@ STRINGS.NAMES.SUNFEDSPELL = "Sunfed Spell"
 STRINGS.RECIPE_DESC.SUNFEDSPELL = "Bind this in the Sun Codex to let the Sun Staff feed her on sunlight alone."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNFEDSPELL = "Bind this in the Sun Codex to let the Sun Staff feed her on sunlight alone."
 STRINGS.NAMES.SUNWISPSPELL = "Sun Wisp Spell"
-STRINGS.RECIPE_DESC.SUNWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff call a small fire spirit that stays glowing by her side."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff call a small fire spirit that stays glowing by her side."
+STRINGS.RECIPE_DESC.SUNWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff call a small fire spirit to where she aims — it stays glowing by her side afterward."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff call a small fire spirit to where she aims — it stays glowing by her side afterward."
+STRINGS.NAMES.SOLARBEAMSPELL = "Solar Beam Spell"
+STRINGS.RECIPE_DESC.SOLARBEAMSPELL = "Bind this in the Sun Codex to let the Sun Staff channel a beam of sunlight in front of her, burning anything it sweeps over."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARBEAMSPELL = "Bind this in the Sun Codex to let the Sun Staff channel a beam of sunlight in front of her, burning anything it sweeps over."
 GLOBAL.TUNING.SUNTOTEM_MAX_DURABILITY = 150
 GLOBAL.TUNING.SUNTOTEM_DRAIN_RATE = 0.1
 GLOBAL.TUNING.SUNTOTEM_RECHARGE_RATE = 0.3
@@ -74,6 +77,9 @@ AddRecipe2("sunfedspell", { Ingredient("twigs", 1), Ingredient("goldnugget", 1) 
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("sunwispspell", { Ingredient("twigs", 1), Ingredient("goldnugget", 1), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
+        image = "papyrus.tex",
+    }, { "MAGIC" })
+AddRecipe2("solarbeamspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("suntotem", { Ingredient("twigs", 3), Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {

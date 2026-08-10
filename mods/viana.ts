@@ -70,10 +70,10 @@ export const viana: ModProject = {
     {
       id: 'emberwispspell',
       displayName: 'Ember Wisp Spell',
-      description: 'Bind this in the Sun Codex to let the Sun Staff summon a warm, floating ember of light.',
+      description: 'Bind this in the Sun Codex to let the Sun Staff summon a warm, floating ember of light where she aims.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'papyrus' },
-      spellDef: { label: 'Ember Wisp', summonPrefab: 'emberlight', manaCost: 20 },
+      spellDef: { label: 'Ember Wisp', summonPrefab: 'emberlight', manaCost: 20, aimed: true },
       recipe: {
         ingredients: [
           { prefab: 'goldnugget', amount: 1 },
@@ -118,14 +118,34 @@ export const viana: ModProject = {
     {
       id: 'sunwispspell',
       displayName: 'Sun Wisp Spell',
-      description: 'Bind this in the Sun Codex to let the Sun Staff call a small fire spirit that stays glowing by her side.',
+      description: 'Bind this in the Sun Codex to let the Sun Staff call a small fire spirit to where she aims — it stays glowing by her side afterward.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'papyrus' },
-      spellDef: { label: 'Sun Wisp', summonPrefab: 'sunwisp', manaCost: 35 },
+      spellDef: { label: 'Sun Wisp', summonPrefab: 'sunwisp', manaCost: 35, aimed: true },
       recipe: {
         ingredients: [
           { prefab: 'twigs', amount: 1 },
           { prefab: 'goldnugget', amount: 1 },
+          { prefab: 'nightmarefuel', amount: 2 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+      },
+    },
+    {
+      id: 'solarbeamspell',
+      displayName: 'Solar Beam Spell',
+      description: 'Bind this in the Sun Codex to let the Sun Staff channel a beam of sunlight in front of her, burning anything it sweeps over.',
+      category: 'generic',
+      animation: { source: 'vanilla', build: 'papyrus' },
+      spellDef: {
+        label: 'Solar Beam',
+        manaCost: 40,
+        beam: { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3, telegraphSeconds: 0.5 },
+      },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 2 },
           { prefab: 'nightmarefuel', amount: 2 },
         ],
         techLevel: 'MAGIC_TWO',

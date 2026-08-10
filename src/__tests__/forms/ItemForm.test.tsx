@@ -157,7 +157,7 @@ describe('ItemForm', () => {
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
     const saved = onSave.mock.calls[0][0]
-    expect(saved.spellbook.spells[0]).toEqual({ label: 'Sunbeam', summonPrefab: 'stafflight', manaCost: 10 })
+    expect(saved.spellbook.spells[0]).toMatchObject({ label: 'Sunbeam', summonPrefab: 'stafflight', manaCost: 10 })
     expect(saved.spellbook.spells[1].manaCost).toBeUndefined()
   })
 
@@ -225,7 +225,7 @@ describe('ItemForm', () => {
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
     const saved = onSave.mock.calls[0][0]
-    expect(saved.spellDef).toEqual({ label: 'Sunbeam', summonPrefab: 'stafflight', manaCost: 20 })
+    expect(saved.spellDef).toMatchObject({ label: 'Sunbeam', summonPrefab: 'stafflight', manaCost: 20 })
     expect(saved.spellbook).toBeUndefined()
   })
 

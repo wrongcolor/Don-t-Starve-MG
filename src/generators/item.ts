@@ -288,9 +288,29 @@ function spellFunctionBlock(item: ItemDef): string[] {
 // SetItems takes an array of {label, onselect, execute}, where onselect wires
 // up the actual spell function and execute triggers the cast — the open/close/
 // cast actions themselves are already built into the base game. Simplified to
-// a self-cast SpawnPrefab (no aoetargeting, no character exclusivity).
+// a self-cast SpawnPrefab for instant spells (no character exclusivity) —
+// beam spells are the one case that also aims, via needsAimedSpell below.
 function needsSpellbook(item: ItemDef): boolean {
   return item.spellbook !== undefined
+}
+
+// A static spellbook only needs aoetargeting/aoespell when one of its fixed
+// spells actually has a beam; a linkedContainer spellbook can't know that
+// ahead of time (its spells are read live from another item's slots at cast
+// time — see linkedContainerSpellbookFunctionBlock), so it always carries
+// both components, same as it always carries the beam helper functions.
+// A beam is always aimed regardless of the flag (it needs a direction to
+// fire in); a summon-only spell is only aimed when explicitly marked so via
+// spellbookSpellSchema.aimed.
+function isAimedSpell(spell: SpellbookSpell): boolean {
+  return spell.beam !== undefined || spell.aimed === true
+}
+
+function needsAimedSpell(item: ItemDef): boolean {
+  if (item.spellbook?.source === 'static') {
+    return item.spellbook.spells.some(isAimedSpell)
+  }
+  return item.spellbook?.source === 'linkedContainer'
 }
 
 // Confirmed real, always-present vanilla API (docs/dst-knowledge/patterns.md#62):
@@ -313,11 +333,107 @@ function spellEffectDeltaLines(spell: SpellbookSpell, actor: string, indent: str
   return lines
 }
 
+function spellBeamLuaTable(beam: NonNullable<SpellbookSpell['beam']>): string {
+  const telegraph = beam.telegraphSeconds !== undefined ? beam.telegraphSeconds : 'nil'
+  return `{ damage = ${beam.damagePerTick}, tickinterval = ${beam.tickIntervalSeconds}, range = ${beam.range}, duration = ${beam.durationSeconds}, telegraph = ${telegraph} }`
+}
+
+// Confirmed against the real game scripts (components/aoespell.lua,
+// components/aoetargeting.lua, prefabs/abigail_flower.lua +
+// prefabs/ghostcommand_defs.lua — see docs/dst-knowledge/patterns.md#69):
+// a spellbook wheel can mix instant spells (spellbook:SetSpellFn, cast via
+// the base game's CastSpellBookFromInv) with aimed ones (aoespell:SetSpellFn,
+// cast via playercontroller:StartAOETargetingUsing) on the SAME item — this
+// is exactly how Abigail's Flower lets "Attack At"/"Haunt At" use a mouse
+// reticule while its other commands fire instantly. AOESpell:CastSpell passes
+// a real aimed pos to the spell function, unlike SpellBook:CastSpell. Used by
+// any aimed spell, not just a beam — see isAimedSpell.
+function aimedSpellHelperFunctionBlock(): string[] {
+  return [
+    'local function spell_aoe_reticuletargetfn()',
+    '    return Vector3(ThePlayer.entity:LocalToWorldSpace(5, 0.001, 0))',
+    'end',
+    '',
+    'local function StartAOETargeting(inst)',
+    '    if ThePlayer.components.playercontroller ~= nil then',
+    '        ThePlayer.components.playercontroller:StartAOETargetingUsing(inst)',
+    '    end',
+    'end',
+    '',
+  ]
+}
+
+function solarBeamHelperFunctionBlock(): string[] {
+  return [
+    ...aimedSpellHelperFunctionBlock(),
+    'local function DoSpellBeamDamage(user, beam)',
+    '    local x, y, z = user.Transform:GetWorldPosition()',
+    '    local angle = user.Transform:GetRotation() * DEGREES',
+    '    local dx, dz = math.cos(angle), -math.sin(angle)',
+    '    local hit = {}',
+    '    local dist = 2',
+    '    while dist <= beam.range do',
+    '        local px, pz = x + dx * dist, z + dz * dist',
+    '        local ents = TheSim:FindEntities(px, 0, pz, 2, nil, { "INLIMBO", "player" }, { "hostile" })',
+    '        for _, v in ipairs(ents) do',
+    '            if not hit[v] and v.components.health ~= nil and not v.components.health:IsDead() then',
+    '                v.components.health:DoDelta(-beam.damage, false, "solarbeam", false, user)',
+    '                hit[v] = true',
+    '            end',
+    '        end',
+    '        dist = dist + 2',
+    '    end',
+    'end',
+    '',
+    'local function StartSpellBeamTicking(user, beam)',
+    '    local task',
+    '    task = user:DoPeriodicTask(beam.tickinterval, function()',
+    '        DoSpellBeamDamage(user, beam)',
+    '    end)',
+    '    user:DoTaskInTime(beam.duration, function()',
+    '        if task ~= nil then',
+    '            task:Cancel()',
+    '        end',
+    '    end)',
+    'end',
+    '',
+    'local function StartSpellBeam(user, beam)',
+    '    if beam.telegraph == nil then',
+    '        StartSpellBeamTicking(user, beam)',
+    '        return',
+    '    end',
+    '',
+    '    local x, y, z = user.Transform:GetWorldPosition()',
+    '    local angle = user.Transform:GetRotation() * DEGREES',
+    '    local marker = SpawnPrefab("reticule")',
+    '    if marker ~= nil then',
+    '        marker.Transform:SetPosition(x + math.cos(angle) * 3, 0, z - math.sin(angle) * 3)',
+    '    end',
+    '    user:DoTaskInTime(beam.telegraph, function()',
+    '        if marker ~= nil and marker:IsValid() then',
+    '            marker:Remove()',
+    '        end',
+    '        StartSpellBeamTicking(user, beam)',
+    '    end)',
+    'end',
+    '',
+  ]
+}
+
 function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   const lines: string[] = []
+  const hasAimedSpell = spells.some(isAimedSpell)
+  if (spells.some((spell) => spell.beam !== undefined)) {
+    lines.push(...solarBeamHelperFunctionBlock())
+  } else if (hasAimedSpell) {
+    lines.push(...aimedSpellHelperFunctionBlock())
+  }
 
   spells.forEach((spell, index) => {
-    lines.push(`local function spellbook_cast_${index + 1}(inst, user)`)
+    // An aimed spell needs pos to know where to summon/fire; an instant
+    // spell just ignores the extra argument — same function shape either
+    // way keeps the onselect wiring below uniform.
+    lines.push(`local function spellbook_cast_${index + 1}(inst, user, pos)`)
     // Only meaningful for a caster with CharacterDef.mana (see
     // characterManaSchema) — anyone else has no `mana` component, so the
     // check is skipped and the spell always casts, same as before this field
@@ -327,12 +443,18 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
       lines.push('        return false')
       lines.push('    end')
     }
+    if (isAimedSpell(spell)) {
+      lines.push('    user:ForceFacePoint(pos:Get())')
+    }
     lines.push(...spellEffectDeltaLines(spell, 'user', '    '))
     if (spell.summonPrefab !== undefined) {
       lines.push(`    local fx = SpawnPrefab(${luaString(spell.summonPrefab)})`)
       lines.push('    if fx ~= nil then')
-      lines.push('        fx.Transform:SetPosition(user.Transform:GetWorldPosition())')
+      lines.push(`        fx.Transform:SetPosition(${isAimedSpell(spell) ? 'pos:Get()' : 'user.Transform:GetWorldPosition()'})`)
       lines.push('    end')
+    }
+    if (spell.beam !== undefined) {
+      lines.push(`    StartSpellBeam(user, ${spellBeamLuaTable(spell.beam)})`)
     }
     lines.push('    if inst.components.finiteuses ~= nil then')
     lines.push('        inst.components.finiteuses:Use(1)')
@@ -350,14 +472,29 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
     lines.push(`        label = ${label},`)
     lines.push('        onselect = function(inst)')
     lines.push(`            inst.components.spellbook:SetSpellName(${label})`)
-    lines.push(`            inst.components.spellbook:SetSpellFn(spellbook_cast_${index + 1})`)
+    if (isAimedSpell(spell)) {
+      lines.push('            inst.components.spellbook:SetSpellFn(nil)')
+      if (spell.beam !== undefined) {
+        lines.push(`            inst.components.aoetargeting:SetRange(${spell.beam.range})`)
+      }
+      lines.push(`            inst.components.aoespell:SetSpellFn(spellbook_cast_${index + 1})`)
+    } else {
+      lines.push(`            inst.components.spellbook:SetSpellFn(spellbook_cast_${index + 1})`)
+      if (hasAimedSpell) {
+        lines.push('            inst.components.aoespell:SetSpellFn(nil)')
+      }
+    }
     lines.push('        end,')
-    lines.push('        execute = function(inst)')
-    lines.push('            local inventory = ThePlayer.replica.inventory')
-    lines.push('            if inventory ~= nil then')
-    lines.push('                inventory:CastSpellBookFromInv(inst)')
-    lines.push('            end')
-    lines.push('        end,')
+    if (isAimedSpell(spell)) {
+      lines.push('        execute = StartAOETargeting,')
+    } else {
+      lines.push('        execute = function(inst)')
+      lines.push('            local inventory = ThePlayer.replica.inventory')
+      lines.push('            if inventory ~= nil then')
+      lines.push('                inventory:CastSpellBookFromInv(inst)')
+      lines.push('            end')
+      lines.push('        end,')
+    }
     lines.push('    },')
   })
   lines.push('}')
@@ -374,11 +511,16 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
 // Inventory:FindItem are both real, confirmed APIs.
 function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[] {
   const lines: string[] = []
+  lines.push(...solarBeamHelperFunctionBlock())
   lines.push('local function spellbook_cast_from_slotitem(spellitem)')
-  lines.push('    return function(inst, user)')
+  lines.push('    return function(inst, user, pos)')
   lines.push('        if spellitem.spell_manacost ~= nil and user.components.mana ~= nil')
   lines.push('            and not user.components.mana:Spend(spellitem.spell_manacost) then')
   lines.push('            return false')
+  lines.push('        end')
+  lines.push('        local isaimed = spellitem.spell_beam ~= nil or spellitem.spell_aimed')
+  lines.push('        if isaimed then')
+  lines.push('            user:ForceFacePoint(pos:Get())')
   lines.push('        end')
   lines.push('        if spellitem.spell_healthdelta ~= nil and user.components.health ~= nil then')
   lines.push('            user.components.health:DoDelta(spellitem.spell_healthdelta)')
@@ -392,8 +534,15 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('        if spellitem.spell_summonprefab ~= nil then')
   lines.push('            local fx = SpawnPrefab(spellitem.spell_summonprefab)')
   lines.push('            if fx ~= nil then')
-  lines.push('                fx.Transform:SetPosition(user.Transform:GetWorldPosition())')
+  lines.push('                if isaimed then')
+  lines.push('                    fx.Transform:SetPosition(pos:Get())')
+  lines.push('                else')
+  lines.push('                    fx.Transform:SetPosition(user.Transform:GetWorldPosition())')
+  lines.push('                end')
   lines.push('            end')
+  lines.push('        end')
+  lines.push('        if spellitem.spell_beam ~= nil then')
+  lines.push('            StartSpellBeam(user, spellitem.spell_beam)')
   lines.push('        end')
   lines.push('        if inst.components.finiteuses ~= nil then')
   lines.push('            inst.components.finiteuses:Use(1)')
@@ -418,9 +567,18 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('                label = spellitem.spell_label,')
   lines.push('                onselect = function(inst)')
   lines.push('                    inst.components.spellbook:SetSpellName(spellitem.spell_label)')
-  lines.push('                    inst.components.spellbook:SetSpellFn(spellbook_cast_from_slotitem(spellitem))')
+  lines.push('                    if spellitem.spell_beam ~= nil or spellitem.spell_aimed then')
+  lines.push('                        inst.components.spellbook:SetSpellFn(nil)')
+  lines.push('                        if spellitem.spell_beam ~= nil then')
+  lines.push('                            inst.components.aoetargeting:SetRange(spellitem.spell_beam.range)')
+  lines.push('                        end')
+  lines.push('                        inst.components.aoespell:SetSpellFn(spellbook_cast_from_slotitem(spellitem))')
+  lines.push('                    else')
+  lines.push('                        inst.components.spellbook:SetSpellFn(spellbook_cast_from_slotitem(spellitem))')
+  lines.push('                        inst.components.aoespell:SetSpellFn(nil)')
+  lines.push('                    end')
   lines.push('                end,')
-  lines.push('                execute = function(inst)')
+  lines.push('                execute = (spellitem.spell_beam ~= nil or spellitem.spell_aimed) and StartAOETargeting or function(inst)')
   lines.push('                    local inventory = ThePlayer.replica.inventory')
   lines.push('                    if inventory ~= nil then')
   lines.push('                        inventory:CastSpellBookFromInv(inst)')
@@ -514,7 +672,7 @@ function onNamedFunctionBlock(): string[] {
 
 function spellDefComponentBlock(item: ItemDef): string[] {
   const spell = item.spellDef!
-  return [
+  const lines = [
     '',
     `    inst.spell_label = ${luaString(spell.label)}`,
     `    inst.spell_summonprefab = ${spell.summonPrefab !== undefined ? luaString(spell.summonPrefab) : 'nil'}`,
@@ -523,6 +681,13 @@ function spellDefComponentBlock(item: ItemDef): string[] {
     `    inst.spell_sanitydelta = ${spell.sanityDelta ?? 'nil'}`,
     `    inst.spell_hungerdelta = ${spell.hungerDelta ?? 'nil'}`,
   ]
+  if (spell.beam !== undefined) {
+    lines.push(`    inst.spell_beam = ${spellBeamLuaTable(spell.beam)}`)
+  }
+  if (spell.aimed) {
+    lines.push('    inst.spell_aimed = true')
+  }
+  return lines
 }
 
 function toolComponentBlock(item: ItemDef): string[] {
@@ -719,6 +884,23 @@ function spellbookComponentBlock(item: ItemDef): string[] {
   return lines
 }
 
+// Confirmed in prefabs/abigail_flower.lua/prefabs/sleepbomb.lua: mouseenabled
+// makes the reticule follow TheInput:GetWorldPosition() in real time instead
+// of a fixed point, with targetfn kept as the controller-mode fallback
+// (components/reticule.lua). SetRange is set per-spell in onselect instead
+// (see staticSpellbookFunctionBlock/linkedContainerSpellbookFunctionBlock),
+// matching prefabs/ghostcommand_defs.lua's own per-command SetRange calls.
+function aimedSpellComponentBlock(): string[] {
+  return [
+    '',
+    '    inst:AddComponent("aoetargeting")',
+    '    inst.components.aoetargeting.reticule.targetfn = spell_aoe_reticuletargetfn',
+    '    inst.components.aoetargeting.reticule.mouseenabled = true',
+    '',
+    '    inst:AddComponent("aoespell")',
+  ]
+}
+
 function perishableComponentBlock(item: ItemDef): string[] {
   const upper = toUpperSnake(item.id)
   return [
@@ -824,6 +1006,7 @@ function componentBlock(item: ItemDef): string {
   if (item.solarBattery) lines.push(...solarBatteryComponentBlock(item))
   if (needsSpellcaster(item)) lines.push(...spellcasterComponentBlock(item))
   if (needsSpellbook(item)) lines.push(...spellbookComponentBlock(item))
+  if (needsAimedSpell(item)) lines.push(...aimedSpellComponentBlock())
   if (item.perishable) lines.push(...perishableComponentBlock(item))
   if (item.edible) lines.push(...edibleComponentBlock(item))
   if (item.combinable) lines.push(...combinableComponentBlock())

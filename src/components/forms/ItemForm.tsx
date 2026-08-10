@@ -57,9 +57,10 @@ interface SpellFieldsRowProps {
   labelPlaceholder: string
   register: UseFormRegister<ItemDef>
   setValue: UseFormSetValue<ItemDef>
+  beamEnabled: boolean
 }
 
-function SpellFieldsRow({ namePrefix, labelPlaceholder, register, setValue }: SpellFieldsRowProps) {
+function SpellFieldsRow({ namePrefix, labelPlaceholder, register, setValue, beamEnabled }: SpellFieldsRowProps) {
   return (
     <>
       <input className={inputClass} placeholder={labelPlaceholder} {...register(`${namePrefix}.label` as const)} />
@@ -104,6 +105,75 @@ function SpellFieldsRow({ namePrefix, labelPlaceholder, register, setValue }: Sp
         title="Instant hunger change on the caster (negative drains) — leave blank for none"
         {...register(`${namePrefix}.hungerDelta` as const, { valueAsNumber: true })}
       />
+      <div style={{ flexBasis: '100%', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input type="checkbox" {...register(`${namePrefix}.aimed` as const)} />
+          Aim where it summons (instead of always at her feet)
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input
+            type="checkbox"
+            checked={beamEnabled}
+            onChange={(e) =>
+              setValue(
+                `${namePrefix}.beam` as const,
+                e.target.checked ? { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3 } : undefined,
+                { shouldDirty: true },
+              )
+            }
+          />
+          Channels a damaging beam
+        </label>
+        {beamEnabled && (
+          <>
+            <input
+              type="number"
+              step="1"
+              min="1"
+              className="qty-input"
+              placeholder="Dmg/tick"
+              title="Damage dealt to everything in the beam, per tick"
+              {...register(`${namePrefix}.beam.damagePerTick` as const, { valueAsNumber: true })}
+            />
+            <input
+              type="number"
+              step="0.1"
+              min="0.1"
+              className="qty-input"
+              placeholder="Tick sec"
+              title="Seconds between damage ticks"
+              {...register(`${namePrefix}.beam.tickIntervalSeconds` as const, { valueAsNumber: true })}
+            />
+            <input
+              type="number"
+              step="1"
+              min="1"
+              className="qty-input"
+              placeholder="Range"
+              title="How far the beam reaches"
+              {...register(`${namePrefix}.beam.range` as const, { valueAsNumber: true })}
+            />
+            <input
+              type="number"
+              step="0.5"
+              min="0.5"
+              className="qty-input"
+              placeholder="Duration"
+              title="How many seconds the beam channels for"
+              {...register(`${namePrefix}.beam.durationSeconds` as const, { valueAsNumber: true })}
+            />
+            <input
+              type="number"
+              step="0.1"
+              min="0.1"
+              className="qty-input"
+              placeholder="Telegraph sec (optional)"
+              title="Shows a reticule marker at the beam's starting point for this many seconds before damage begins — leave blank to skip the warning"
+              {...register(`${namePrefix}.beam.telegraphSeconds` as const, { valueAsNumber: true })}
+            />
+          </>
+        )}
+      </div>
     </>
   )
 }
@@ -113,6 +183,7 @@ interface SpellbookEditorProps {
   register: UseFormRegister<ItemDef>
   setValue: UseFormSetValue<ItemDef>
   errorMessage?: string
+  watchedBeamFlags: boolean[]
 }
 
 // Owns the spells field array itself, mounted only while the spellbook is
@@ -125,7 +196,7 @@ interface SpellbookEditorProps {
 // but never rendered as rows, and the first "+ Add spell" click produced 3
 // rows (2 phantom + 1 appended) instead of 1. Mounting fresh here means
 // useFieldArray reads the already-updated value at construction time instead.
-function SpellbookEditor({ control, register, setValue, errorMessage }: SpellbookEditorProps) {
+function SpellbookEditor({ control, register, setValue, errorMessage, watchedBeamFlags }: SpellbookEditorProps) {
   const spells = useFieldArray({ control, name: 'spellbook.spells' as never })
 
   return (
@@ -137,6 +208,7 @@ function SpellbookEditor({ control, register, setValue, errorMessage }: Spellboo
             labelPlaceholder="Spell label (e.g. Summon Light)"
             register={register}
             setValue={setValue}
+            beamEnabled={watchedBeamFlags[index] ?? false}
           />
           <button type="button" className={btnDanger} onClick={() => spells.remove(index)}>
             Remove
@@ -794,6 +866,9 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       register={register}
                       setValue={setValue}
                       errorMessage={(errors.spellbook as { spells?: { message?: string } } | undefined)?.spells?.message}
+                      watchedBeamFlags={(watched.spellbook?.source === 'static' ? watched.spellbook.spells : []).map(
+                        (s) => s.beam !== undefined,
+                      )}
                     />
                   ) : (
                     <FormField
@@ -1396,6 +1471,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   labelPlaceholder="Spell label (e.g. Sunbeam)"
                   register={register}
                   setValue={setValue}
+                  beamEnabled={watched.spellDef?.beam !== undefined}
                 />
               </div>
             )}

@@ -3,11 +3,76 @@ local assets =
     -- Build "staffs" reaproveitado do jogo base, sem asset próprio necessário.
 }
 
+local function spell_aoe_reticuletargetfn()
+    return Vector3(ThePlayer.entity:LocalToWorldSpace(5, 0.001, 0))
+end
+
+local function StartAOETargeting(inst)
+    if ThePlayer.components.playercontroller ~= nil then
+        ThePlayer.components.playercontroller:StartAOETargetingUsing(inst)
+    end
+end
+
+local function DoSpellBeamDamage(user, beam)
+    local x, y, z = user.Transform:GetWorldPosition()
+    local angle = user.Transform:GetRotation() * DEGREES
+    local dx, dz = math.cos(angle), -math.sin(angle)
+    local hit = {}
+    local dist = 2
+    while dist <= beam.range do
+        local px, pz = x + dx * dist, z + dz * dist
+        local ents = TheSim:FindEntities(px, 0, pz, 2, nil, { "INLIMBO", "player" }, { "hostile" })
+        for _, v in ipairs(ents) do
+            if not hit[v] and v.components.health ~= nil and not v.components.health:IsDead() then
+                v.components.health:DoDelta(-beam.damage, false, "solarbeam", false, user)
+                hit[v] = true
+            end
+        end
+        dist = dist + 2
+    end
+end
+
+local function StartSpellBeamTicking(user, beam)
+    local task
+    task = user:DoPeriodicTask(beam.tickinterval, function()
+        DoSpellBeamDamage(user, beam)
+    end)
+    user:DoTaskInTime(beam.duration, function()
+        if task ~= nil then
+            task:Cancel()
+        end
+    end)
+end
+
+local function StartSpellBeam(user, beam)
+    if beam.telegraph == nil then
+        StartSpellBeamTicking(user, beam)
+        return
+    end
+
+    local x, y, z = user.Transform:GetWorldPosition()
+    local angle = user.Transform:GetRotation() * DEGREES
+    local marker = SpawnPrefab("reticule")
+    if marker ~= nil then
+        marker.Transform:SetPosition(x + math.cos(angle) * 3, 0, z - math.sin(angle) * 3)
+    end
+    user:DoTaskInTime(beam.telegraph, function()
+        if marker ~= nil and marker:IsValid() then
+            marker:Remove()
+        end
+        StartSpellBeamTicking(user, beam)
+    end)
+end
+
 local function spellbook_cast_from_slotitem(spellitem)
-    return function(inst, user)
+    return function(inst, user, pos)
         if spellitem.spell_manacost ~= nil and user.components.mana ~= nil
             and not user.components.mana:Spend(spellitem.spell_manacost) then
             return false
+        end
+        local isaimed = spellitem.spell_beam ~= nil or spellitem.spell_aimed
+        if isaimed then
+            user:ForceFacePoint(pos:Get())
         end
         if spellitem.spell_healthdelta ~= nil and user.components.health ~= nil then
             user.components.health:DoDelta(spellitem.spell_healthdelta)
@@ -21,8 +86,15 @@ local function spellbook_cast_from_slotitem(spellitem)
         if spellitem.spell_summonprefab ~= nil then
             local fx = SpawnPrefab(spellitem.spell_summonprefab)
             if fx ~= nil then
-                fx.Transform:SetPosition(user.Transform:GetWorldPosition())
+                if isaimed then
+                    fx.Transform:SetPosition(pos:Get())
+                else
+                    fx.Transform:SetPosition(user.Transform:GetWorldPosition())
+                end
             end
+        end
+        if spellitem.spell_beam ~= nil then
+            StartSpellBeam(user, spellitem.spell_beam)
         end
         if inst.components.finiteuses ~= nil then
             inst.components.finiteuses:Use(1)
@@ -47,9 +119,18 @@ local function rebuild_spellbook_items(user)
                 label = spellitem.spell_label,
                 onselect = function(inst)
                     inst.components.spellbook:SetSpellName(spellitem.spell_label)
-                    inst.components.spellbook:SetSpellFn(spellbook_cast_from_slotitem(spellitem))
+                    if spellitem.spell_beam ~= nil or spellitem.spell_aimed then
+                        inst.components.spellbook:SetSpellFn(nil)
+                        if spellitem.spell_beam ~= nil then
+                            inst.components.aoetargeting:SetRange(spellitem.spell_beam.range)
+                        end
+                        inst.components.aoespell:SetSpellFn(spellbook_cast_from_slotitem(spellitem))
+                    else
+                        inst.components.spellbook:SetSpellFn(spellbook_cast_from_slotitem(spellitem))
+                        inst.components.aoespell:SetSpellFn(nil)
+                    end
                 end,
-                execute = function(inst)
+                execute = (spellitem.spell_beam ~= nil or spellitem.spell_aimed) and StartAOETargeting or function(inst)
                     local inventory = ThePlayer.replica.inventory
                     if inventory ~= nil then
                         inventory:CastSpellBookFromInv(inst)
@@ -95,6 +176,12 @@ local function fn()
         inst.components.spellbook:SetItems(items)
         return true
     end)
+
+    inst:AddComponent("aoetargeting")
+    inst.components.aoetargeting.reticule.targetfn = spell_aoe_reticuletargetfn
+    inst.components.aoetargeting.reticule.mouseenabled = true
+
+    inst:AddComponent("aoespell")
 
     return inst
 end

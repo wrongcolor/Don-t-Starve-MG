@@ -3,7 +3,7 @@ local assets =
     -- Build "goldnugget" reaproveitado do jogo base, sem asset próprio necessário.
 }
 
-local function spellbook_cast_1(inst, user)
+local function spellbook_cast_1(inst, user, pos)
     local fx = SpawnPrefab("stafflight")
     if fx ~= nil then
         fx.Transform:SetPosition(user.Transform:GetWorldPosition())
@@ -14,7 +14,7 @@ local function spellbook_cast_1(inst, user)
     return true
 end
 
-local function spellbook_cast_2(inst, user)
+local function spellbook_cast_2(inst, user, pos)
     local fx = SpawnPrefab("firefly")
     if fx ~= nil then
         fx.Transform:SetPosition(user.Transform:GetWorldPosition())

@@ -239,18 +239,40 @@ export const spellbookSpellSchema = z
     healthDelta: optionalFormNumber,
     sanityDelta: optionalFormNumber,
     hungerDelta: optionalFormNumber,
+    beam: z
+      .object({
+        damagePerTick: z.number().min(1).max(200),
+        tickIntervalSeconds: z.number().min(0.1).max(5),
+        range: z.number().min(1).max(30),
+        durationSeconds: z.number().min(0.5).max(30),
+        telegraphSeconds: optionalFormNumber,
+      })
+      .optional(),
+    // Confirmed in prefabs/abigail_flower.lua + ghostcommand_defs.lua (see
+    // docs/dst-knowledge/patterns.md#69): lets a spell that summons something
+    // spawn at a mouse-aimed point (via aoetargeting+aoespell) instead of
+    // always at the caster's own position — same aim mechanism a beam spell
+    // already always uses. Only meaningful alongside summonPrefab; a beam is
+    // already aimed regardless of this flag, and a pure stat effect has
+    // nothing to aim at.
+    aimed: z.boolean().optional(),
   })
   .refine(
     (spell) =>
       spell.summonPrefab !== undefined ||
       spell.healthDelta !== undefined ||
       spell.sanityDelta !== undefined ||
-      spell.hungerDelta !== undefined,
+      spell.hungerDelta !== undefined ||
+      spell.beam !== undefined,
     {
       message: 'A spell needs to do something — set a prefab to summon and/or a health/sanity/hunger effect',
       path: ['summonPrefab'],
     },
   )
+  .refine((spell) => spell.aimed !== true || spell.summonPrefab !== undefined, {
+    message: 'Aiming only matters for a spell that summons something — set a prefab to summon first',
+    path: ['aimed'],
+  })
 
 // 'linkedContainer' reads its spell list live from another item's container
 // contents instead of a fixed list — confirmed against the real game scripts

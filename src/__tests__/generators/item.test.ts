@@ -423,9 +423,9 @@ describe('generateItemFiles', () => {
     const code = generateItemPrefab(spellbookItem)
     expect(code).toContain('inst:AddComponent("spellbook")')
     expect(code).toContain('inst.components.spellbook:SetItems(SPELLBOOK_SPELLS)')
-    expect(code).toContain('local function spellbook_cast_1(inst, user)')
+    expect(code).toContain('local function spellbook_cast_1(inst, user, pos)')
     expect(code).toContain('SpawnPrefab("stafflight")')
-    expect(code).toContain('local function spellbook_cast_2(inst, user)')
+    expect(code).toContain('local function spellbook_cast_2(inst, user, pos)')
     expect(code).toContain('SpawnPrefab("firefly")')
     expect(code).toContain('label = "Summon Light"')
     expect(code).toContain('inventory:CastSpellBookFromInv(inst)')
@@ -449,13 +449,199 @@ describe('generateItemFiles', () => {
     }
     const code = generateItemPrefab(spellbookItem)
     expect(code).toContain('if user.components.mana ~= nil and not user.components.mana:Spend(10) then')
-    expect(code).toContain('local function spellbook_cast_1(inst, user)')
+    expect(code).toContain('local function spellbook_cast_1(inst, user, pos)')
 
     const cast1End = code.indexOf('local function spellbook_cast_2')
     expect(code.slice(0, cast1End)).toContain('return false')
 
     const cast2Body = code.slice(cast1End)
     expect(cast2Body).not.toContain('user.components.mana')
+  })
+
+  it('wires a static spell\'s beam as a channeled, direction-facing area tick over its own duration', () => {
+    const beamStaff: ItemDef = {
+      ...trinket,
+      id: 'testbeamstaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          { label: 'Solar Beam', beam: { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3 } },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(beamStaff)
+    expect(code).toContain('local function DoSpellBeamDamage(user, beam)')
+    expect(code).toContain('local angle = user.Transform:GetRotation() * DEGREES')
+    expect(code).toContain('local ents = TheSim:FindEntities(px, 0, pz, 2, nil, { "INLIMBO", "player" }, { "hostile" })')
+    expect(code).toContain('v.components.health:DoDelta(-beam.damage, false, "solarbeam", false, user)')
+    expect(code).toContain('local function StartSpellBeam(user, beam)')
+    expect(code).toContain('task = user:DoPeriodicTask(beam.tickinterval, function()')
+    expect(code).toContain('user:DoTaskInTime(beam.duration, function()')
+    expect(code).toContain(
+      'StartSpellBeam(user, { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = nil })',
+    )
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  // Confirmed against the real game scripts (components/aoespell.lua,
+  // components/aoetargeting.lua, prefabs/abigail_flower.lua +
+  // prefabs/ghostcommand_defs.lua): a beam spell casts through aoespell with
+  // a real aimed pos (mouse-enabled reticule), while a non-beam spell in the
+  // SAME wheel stays on the instant spellbook:SetSpellFn path — this is what
+  // lets one item mix aimed and instant spells, same as Abigail's Flower.
+  it('wires only the beam spell in a mixed wheel through aoetargeting/aoespell, leaving the other spell instant-cast', () => {
+    const beamStaff: ItemDef = {
+      ...trinket,
+      id: 'testmixedaimstaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          { label: 'Solar Beam', beam: { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3 } },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(beamStaff)
+    expect(code).toContain('user:ForceFacePoint(pos:Get())')
+    expect(code).toContain('inst:AddComponent("aoetargeting")')
+    expect(code).toContain('inst.components.aoetargeting.reticule.mouseenabled = true')
+    expect(code).toContain('inst:AddComponent("aoespell")')
+
+    const beamEntryStart = code.indexOf('label = "Solar Beam"')
+    const sparkEntryStart = code.indexOf('label = "Free Spark"')
+    const beamEntry = code.slice(beamEntryStart, sparkEntryStart)
+    expect(beamEntry).toContain('inst.components.spellbook:SetSpellFn(nil)')
+    expect(beamEntry).toContain('inst.components.aoetargeting:SetRange(10)')
+    expect(beamEntry).toContain('inst.components.aoespell:SetSpellFn(spellbook_cast_1)')
+    expect(beamEntry).toContain('execute = StartAOETargeting,')
+
+    const sparkEntry = code.slice(sparkEntryStart)
+    expect(sparkEntry).toContain('inst.components.spellbook:SetSpellFn(spellbook_cast_2)')
+    expect(sparkEntry).toContain('inst.components.aoespell:SetSpellFn(nil)')
+    expect(sparkEntry).toContain('inventory:CastSpellBookFromInv(inst)')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  // A summon-only spell can also aim (spellbookSpellSchema.aimed) without
+  // being a beam — e.g. placing a light or a companion where the player
+  // points, instead of always at the caster's own feet.
+  it('wires a summon-only spell marked aimed through aoetargeting/aoespell, spawning at the aimed pos instead of the caster', () => {
+    const wispStaff: ItemDef = {
+      ...trinket,
+      id: 'testaimedsummonstaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          { label: 'Ember Wisp', summonPrefab: 'emberlight', aimed: true },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(wispStaff)
+    expect(code).not.toContain('DoSpellBeamDamage')
+    expect(code).not.toContain('StartSpellBeam')
+    expect(code).toContain('inst:AddComponent("aoetargeting")')
+    expect(code).toContain('inst:AddComponent("aoespell")')
+
+    const wispEntryStart = code.indexOf('label = "Ember Wisp"')
+    const sparkEntryStart = code.indexOf('label = "Free Spark"')
+    const wispEntry = code.slice(wispEntryStart, sparkEntryStart)
+    expect(wispEntry).not.toContain('SetRange')
+    expect(wispEntry).toContain('inst.components.aoespell:SetSpellFn(spellbook_cast_1)')
+    expect(wispEntry).toContain('execute = StartAOETargeting,')
+
+    const cast1Start = code.indexOf('local function spellbook_cast_1')
+    const cast2Start = code.indexOf('local function spellbook_cast_2')
+    const cast1Body = code.slice(cast1Start, cast2Start)
+    expect(cast1Body).toContain('user:ForceFacePoint(pos:Get())')
+    expect(cast1Body).toContain('fx.Transform:SetPosition(pos:Get())')
+
+    const cast2Body = code.slice(cast2Start)
+    expect(cast2Body).not.toContain('ForceFacePoint')
+    expect(cast2Body).toContain('fx.Transform:SetPosition(user.Transform:GetWorldPosition())')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  // The staff side (linkedContainer) can't know ahead of time which slot
+  // items are aimed — it reads spellitem.spell_aimed off whatever's plugged
+  // in at cast time, same as it already does for spell_beam.
+  it('sets inst.spell_aimed on a spellDef item marked aimed, and a linkedContainer staff branches on it at runtime', () => {
+    const wispSpell: ItemDef = {
+      ...trinket,
+      id: 'testaimedwispspell',
+      spellDef: { label: 'Ember Wisp', summonPrefab: 'emberlight', aimed: true },
+    }
+    expect(generateItemPrefab(wispSpell)).toContain('inst.spell_aimed = true')
+
+    const noAimSpell: ItemDef = { ...trinket, id: 'testnoaimwispspell', spellDef: { label: 'Sunbeam', summonPrefab: 'stafflight' } }
+    expect(generateItemPrefab(noAimSpell)).not.toContain('spell_aimed')
+
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkedaimedsummonstaff',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const code = generateItemPrefab(linked)
+    expect(code).toContain('local isaimed = spellitem.spell_beam ~= nil or spellitem.spell_aimed')
+    expect(code).toContain('if isaimed then')
+    expect(code).toContain('fx.Transform:SetPosition(pos:Get())')
+    expect(code).toContain('fx.Transform:SetPosition(user.Transform:GetWorldPosition())')
+    expect(code).toContain('if spellitem.spell_beam ~= nil or spellitem.spell_aimed then')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('omits the beam helper functions and the aoetargeting/aoespell components from a static spellbook when no spell in it uses beam', () => {
+    const code = generateItemPrefab({
+      ...trinket,
+      id: 'testnobeamstaff',
+      spellbook: { source: 'static', spells: [{ label: 'A', summonPrefab: 'x' }, { label: 'B', summonPrefab: 'y' }] },
+    })
+    expect(code).not.toContain('DoSpellBeamDamage')
+    expect(code).not.toContain('StartSpellBeam')
+    expect(code).not.toContain('aoetargeting')
+    expect(code).not.toContain('aoespell')
+  })
+
+  it('shows a reticule marker at the beam\'s starting point and delays the damage tick when telegraphSeconds is set', () => {
+    const beamStaff: ItemDef = {
+      ...trinket,
+      id: 'testtelegraphstaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          {
+            label: 'Solar Beam',
+            beam: { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3, telegraphSeconds: 0.5 },
+          },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(beamStaff)
+    expect(code).toContain('local function StartSpellBeamTicking(user, beam)')
+    expect(code).toContain('local function StartSpellBeam(user, beam)')
+    expect(code).toContain('if beam.telegraph == nil then')
+    expect(code).toContain('local marker = SpawnPrefab("reticule")')
+    expect(code).toContain('marker.Transform:SetPosition(x + math.cos(angle) * 3, 0, z - math.sin(angle) * 3)')
+    expect(code).toContain('user:DoTaskInTime(beam.telegraph, function()')
+    expect(code).toContain('marker:Remove()')
+    expect(code).toContain('StartSpellBeamTicking(user, beam)')
+    expect(code).toContain(
+      'StartSpellBeam(user, { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = 0.5 })',
+    )
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('skips the telegraph marker entirely when telegraphSeconds is not set, starting the beam ticking immediately', () => {
+    const code = generateItemPrefab({
+      ...trinket,
+      id: 'testnotelegraphspell',
+      spellDef: { label: 'Solar Beam', beam: { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3 } },
+    })
+    expect(code).toContain('inst.spell_beam = { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = nil }')
   })
 
   it('rejects an item with both spellbook and spellEffect set', () => {
@@ -514,6 +700,43 @@ describe('generateItemFiles', () => {
     expect(code).toContain('not user.components.mana:Spend(spellitem.spell_manacost)')
   })
 
+  it('always wires the beam helper functions for a linkedContainer spellbook, since the codex contents are only known at runtime', () => {
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkedstaff3',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const code = generateItemPrefab(linked)
+    expect(code).toContain('local function DoSpellBeamDamage(user, beam)')
+    expect(code).toContain('local function StartSpellBeam(user, beam)')
+    expect(code).toContain('if spellitem.spell_beam ~= nil then')
+    expect(code).toContain('user:ForceFacePoint(pos:Get())')
+    expect(code).toContain('StartSpellBeam(user, spellitem.spell_beam)')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  // A linkedContainer spellbook can't know at generation time whether the
+  // codex will ever hold a beam spell (its contents are read live at cast
+  // time — see rebuild_spellbook_items), so unlike the static case it always
+  // carries aoetargeting/aoespell and branches per-slotitem at runtime.
+  it('always wires aoetargeting/aoespell for a linkedContainer spellbook, branching per slot item at runtime', () => {
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkedaimstaff',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const code = generateItemPrefab(linked)
+    expect(code).toContain('inst:AddComponent("aoetargeting")')
+    expect(code).toContain('inst.components.aoetargeting.reticule.mouseenabled = true')
+    expect(code).toContain('inst:AddComponent("aoespell")')
+    expect(code).toContain('if spellitem.spell_beam ~= nil then')
+    expect(code).toContain('inst.components.spellbook:SetSpellFn(nil)')
+    expect(code).toContain('inst.components.aoetargeting:SetRange(spellitem.spell_beam.range)')
+    expect(code).toContain('inst.components.aoespell:SetSpellFn(spellbook_cast_from_slotitem(spellitem))')
+    expect(code).toContain('execute = (spellitem.spell_beam ~= nil or spellitem.spell_aimed) and StartAOETargeting or function(inst)')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
   // Confirmed real, always-present vanilla API (docs/dst-knowledge/patterns.md#62):
   // health/sanity/hunger components' :DoDelta(n) — same mechanism the base game
   // already uses everywhere for damage/healing/hunger loss. Lets a spell be a
@@ -567,6 +790,33 @@ describe('generateItemFiles', () => {
     expect(code).toContain('inst.spell_healthdelta = 15')
     expect(code).toContain('inst.spell_sanitydelta = 15')
     expect(code).toContain('inst.spell_hungerdelta = nil')
+  })
+
+  it('sets inst.spell_beam as a plain table on a spellDef item with a beam, and omits it otherwise', () => {
+    const beamSpell: ItemDef = {
+      ...trinket,
+      id: 'testbeamspell',
+      spellDef: { label: 'Solar Beam', beam: { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3 } },
+    }
+    const code = generateItemPrefab(beamSpell)
+    expect(code).toContain('inst.spell_beam = { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = nil }')
+
+    const noBeam: ItemDef = { ...trinket, id: 'testnobeamspell', spellDef: { label: 'Sunbeam', summonPrefab: 'stafflight' } }
+    expect(generateItemPrefab(noBeam)).not.toContain('spell_beam')
+  })
+
+  it('accepts a spell that only has a beam, with no prefab or stat delta', () => {
+    const beamOnly: ItemDef = {
+      ...trinket,
+      spellbook: {
+        source: 'static',
+        spells: [
+          { label: 'Solar Beam', beam: { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3 } },
+          { label: 'Sunbeam', summonPrefab: 'stafflight' },
+        ],
+      },
+    }
+    expect(itemDefSchema.safeParse(beamOnly).success).toBe(true)
   })
 
   it('rejects a spell with no prefab and no stat effect at all', () => {

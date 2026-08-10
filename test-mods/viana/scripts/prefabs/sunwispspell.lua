@@ -35,6 +35,7 @@ local function fn()
     inst.spell_healthdelta = nil
     inst.spell_sanitydelta = nil
     inst.spell_hungerdelta = nil
+    inst.spell_aimed = true
 
     return inst
 end

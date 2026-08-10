@@ -3387,3 +3387,55 @@ Verificação em jogo (andar pela masmorra de verdade) não foi feita nesta
 sessão — mesma limitação já registrada pro `interior` de sala única
 (patterns.md#64): só o Lua gerado foi conferido (`luaparse` + leitura
 manual comparando com o algoritmo real).
+
+## 69. Um feitiço da roda do `spellbook` pode ter mira de verdade — `aoetargeting`/`aoespell` — **implementado**
+
+Motivação: o Solar Beam (patterns.md#62) tinha ficado com direção fixa (pra
+onde a personagem está olhando), porque `components/spellbook.lua`'s
+`SpellBook:CastSpell(user)` não recebe posição nenhuma. A primeira tentativa
+foi migrar o feitiço pra um item avulso com `spellcaster`+`reticule` — mas
+o usuário apontou o exemplo certo: a Flor da Abigail mistura comandos
+instantâneos com comandos mirados **na mesma roda**, sem precisar de item
+separado.
+
+**Confirmado, mecanismo real** (`prefabs/abigail_flower.lua` +
+`prefabs/ghostcommand_defs.lua`, `components/aoespell.lua`,
+`components/aoetargeting.lua`): o mesmo item carrega `spellbook` e também
+`aoetargeting`+`aoespell`. `AOESpell:CastSpell(doer, pos)` chama
+`self.spellfn(self.inst, doer, pos)` — ao contrário de `SpellBook:CastSpell`,
+esse recebe a posição mirada. Cada entrada da roda decide no próprio
+`onselect` qual caminho usar:
+
+```lua
+-- instantâneo (como já era)
+spellbook:SetSpellFn(fn)
+execute = CastSpellBookFromInv
+
+-- mirado
+spellbook:SetSpellFn(nil)
+aoetargeting:SetRange(20)
+aoespell:SetSpellFn(fn) -- fn(inst, doer, pos)
+execute = StartAOETargeting -- chama playercontroller:StartAOETargetingUsing(inst)
+```
+
+`aoetargeting.reticule.mouseenabled = true` (confirmado em
+`boat_cannon.lua`/`sleepbomb.lua`) faz a retícula seguir
+`TheInput:GetWorldPosition()` de verdade, com `reticule.targetfn` mantido
+como fallback pra controle (`components/reticule.lua`).
+
+**Implementado:**
+- `spellbookSpellSchema.aimed` (`src/types/modProject.ts`) — flag opcional,
+  só faz sentido junto de `summonPrefab` (um `beam` já é sempre mirado,
+  independente da flag).
+- `src/generators/item.ts`: `needsAimedSpell(item)` decide se o item precisa
+  de `aoetargeting`+`aoespell` — pra `spellbook.source === 'static'`, só
+  quando algum feitiço fixo é mirado (`beam` ou `aimed`); pra
+  `'linkedContainer'`, sempre (o conteúdo só é conhecido em tempo real, via
+  `rebuild_spellbook_items`). A função de cast de cada feitiço tem a mesma
+  assinatura `(inst, user, pos)` esteja ela mirada ou não — `pos` só é usado
+  quando o feitiço realmente precisa. Um feitiço mirado também chama
+  `user:ForceFacePoint(pos:Get())` antes de aplicar o efeito.
+- Reaproveitado no Sun Staff (`mods/viana.ts`, sem mudança nele): Solar Beam
+  passa a mirar de verdade (herdando o mecanismo do beam), e Ember Wisp/Sun
+  Wisp ganharam `aimed: true` pra spawnar no ponto mirado em vez de sempre
+  embaixo dela.
