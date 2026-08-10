@@ -142,6 +142,37 @@ function orbitPhaseDamageFunctionBlock(creature: CreatureDef): string[] {
   ]
 }
 
+const SENTRY_TICK_PERIOD = 0.2
+
+// Confirmed in prefabs/eyeturret.lua (docs/dst-knowledge/patterns.md#70): a
+// stationary attacker's OWN periodic scan decides who to hit, entirely
+// outside the brain — reuses the exact same "hostile"-tag proximity search
+// + direct StartAttack/DoAttack technique orbitLeaderFunctionBlock above
+// already uses for contact damage, just centered on the sentry's own fixed
+// position instead of an orbit path.
+function sentryFunctionBlock(creature: CreatureDef): string[] {
+  const radius = creature.sentry!.radius
+  return [
+    'local SENTRY_TAGS = { "hostile" }',
+    '',
+    'local function SentryTick(inst)',
+    '    if inst.components.combat == nil or inst.components.combat:InCooldown() then',
+    '        return',
+    '    end',
+    '    local x, y, z = inst.Transform:GetWorldPosition()',
+    `    local victims = TheSim:FindEntities(x, y, z, ${radius}, SENTRY_TAGS)`,
+    '    for _, victim in ipairs(victims) do',
+    '        if victim ~= inst and victim.components.health ~= nil and not victim.components.health:IsDead() then',
+    '            inst.components.combat:StartAttack()',
+    '            inst.components.combat:DoAttack(victim)',
+    '            break',
+    '        end',
+    '    end',
+    'end',
+    '',
+  ]
+}
+
 function squadAlertFunctionBlock(creature: CreatureDef): string[] {
   const upper = toUpperSnake(creature.id)
   return [
@@ -247,6 +278,9 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   if (creature.squadAlert !== undefined) {
     lines.push(...squadAlertFunctionBlock(creature))
   }
+  if (creature.sentry !== undefined) {
+    lines.push(...sentryFunctionBlock(creature))
+  }
   lines.push('local function fn()')
   lines.push('    local inst = CreateEntity()')
   lines.push('')
@@ -302,6 +336,9 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   }
   if (creature.squadAlert !== undefined) {
     lines.push('    inst:ListenForEvent("attacked", OnAttacked)')
+  }
+  if (creature.sentry !== undefined) {
+    lines.push(`    inst:DoPeriodicTask(${SENTRY_TICK_PERIOD}, SentryTick)`)
   }
   lines.push(...lootBlock(creature))
 

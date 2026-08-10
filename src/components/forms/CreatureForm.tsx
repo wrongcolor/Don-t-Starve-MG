@@ -76,6 +76,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   const enableKiting = watched.kiting !== undefined
   const enableGroundAttack = watched.groundAttack !== undefined
   const enableSquadAlert = watched.squadAlert !== undefined
+  const enableSentry = watched.sentry !== undefined
   const canFight = watched.behavior !== 'passive'
   const panicCauses = watched.panicCauses ?? []
   const enableCompanion = watched.companion !== undefined
@@ -102,6 +103,9 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
     }
     if (nextBehavior === 'passive' && watched.squadAlert) {
       setValue('squadAlert', undefined, { shouldValidate: true })
+    }
+    if (nextBehavior === 'passive' && watched.sentry) {
+      setValue('sentry', undefined, { shouldValidate: true })
     }
     if (nextBehavior === 'hostile' && watched.companion) {
       setValue('companion', undefined, { shouldValidate: true })
@@ -506,6 +510,27 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                 </FormField>
               </div>
             )}
+
+            <div className="checks" style={{ marginTop: 12 }}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableSentry}
+                  disabled={!canFight || enableCompanion}
+                  onChange={(e) => setValue('sentry', e.target.checked ? { radius: 6 } : undefined)}
+                />
+                Stationary sentry (never wanders or chases — periodically zaps any hostile creature within radius,
+                like the Eye Turret)
+                {!canFight ? ' — requires neutral or hostile behavior' : enableCompanion ? ' — turn off "follows the player" first' : ''}
+              </label>
+            </div>
+            {enableSentry && (
+              <div className="row-2">
+                <FormField label="Attack radius">
+                  <input type="number" min="1" max="20" className={inputClass} {...register('sentry.radius', { valueAsNumber: true })} />
+                </FormField>
+              </div>
+            )}
           </Fieldset>
 
           <Fieldset legend="Companion (optional)" step={8}>
@@ -520,10 +545,11 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                 <input
                   type="checkbox"
                   checked={enableCompanion}
-                  disabled={!canBeFriendly}
+                  disabled={!canBeFriendly || enableSentry}
                   onChange={(e) => setValue('companion', e.target.checked ? { followDistance: 5, tasks: [] } : undefined)}
                 />
-                Follows the player{!canBeFriendly ? ' — turn off hostile behavior first' : ''}
+                Follows the player
+                {!canBeFriendly ? ' — turn off hostile behavior first' : enableSentry ? ' — turn off the stationary sentry first' : ''}
               </label>
             </div>
             {enableCompanion && (

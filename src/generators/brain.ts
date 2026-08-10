@@ -200,13 +200,18 @@ export function generateBrain(creature: CreatureDef): string {
     'end',
   ]
   const behaviorNodes: string[] = []
+  const stationary = creature.sentry !== undefined
 
   if (creature.panicCauses.length > 0) {
     requires.push('require "behaviours/panic"')
     behaviorNodes.push(...panicBehaviorNodes(creature))
   }
 
-  if (creature.behavior === 'hostile' || creature.behavior === 'neutral') {
+  // A sentry (see creatureDefSchema.sentry) fights entirely through its own
+  // periodic proximity scan (see creature.ts's sentryFunctionBlock), not the
+  // brain — ChaseAndAttack/Wander would both move it, contradicting "stays
+  // put", so both are skipped below regardless of its behavior/kiting.
+  if ((creature.behavior === 'hostile' || creature.behavior === 'neutral') && !stationary) {
     const attackLabel = creature.behavior === 'hostile' ? 'AttackTarget' : 'Retaliate'
     requires.push('require "behaviours/chaseandattack"')
     localConstants.push(`local SEE_TARGET_DIST = ${creature.stats.aggroRange ?? DEFAULT_SEE_TARGET_DIST}`)
@@ -278,7 +283,7 @@ export function generateBrain(creature: CreatureDef): string {
     behaviorNodes.push(...nodes)
   }
 
-  if (!orbiting) {
+  if (!orbiting && !stationary) {
     behaviorNodes.push('        Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
   }
 

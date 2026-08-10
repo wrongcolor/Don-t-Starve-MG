@@ -3439,3 +3439,42 @@ como fallback pra controle (`components/reticule.lua`).
   passa a mirar de verdade (herdando o mecanismo do beam), e Ember Wisp/Sun
   Wisp ganharam `aimed: true` pra spawnar no ponto mirado em vez de sempre
   embaixo dela.
+
+## 70. Uma criatura "sentinela" parada, que ataca sozinha — `prefabs/eyeturret.lua` — **implementado**
+
+Motivação: novo feitiço da Viana, Light Pillar — invoca uma luz em forma de
+pilar que fica parada no lugar, tem vida própria, e ataca automaticamente
+qualquer inimigo que chegue perto.
+
+**Confirmado, mecanismo real** (`prefabs/eyeturret.lua` +
+`brains/eyeturretbrain.lua`): a Torreta de Olho nunca anda — não tem
+`locomotor` de verdade em uso, e seu brain (`StandAndAttack`) não persegue
+ninguém, só ataca quem já está dentro do alcance. Em vez de replicar
+`StandAndAttack` (que depende de tags de stategraph específicas,
+`sg:HasStateTag("canrotate")`), a implementação reaproveita uma técnica que
+esta própria ferramenta já usa: o dano de contato da órbita do Sun Orb
+(patterns.md#61ish, `orbitLeaderFunctionBlock`) já faz uma varredura
+periódica com `TheSim:FindEntities(..., {"hostile"})` e ataca diretamente
+via `combat:StartAttack()` + `combat:DoAttack(victim)`, sem passar pelo
+sistema de retarget/chase do jogo. Bastou centralizar essa mesma varredura
+na posição fixa da própria criatura em vez de orbitar um líder — e, no
+brain, pular tanto o node de `ChaseAndAttack` (perseguir) quanto o de
+`Wander` (vagar), já que nenhum dos dois deveria mover uma "sentinela"
+parada.
+
+**Implementado:**
+- `creatureDefSchema.sentry` (`src/types/modProject.ts`) — `{ radius }`.
+  Reaproveita `stats.damage`/`stats.attackPeriod` já existentes pro dano e
+  o cooldown do ataque (mesma convenção do dano de contato da órbita).
+  Exige `behavior !== 'passive'` (uma sentinela passiva nunca lutaria) e é
+  mutuamente exclusivo com `companion` (que sempre segue o jogador).
+- `src/generators/brain.ts`: nova constante `stationary = creature.sentry
+  !== undefined` — pula tanto o node de `ChaseAndAttack` (hostile/neutral)
+  quanto o `Wander` de fallback quando `stationary`, do mesmo jeito que já
+  fazia pra `orbiting`.
+- `src/generators/creature.ts`: `sentryFunctionBlock` gera `SentryTick`
+  (varredura + ataque direto, igual ao contato da órbita) e liga via
+  `inst:DoPeriodicTask(0.2, SentryTick)`.
+- UI (`CreatureForm.tsx`): checkbox "Stationary sentry" na mesma seção de
+  ground attack/squad alert, desabilitado quando a criatura já segue o
+  jogador (companion) e vice-versa.

@@ -1145,6 +1145,20 @@ export const creatureDefSchema = z
         range: z.number().min(1).max(50),
       })
       .optional(),
+    // Confirmed in prefabs/eyeturret.lua (docs/dst-knowledge/patterns.md#70):
+    // a stationary attacker never wanders or chases — it just periodically
+    // scans a radius around its own fixed spot and fights whatever's caught
+    // in it, using stats.damage/attackPeriod for the actual hit like every
+    // other creature. Reuses the same "hostile"-tag proximity scan Sun Orb's
+    // orbit contact damage already uses (companion.orbit.contactDamage
+    // above), just centered on itself instead of orbiting a leader — so it
+    // damages nearby monsters without ever targeting the player who summoned
+    // it. Mutually exclusive with companion (a follower moves; this doesn't).
+    sentry: z
+      .object({
+        radius: z.number().min(1).max(20),
+      })
+      .optional(),
     // Confirmed real native API (prefabs/stafflight.lua, the same file the
     // emberlight/stafflight prefabs already reused for spellDef.summonPrefab):
     // entity:AddLight() + Light:SetRadius/SetFalloff/SetIntensity/SetColour/
@@ -1174,6 +1188,14 @@ export const creatureDefSchema = z
   .refine((creature) => creature.squadAlert === undefined || creature.behavior !== 'passive', {
     message: 'Squad alert requires neutral or hostile behavior — a passive creature never fights',
     path: ['squadAlert'],
+  })
+  .refine((creature) => creature.sentry === undefined || creature.behavior !== 'passive', {
+    message: 'A sentry requires neutral or hostile behavior — a passive creature never fights',
+    path: ['sentry'],
+  })
+  .refine((creature) => creature.sentry === undefined || creature.companion === undefined, {
+    message: "A sentry stays put — turn off \"follows the player\" first",
+    path: ['sentry'],
   })
   .refine((creature) => !creature.panicCauses.includes('onFire') || creature.flammable === true, {
     message: 'The "catches fire" panic cause requires the creature to be flammable — enable that trait first',

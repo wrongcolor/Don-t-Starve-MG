@@ -386,6 +386,31 @@ describe('generateCreatureFiles', () => {
     expect(code).not.toContain('OnAttacked')
   })
 
+  // Confirmed in Original/prefabs/prefabs/eyeturret.lua (docs/dst-knowledge/
+  // patterns.md#70): a stationary attacker periodically scans a radius
+  // around its own fixed position and fights whatever's "hostile"-tagged in
+  // it — reusing the exact same proximity-scan + direct StartAttack/DoAttack
+  // technique the orbit contact damage above already uses.
+  it('wires a sentry that periodically scans and attacks nearby hostile creatures without moving', () => {
+    const sentryCreature: CreatureDef = { ...creature, behavior: 'neutral', sentry: { radius: 6 } }
+    const code = generateCreaturePrefab(sentryCreature)
+    expect(code).toContain('local SENTRY_TAGS = { "hostile" }')
+    expect(code).toContain('local function SentryTick(inst)')
+    expect(code).toContain('if inst.components.combat == nil or inst.components.combat:InCooldown() then')
+    expect(code).toContain('local victims = TheSim:FindEntities(x, y, z, 6, SENTRY_TAGS)')
+    expect(code).toContain('inst.components.combat:StartAttack()')
+    expect(code).toContain('inst.components.combat:DoAttack(victim)')
+    expect(code).toContain('inst:DoPeriodicTask(0.2, SentryTick)')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('does not wire a sentry when it is not set', () => {
+    const code = generateCreaturePrefab(creature)
+    expect(code).not.toContain('SENTRY_TAGS')
+    expect(code).not.toContain('SentryTick')
+  })
+
   it('wires a real Light component when light is set, but not otherwise (patterns.md#65)', () => {
     expect(generateCreaturePrefab(creature)).not.toContain('AddLight')
     expect(generateCreaturePrefab(creature)).not.toContain('inst.Light')

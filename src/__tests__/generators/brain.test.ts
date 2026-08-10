@@ -179,6 +179,18 @@ describe('generateBrain', () => {
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
+  // A sentry (see creatureDefSchema.sentry) fights entirely through its own
+  // periodic scan (creature.ts's SentryTick), not the brain — ChaseAndAttack
+  // and Wander would both move it, contradicting "stays put".
+  it('skips ChaseAndAttack and Wander entirely when sentry is set, since a periodic scan drives its attacks instead', () => {
+    const sentry: CreatureDef = { ...hostileMob, behavior: 'neutral', sentry: { radius: 6 } }
+    const code = generateBrain(sentry)
+    expect(code).not.toContain('require "behaviours/chaseandattack"')
+    expect(code).not.toContain('ChaseAndAttack(')
+    expect(code).not.toContain('Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
   it('always wanders leashed to a home position, if the creature has one, instead of unleashed', () => {
     const code = generateBrain(hostileMob)
     expect(code).toContain('local MAX_WANDER_DIST = 20')

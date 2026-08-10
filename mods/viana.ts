@@ -153,6 +153,22 @@ export const viana: ModProject = {
       },
     },
     {
+      id: 'lightpillarspell',
+      displayName: 'Light Pillar Spell',
+      description: 'Bind this in the Sun Codex to let the Sun Staff raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close.',
+      category: 'generic',
+      animation: { source: 'vanilla', build: 'papyrus' },
+      spellDef: { label: 'Light Pillar', summonPrefab: 'lightpillar', manaCost: 50, aimed: true },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 2 },
+          { prefab: 'nightmarefuel', amount: 3 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+      },
+    },
+    {
       id: 'suntotem',
       displayName: 'Sun Totem',
       description: "Carve this and it carves back: use it to call up a Sun Orb, or dismiss the one you have. It only drinks from the sun — no fuel item will ever refill it, and the Orb fades the moment it runs dry.",
@@ -274,6 +290,23 @@ export const viana: ModProject = {
       panicCauses: [],
       companion: { followDistance: 4, tasks: [] },
       light: { radius: 12, intensity: 0.8, falloff: 0.8, colour: { r: 250, g: 149, b: 18 } },
+    },
+    {
+      id: 'lightpillar',
+      displayName: 'Light Pillar',
+      description: 'A column of solidified sunlight, rooted to the spot where it was raised — it burns anything that strays too close.',
+      animation: {
+        source: 'vanilla',
+        build: 'flameball_fx',
+        clips: { idle: 'idle_loop', walk: 'idle_loop', atk: 'idle_loop', hit: 'idle_loop', death: 'post' },
+      },
+      stats: { health: 200, damage: 20, attackPeriod: 1.5, walkSpeed: 0.1 },
+      loot: [],
+      behavior: 'neutral',
+      tags: [],
+      panicCauses: [],
+      sentry: { radius: 6 },
+      light: { radius: 8, intensity: 0.8, falloff: 0.8, colour: { r: 255, g: 220, b: 150 } },
     },
   ],
 }

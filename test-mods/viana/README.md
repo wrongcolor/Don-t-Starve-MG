@@ -19,6 +19,7 @@ caminhos abaixo, substituindo os placeholders:
   - `sunfedspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `sunwispspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solarbeamspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
+  - `lightpillarspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `suntotem`: reaproveita o build "moonrock_idol" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solarprism`: reaproveita o build "gems" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solarchakram`: reaproveita o build "boomerang" do jogo base — nenhum `anim/*.zip` próprio é necessário.
@@ -28,6 +29,7 @@ caminhos abaixo, substituindo os placeholders:
 - **Criaturas**: por padrão reaproveitam o build "pigman" do jogo base — só precisam de `anim/<id>.zip` próprio se a animação for explicitamente marcada como personalizada.
   - `sunorb`: reaproveita o build "flameball_fx" do jogo base — confirme em-jogo que as animações "idle_loop"/"idle_loop"/"idle_loop"/"idle_loop"/"post" existem nesse build antes de publicar (não verificado por esta ferramenta).
   - `sunwisp`: reaproveita o build "flameball_fx" do jogo base — confirme em-jogo que as animações "idle_loop"/"idle_loop"/"idle_loop"/"idle_loop"/"post" existem nesse build antes de publicar (não verificado por esta ferramenta).
+  - `lightpillar`: reaproveita o build "flameball_fx" do jogo base — confirme em-jogo que as animações "idle_loop"/"idle_loop"/"idle_loop"/"idle_loop"/"post" existem nesse build antes de publicar (não verificado por esta ferramenta).
 
 Fala de personagem (`speech_<id>.lua`) usa fallback para `speech_wilson` — só as
 falas customizadas no formulário foram sobrescritas; o resto herda do Wilson.

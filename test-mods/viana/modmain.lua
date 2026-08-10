@@ -4,7 +4,7 @@ local TUNING = GLOBAL.TUNING
 local TECH = GLOBAL.TECH
 local Ingredient = GLOBAL.Ingredient
 
-PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solarbeamspell", "suntotem", "solarprism", "solarchakram", "viana", "sunorb", "sunwisp" }
+PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solarbeamspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "viana", "sunorb", "sunwisp", "lightpillar" }
 
 -- Items: tuning + strings
 GLOBAL.TUNING.SOLARLANTERN_MAX_FUEL = 100
@@ -35,6 +35,9 @@ STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNWISPSPELL = "Bind this in the Sun Codex t
 STRINGS.NAMES.SOLARBEAMSPELL = "Solar Beam Spell"
 STRINGS.RECIPE_DESC.SOLARBEAMSPELL = "Bind this in the Sun Codex to let the Sun Staff channel a beam of sunlight in front of her, burning anything it sweeps over."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARBEAMSPELL = "Bind this in the Sun Codex to let the Sun Staff channel a beam of sunlight in front of her, burning anything it sweeps over."
+STRINGS.NAMES.LIGHTPILLARSPELL = "Light Pillar Spell"
+STRINGS.RECIPE_DESC.LIGHTPILLARSPELL = "Bind this in the Sun Codex to let the Sun Staff raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.LIGHTPILLARSPELL = "Bind this in the Sun Codex to let the Sun Staff raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close."
 GLOBAL.TUNING.SUNTOTEM_MAX_DURABILITY = 150
 GLOBAL.TUNING.SUNTOTEM_DRAIN_RATE = 0.1
 GLOBAL.TUNING.SUNTOTEM_RECHARGE_RATE = 0.3
@@ -80,6 +83,9 @@ AddRecipe2("sunwispspell", { Ingredient("twigs", 1), Ingredient("goldnugget", 1)
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("solarbeamspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
+        image = "papyrus.tex",
+    }, { "MAGIC" })
+AddRecipe2("lightpillarspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("suntotem", { Ingredient("twigs", 3), Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
@@ -171,6 +177,18 @@ GLOBAL.TUNING.SUNWISP_LIGHT_COLOUR_G = 0.5843137254901961
 GLOBAL.TUNING.SUNWISP_LIGHT_COLOUR_B = 0.07058823529411765
 STRINGS.NAMES.SUNWISP = "Sun Wisp"
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNWISP = "A small fire spirit, warm and constant, that never strays far from her side."
+GLOBAL.TUNING.LIGHTPILLAR_HEALTH = 200
+GLOBAL.TUNING.LIGHTPILLAR_DAMAGE = 20
+GLOBAL.TUNING.LIGHTPILLAR_ATTACK_PERIOD = 1.5
+GLOBAL.TUNING.LIGHTPILLAR_WALKSPEED = 0.1
+GLOBAL.TUNING.LIGHTPILLAR_LIGHT_RADIUS = 8
+GLOBAL.TUNING.LIGHTPILLAR_LIGHT_FALLOFF = 0.8
+GLOBAL.TUNING.LIGHTPILLAR_LIGHT_INTENSITY = 0.8
+GLOBAL.TUNING.LIGHTPILLAR_LIGHT_COLOUR_R = 1
+GLOBAL.TUNING.LIGHTPILLAR_LIGHT_COLOUR_G = 0.8627450980392157
+GLOBAL.TUNING.LIGHTPILLAR_LIGHT_COLOUR_B = 0.5882352941176471
+STRINGS.NAMES.LIGHTPILLAR = "Light Pillar"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.LIGHTPILLAR = "A column of solidified sunlight, rooted to the spot where it was raised — it burns anything that strays too close."
 
 -- Characters: tuning + strings + registration
 GLOBAL.TUNING.VIANA_HEALTH = 120
