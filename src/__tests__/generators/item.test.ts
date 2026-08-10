@@ -585,11 +585,11 @@ describe('generateItemFiles', () => {
       spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
     }
     const code = generateItemPrefab(linked)
-    expect(code).toContain('local isaimed = spellitem.spell_beam ~= nil or spellitem.spell_aimed')
+    expect(code).toContain('local isaimed = spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed')
     expect(code).toContain('if isaimed then')
     expect(code).toContain('fx.Transform:SetPosition(pos:Get())')
     expect(code).toContain('fx.Transform:SetPosition(user.Transform:GetWorldPosition())')
-    expect(code).toContain('if spellitem.spell_beam ~= nil or spellitem.spell_aimed then')
+    expect(code).toContain('if spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed then')
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
@@ -642,6 +642,64 @@ describe('generateItemFiles', () => {
       spellDef: { label: 'Solar Beam', beam: { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3 } },
     })
     expect(code).toContain('inst.spell_beam = { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = nil }')
+  })
+
+  // Confirmed real APIs: TheSim:FindEntities(..., radius, {"hostile"}) for the
+  // blast (same proximity-scan technique creature.ts's sentry/orbit contact
+  // damage already use) and Freezable:Freeze(freezetime) for the instant,
+  // direct "stuck in place" lock (docs/dst-knowledge/patterns.md#71) — not
+  // the gradual coldness buildup ItemDef.weapon's onHitEffect "freeze" uses.
+  it('wires a static spell\'s nova as a one-shot aimed blast that damages and freezes everything hostile in radius', () => {
+    const novaStaff: ItemDef = {
+      ...trinket,
+      id: 'testnovastaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          { label: 'Solar Nova', nova: { damage: 40, radius: 5, stunSeconds: 3 } },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(novaStaff)
+    expect(code).toContain('local function DoSpellNova(user, pos, nova)')
+    expect(code).toContain('local victims = TheSim:FindEntities(x, y, z, nova.radius, { "hostile" })')
+    expect(code).toContain('victim.components.health:DoDelta(-nova.damage, false, "solarnova", false, user)')
+    expect(code).toContain('victim.components.freezable:Freeze(nova.stun)')
+    expect(code).toContain('user:ForceFacePoint(pos:Get())')
+    expect(code).toContain('DoSpellNova(user, pos, { damage = 40, radius = 5, stun = 3 })')
+
+    expect(code).toContain('inst:AddComponent("aoetargeting")')
+    expect(code).toContain('inst:AddComponent("aoespell")')
+    const novaEntryStart = code.indexOf('label = "Solar Nova"')
+    const sparkEntryStart = code.indexOf('label = "Free Spark"')
+    const novaEntry = code.slice(novaEntryStart, sparkEntryStart)
+    expect(novaEntry).toContain('inst.components.aoespell:SetSpellFn(spellbook_cast_1)')
+    expect(novaEntry).toContain('execute = StartAOETargeting,')
+    expect(novaEntry).not.toContain('SetRange')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('omits the nova helper function from a static spellbook when no spell in it uses nova', () => {
+    const code = generateItemPrefab({
+      ...trinket,
+      id: 'testnonovastaff',
+      spellbook: { source: 'static', spells: [{ label: 'A', summonPrefab: 'x' }, { label: 'B', summonPrefab: 'y' }] },
+    })
+    expect(code).not.toContain('DoSpellNova')
+  })
+
+  it('sets inst.spell_nova on a spellDef item with a nova, and a linkedContainer staff casts it with the aimed pos', () => {
+    const novaSpell: ItemDef = { ...trinket, id: 'testnovaspell', spellDef: { label: 'Solar Nova', nova: { damage: 40, radius: 5, stunSeconds: 3 } } }
+    expect(generateItemPrefab(novaSpell)).toContain('inst.spell_nova = { damage = 40, radius = 5, stun = 3 }')
+
+    const linked: ItemDef = { ...trinket, id: 'testlinkednovastaff', spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' } }
+    const code = generateItemPrefab(linked)
+    expect(code).toContain('local function DoSpellNova(user, pos, nova)')
+    expect(code).toContain('if spellitem.spell_nova ~= nil then')
+    expect(code).toContain('DoSpellNova(user, pos, spellitem.spell_nova)')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
   it('rejects an item with both spellbook and spellEffect set', () => {
@@ -733,7 +791,9 @@ describe('generateItemFiles', () => {
     expect(code).toContain('inst.components.spellbook:SetSpellFn(nil)')
     expect(code).toContain('inst.components.aoetargeting:SetRange(spellitem.spell_beam.range)')
     expect(code).toContain('inst.components.aoespell:SetSpellFn(spellbook_cast_from_slotitem(spellitem))')
-    expect(code).toContain('execute = (spellitem.spell_beam ~= nil or spellitem.spell_aimed) and StartAOETargeting or function(inst)')
+    expect(code).toContain(
+      'execute = (spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed) and StartAOETargeting or function(inst)',
+    )
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 

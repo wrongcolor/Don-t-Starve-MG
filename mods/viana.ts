@@ -153,6 +153,26 @@ export const viana: ModProject = {
       },
     },
     {
+      id: 'solarnovaspell',
+      displayName: 'Solar Nova Spell',
+      description: 'Bind this in the Sun Codex to let the Sun Staff burst a flare of sunlight where she aims, burning and locking in place anything caught in the blast.',
+      category: 'generic',
+      animation: { source: 'vanilla', build: 'papyrus' },
+      spellDef: {
+        label: 'Solar Nova',
+        manaCost: 45,
+        nova: { damage: 40, radius: 5, stunSeconds: 3 },
+      },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 2 },
+          { prefab: 'nightmarefuel', amount: 2 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+      },
+    },
+    {
       id: 'lightpillarspell',
       displayName: 'Light Pillar Spell',
       description: 'Bind this in the Sun Codex to let the Sun Staff raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close.',

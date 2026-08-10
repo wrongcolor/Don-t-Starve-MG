@@ -64,13 +64,26 @@ local function StartSpellBeam(user, beam)
     end)
 end
 
+local function DoSpellNova(user, pos, nova)
+    local x, y, z = pos:Get()
+    local victims = TheSim:FindEntities(x, y, z, nova.radius, { "hostile" })
+    for _, victim in ipairs(victims) do
+        if victim.components.health ~= nil and not victim.components.health:IsDead() then
+            victim.components.health:DoDelta(-nova.damage, false, "solarnova", false, user)
+            if victim.components.freezable ~= nil then
+                victim.components.freezable:Freeze(nova.stun)
+            end
+        end
+    end
+end
+
 local function spellbook_cast_from_slotitem(spellitem)
     return function(inst, user, pos)
         if spellitem.spell_manacost ~= nil and user.components.mana ~= nil
             and not user.components.mana:Spend(spellitem.spell_manacost) then
             return false
         end
-        local isaimed = spellitem.spell_beam ~= nil or spellitem.spell_aimed
+        local isaimed = spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed
         if isaimed then
             user:ForceFacePoint(pos:Get())
         end
@@ -96,6 +109,9 @@ local function spellbook_cast_from_slotitem(spellitem)
         if spellitem.spell_beam ~= nil then
             StartSpellBeam(user, spellitem.spell_beam)
         end
+        if spellitem.spell_nova ~= nil then
+            DoSpellNova(user, pos, spellitem.spell_nova)
+        end
         if inst.components.finiteuses ~= nil then
             inst.components.finiteuses:Use(1)
         end
@@ -119,7 +135,7 @@ local function rebuild_spellbook_items(user)
                 label = spellitem.spell_label,
                 onselect = function(inst)
                     inst.components.spellbook:SetSpellName(spellitem.spell_label)
-                    if spellitem.spell_beam ~= nil or spellitem.spell_aimed then
+                    if spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed then
                         inst.components.spellbook:SetSpellFn(nil)
                         if spellitem.spell_beam ~= nil then
                             inst.components.aoetargeting:SetRange(spellitem.spell_beam.range)
@@ -130,7 +146,7 @@ local function rebuild_spellbook_items(user)
                         inst.components.aoespell:SetSpellFn(nil)
                     end
                 end,
-                execute = (spellitem.spell_beam ~= nil or spellitem.spell_aimed) and StartAOETargeting or function(inst)
+                execute = (spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed) and StartAOETargeting or function(inst)
                     local inventory = ThePlayer.replica.inventory
                     if inventory ~= nil then
                         inventory:CastSpellBookFromInv(inst)

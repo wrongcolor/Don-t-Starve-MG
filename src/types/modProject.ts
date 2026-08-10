@@ -248,13 +248,28 @@ export const spellbookSpellSchema = z
         telegraphSeconds: optionalFormNumber,
       })
       .optional(),
+    // Confirmed real APIs: TheSim:FindEntities(..., radius, {"hostile"}) is
+    // the same proximity scan already used for beam/sentry damage, and
+    // components/freezable.lua's Freezable:Freeze(freezetime) is a direct,
+    // instant "locked in place for N seconds" call (stops locomotor, clears
+    // combat target, stops the brain) — not the same as the coldness-buildup
+    // ignite/freeze weapon effect (ItemDef.weapon.ranged.onHitEffect), which
+    // ramps up over several hits instead of landing all at once. Always
+    // aimed (see isAimedSpell) — an explosion needs a point to center on.
+    nova: z
+      .object({
+        damage: z.number().min(1).max(300),
+        radius: z.number().min(1).max(20),
+        stunSeconds: z.number().min(0.5).max(30),
+      })
+      .optional(),
     // Confirmed in prefabs/abigail_flower.lua + ghostcommand_defs.lua (see
     // docs/dst-knowledge/patterns.md#69): lets a spell that summons something
     // spawn at a mouse-aimed point (via aoetargeting+aoespell) instead of
     // always at the caster's own position — same aim mechanism a beam spell
-    // already always uses. Only meaningful alongside summonPrefab; a beam is
-    // already aimed regardless of this flag, and a pure stat effect has
-    // nothing to aim at.
+    // already always uses. Only meaningful alongside summonPrefab; a beam or
+    // nova is already aimed regardless of this flag, and a pure stat effect
+    // has nothing to aim at.
     aimed: z.boolean().optional(),
   })
   .refine(
@@ -263,7 +278,8 @@ export const spellbookSpellSchema = z
       spell.healthDelta !== undefined ||
       spell.sanityDelta !== undefined ||
       spell.hungerDelta !== undefined ||
-      spell.beam !== undefined,
+      spell.beam !== undefined ||
+      spell.nova !== undefined,
     {
       message: 'A spell needs to do something — set a prefab to summon and/or a health/sanity/hunger effect',
       path: ['summonPrefab'],

@@ -299,11 +299,12 @@ function needsSpellbook(item: ItemDef): boolean {
 // ahead of time (its spells are read live from another item's slots at cast
 // time — see linkedContainerSpellbookFunctionBlock), so it always carries
 // both components, same as it always carries the beam helper functions.
-// A beam is always aimed regardless of the flag (it needs a direction to
-// fire in); a summon-only spell is only aimed when explicitly marked so via
+// A beam or nova is always aimed regardless of the flag (a beam needs a
+// direction to fire in, a nova needs a point to center its blast on); a
+// summon-only spell is only aimed when explicitly marked so via
 // spellbookSpellSchema.aimed.
 function isAimedSpell(spell: SpellbookSpell): boolean {
-  return spell.beam !== undefined || spell.aimed === true
+  return spell.beam !== undefined || spell.nova !== undefined || spell.aimed === true
 }
 
 function needsAimedSpell(item: ItemDef): boolean {
@@ -338,6 +339,10 @@ function spellBeamLuaTable(beam: NonNullable<SpellbookSpell['beam']>): string {
   return `{ damage = ${beam.damagePerTick}, tickinterval = ${beam.tickIntervalSeconds}, range = ${beam.range}, duration = ${beam.durationSeconds}, telegraph = ${telegraph} }`
 }
 
+function spellNovaLuaTable(nova: NonNullable<SpellbookSpell['nova']>): string {
+  return `{ damage = ${nova.damage}, radius = ${nova.radius}, stun = ${nova.stunSeconds} }`
+}
+
 // Confirmed against the real game scripts (components/aoespell.lua,
 // components/aoetargeting.lua, prefabs/abigail_flower.lua +
 // prefabs/ghostcommand_defs.lua — see docs/dst-knowledge/patterns.md#69):
@@ -365,7 +370,6 @@ function aimedSpellHelperFunctionBlock(): string[] {
 
 function solarBeamHelperFunctionBlock(): string[] {
   return [
-    ...aimedSpellHelperFunctionBlock(),
     'local function DoSpellBeamDamage(user, beam)',
     '    local x, y, z = user.Transform:GetWorldPosition()',
     '    local angle = user.Transform:GetRotation() * DEGREES',
@@ -420,13 +424,40 @@ function solarBeamHelperFunctionBlock(): string[] {
   ]
 }
 
+// Confirmed real APIs: TheSim:FindEntities(..., radius, {"hostile"}) is the
+// exact same proximity scan sentryFunctionBlock/orbitLeaderFunctionBlock
+// (creature.ts) already use, and Freezable:Freeze(freezetime) is a direct,
+// instant lock — not the gradual coldness buildup ItemDef.weapon's onHitEffect
+// "freeze" uses (see spellbookSpellSchema.nova).
+function solarNovaHelperFunctionBlock(): string[] {
+  return [
+    'local function DoSpellNova(user, pos, nova)',
+    '    local x, y, z = pos:Get()',
+    '    local victims = TheSim:FindEntities(x, y, z, nova.radius, { "hostile" })',
+    '    for _, victim in ipairs(victims) do',
+    '        if victim.components.health ~= nil and not victim.components.health:IsDead() then',
+    '            victim.components.health:DoDelta(-nova.damage, false, "solarnova", false, user)',
+    '            if victim.components.freezable ~= nil then',
+    '                victim.components.freezable:Freeze(nova.stun)',
+    '            end',
+    '        end',
+    '    end',
+    'end',
+    '',
+  ]
+}
+
 function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   const lines: string[] = []
   const hasAimedSpell = spells.some(isAimedSpell)
+  if (hasAimedSpell) {
+    lines.push(...aimedSpellHelperFunctionBlock())
+  }
   if (spells.some((spell) => spell.beam !== undefined)) {
     lines.push(...solarBeamHelperFunctionBlock())
-  } else if (hasAimedSpell) {
-    lines.push(...aimedSpellHelperFunctionBlock())
+  }
+  if (spells.some((spell) => spell.nova !== undefined)) {
+    lines.push(...solarNovaHelperFunctionBlock())
   }
 
   spells.forEach((spell, index) => {
@@ -455,6 +486,9 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
     }
     if (spell.beam !== undefined) {
       lines.push(`    StartSpellBeam(user, ${spellBeamLuaTable(spell.beam)})`)
+    }
+    if (spell.nova !== undefined) {
+      lines.push(`    DoSpellNova(user, pos, ${spellNovaLuaTable(spell.nova)})`)
     }
     lines.push('    if inst.components.finiteuses ~= nil then')
     lines.push('        inst.components.finiteuses:Use(1)')
@@ -511,14 +545,16 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
 // Inventory:FindItem are both real, confirmed APIs.
 function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[] {
   const lines: string[] = []
+  lines.push(...aimedSpellHelperFunctionBlock())
   lines.push(...solarBeamHelperFunctionBlock())
+  lines.push(...solarNovaHelperFunctionBlock())
   lines.push('local function spellbook_cast_from_slotitem(spellitem)')
   lines.push('    return function(inst, user, pos)')
   lines.push('        if spellitem.spell_manacost ~= nil and user.components.mana ~= nil')
   lines.push('            and not user.components.mana:Spend(spellitem.spell_manacost) then')
   lines.push('            return false')
   lines.push('        end')
-  lines.push('        local isaimed = spellitem.spell_beam ~= nil or spellitem.spell_aimed')
+  lines.push('        local isaimed = spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed')
   lines.push('        if isaimed then')
   lines.push('            user:ForceFacePoint(pos:Get())')
   lines.push('        end')
@@ -544,6 +580,9 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('        if spellitem.spell_beam ~= nil then')
   lines.push('            StartSpellBeam(user, spellitem.spell_beam)')
   lines.push('        end')
+  lines.push('        if spellitem.spell_nova ~= nil then')
+  lines.push('            DoSpellNova(user, pos, spellitem.spell_nova)')
+  lines.push('        end')
   lines.push('        if inst.components.finiteuses ~= nil then')
   lines.push('            inst.components.finiteuses:Use(1)')
   lines.push('        end')
@@ -567,7 +606,7 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('                label = spellitem.spell_label,')
   lines.push('                onselect = function(inst)')
   lines.push('                    inst.components.spellbook:SetSpellName(spellitem.spell_label)')
-  lines.push('                    if spellitem.spell_beam ~= nil or spellitem.spell_aimed then')
+  lines.push('                    if spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed then')
   lines.push('                        inst.components.spellbook:SetSpellFn(nil)')
   lines.push('                        if spellitem.spell_beam ~= nil then')
   lines.push('                            inst.components.aoetargeting:SetRange(spellitem.spell_beam.range)')
@@ -578,7 +617,9 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('                        inst.components.aoespell:SetSpellFn(nil)')
   lines.push('                    end')
   lines.push('                end,')
-  lines.push('                execute = (spellitem.spell_beam ~= nil or spellitem.spell_aimed) and StartAOETargeting or function(inst)')
+  lines.push(
+    '                execute = (spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed) and StartAOETargeting or function(inst)',
+  )
   lines.push('                    local inventory = ThePlayer.replica.inventory')
   lines.push('                    if inventory ~= nil then')
   lines.push('                        inventory:CastSpellBookFromInv(inst)')
@@ -683,6 +724,9 @@ function spellDefComponentBlock(item: ItemDef): string[] {
   ]
   if (spell.beam !== undefined) {
     lines.push(`    inst.spell_beam = ${spellBeamLuaTable(spell.beam)}`)
+  }
+  if (spell.nova !== undefined) {
+    lines.push(`    inst.spell_nova = ${spellNovaLuaTable(spell.nova)}`)
   }
   if (spell.aimed) {
     lines.push('    inst.spell_aimed = true')

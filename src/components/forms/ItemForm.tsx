@@ -58,9 +58,10 @@ interface SpellFieldsRowProps {
   register: UseFormRegister<ItemDef>
   setValue: UseFormSetValue<ItemDef>
   beamEnabled: boolean
+  novaEnabled: boolean
 }
 
-function SpellFieldsRow({ namePrefix, labelPlaceholder, register, setValue, beamEnabled }: SpellFieldsRowProps) {
+function SpellFieldsRow({ namePrefix, labelPlaceholder, register, setValue, beamEnabled, novaEnabled }: SpellFieldsRowProps) {
   return (
     <>
       <input className={inputClass} placeholder={labelPlaceholder} {...register(`${namePrefix}.label` as const)} />
@@ -173,6 +174,49 @@ function SpellFieldsRow({ namePrefix, labelPlaceholder, register, setValue, beam
             />
           </>
         )}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input
+            type="checkbox"
+            checked={novaEnabled}
+            onChange={(e) =>
+              setValue(`${namePrefix}.nova` as const, e.target.checked ? { damage: 40, radius: 5, stunSeconds: 3 } : undefined, {
+                shouldDirty: true,
+              })
+            }
+          />
+          Explodes in an aimed area (damages and freezes everything hostile caught in it)
+        </label>
+        {novaEnabled && (
+          <>
+            <input
+              type="number"
+              step="1"
+              min="1"
+              className="qty-input"
+              placeholder="Damage"
+              title="Damage dealt once to everything hostile in the blast"
+              {...register(`${namePrefix}.nova.damage` as const, { valueAsNumber: true })}
+            />
+            <input
+              type="number"
+              step="1"
+              min="1"
+              className="qty-input"
+              placeholder="Radius"
+              title="How far from the aimed point the blast reaches"
+              {...register(`${namePrefix}.nova.radius` as const, { valueAsNumber: true })}
+            />
+            <input
+              type="number"
+              step="0.5"
+              min="0.5"
+              className="qty-input"
+              placeholder="Stun sec"
+              title="How many seconds everything caught in the blast is frozen in place for"
+              {...register(`${namePrefix}.nova.stunSeconds` as const, { valueAsNumber: true })}
+            />
+          </>
+        )}
       </div>
     </>
   )
@@ -184,6 +228,7 @@ interface SpellbookEditorProps {
   setValue: UseFormSetValue<ItemDef>
   errorMessage?: string
   watchedBeamFlags: boolean[]
+  watchedNovaFlags: boolean[]
 }
 
 // Owns the spells field array itself, mounted only while the spellbook is
@@ -196,7 +241,7 @@ interface SpellbookEditorProps {
 // but never rendered as rows, and the first "+ Add spell" click produced 3
 // rows (2 phantom + 1 appended) instead of 1. Mounting fresh here means
 // useFieldArray reads the already-updated value at construction time instead.
-function SpellbookEditor({ control, register, setValue, errorMessage, watchedBeamFlags }: SpellbookEditorProps) {
+function SpellbookEditor({ control, register, setValue, errorMessage, watchedBeamFlags, watchedNovaFlags }: SpellbookEditorProps) {
   const spells = useFieldArray({ control, name: 'spellbook.spells' as never })
 
   return (
@@ -209,6 +254,7 @@ function SpellbookEditor({ control, register, setValue, errorMessage, watchedBea
             register={register}
             setValue={setValue}
             beamEnabled={watchedBeamFlags[index] ?? false}
+            novaEnabled={watchedNovaFlags[index] ?? false}
           />
           <button type="button" className={btnDanger} onClick={() => spells.remove(index)}>
             Remove
@@ -869,6 +915,9 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       watchedBeamFlags={(watched.spellbook?.source === 'static' ? watched.spellbook.spells : []).map(
                         (s) => s.beam !== undefined,
                       )}
+                      watchedNovaFlags={(watched.spellbook?.source === 'static' ? watched.spellbook.spells : []).map(
+                        (s) => s.nova !== undefined,
+                      )}
                     />
                   ) : (
                     <FormField
@@ -1472,6 +1521,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   register={register}
                   setValue={setValue}
                   beamEnabled={watched.spellDef?.beam !== undefined}
+                  novaEnabled={watched.spellDef?.nova !== undefined}
                 />
               </div>
             )}

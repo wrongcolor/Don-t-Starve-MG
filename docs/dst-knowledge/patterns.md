@@ -3478,3 +3478,42 @@ parada.
 - UI (`CreatureForm.tsx`): checkbox "Stationary sentry" na mesma seção de
   ground attack/squad alert, desabilitado quando a criatura já segue o
   jogador (companion) e vice-versa.
+
+## 71. Um feitiço mirado de explosão em área, que "trava" o alvo — `Freezable:Freeze` — **implementado**
+
+Motivação: novo feitiço da Viana, Solar Nova — mira um ponto, explode numa
+área X, causa dano e deixa os inimigos atingidos travados por um tempo.
+
+**Confirmado, mecanismo real**: dois pedaços já usados em outro lugar desta
+ferramenta, só combinados de um jeito novo.
+- `TheSim:FindEntities(x, y, z, radius, {"hostile"})` — a mesma varredura de
+  proximidade que `sentryFunctionBlock`/`orbitLeaderFunctionBlock`
+  (`creature.ts`, patterns.md#70/#61ish) já usam pra achar alvos hostis perto
+  de um ponto.
+- `components/freezable.lua`'s `Freezable:Freeze(freezetime)` — confirmado
+  real: trava o alvo imediatamente por um tempo fixo (para o `locomotor`,
+  limpa o alvo de combate, para o brain), diferente do `AddColdness`
+  gradual que `ItemDef.weapon.ranged.onHitEffect: 'freeze'` já usa (esse
+  precisa de vários acertos pra acumular frio até congelar; `Freeze` trava
+  na hora, de um efeito só). Roda mesmo num alvo sem tema de frio nenhum —
+  o componente não se importa com a "desculpa" narrativa do dano, só com o
+  travamento em si.
+
+**Implementado:**
+- `spellbookSpellSchema.nova` (`src/types/modProject.ts`) — `{ damage,
+  radius, stunSeconds }`. Sempre mirado (como `beam`), independente da flag
+  `aimed` — uma explosão precisa de um ponto pra centralizar o estouro.
+- `src/generators/item.ts`: `solarNovaHelperFunctionBlock` gera
+  `DoSpellNova(user, pos, nova)` — varre o raio ao redor do ponto mirado,
+  aplica dano (`health:DoDelta`) e, se o alvo tiver `freezable`, chama
+  `Freeze(nova.stun)`. Reaproveitado tanto pro `spellbook` estático quanto
+  pro `linkedContainer` (`spellitem.spell_nova`), do mesmo jeito que `beam`
+  já era.
+- Separação dos helpers de mira (`aimedSpellHelperFunctionBlock`) dos de
+  `beam`/`nova`: antes `solarBeamHelperFunctionBlock` incluía os helpers de
+  mira embutidos; agora cada bloco (mira/beam/nova) é emitido
+  independentemente pelo chamador, evitando duplicar `spell_aoe_
+  reticuletargetfn`/`StartAOETargeting` quando um item tem beam E nova ao
+  mesmo tempo.
+- UI (`ItemForm.tsx`): checkbox "Explodes in an aimed area" + campos de
+  dano/raio/segundos de trava, no mesmo bloco de `SpellFieldsRow` do beam.
