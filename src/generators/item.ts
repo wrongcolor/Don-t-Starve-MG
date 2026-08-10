@@ -343,6 +343,10 @@ function spellNovaLuaTable(nova: NonNullable<SpellbookSpell['nova']>): string {
   return `{ damage = ${nova.damage}, radius = ${nova.radius}, stun = ${nova.stunSeconds} }`
 }
 
+function spellRefractionLuaTable(refraction: NonNullable<SpellbookSpell['refraction']>): string {
+  return `{ radius = ${refraction.radius}, duration = ${refraction.immuneSeconds} }`
+}
+
 // Confirmed against the real game scripts (components/aoespell.lua,
 // components/aoetargeting.lua, prefabs/abigail_flower.lua +
 // prefabs/ghostcommand_defs.lua — see docs/dst-knowledge/patterns.md#69):
@@ -447,6 +451,32 @@ function solarNovaHelperFunctionBlock(): string[] {
   ]
 }
 
+// Confirmed real APIs: TheSim:FindEntities(..., radius, {"player"}) finds
+// every nearby player (the caster included) the same way
+// squadAlertFunctionBlock (creature.ts) already finds nearby allies, and
+// Health:SetInvincible(val) is the same real toggle CreatureDef.invincible
+// already uses permanently — flipped back off after the duration via a
+// plain DoTaskInTime. Never aimed, so this needs no pos at all.
+function solarRefractionHelperFunctionBlock(): string[] {
+  return [
+    'local function DoSpellRefraction(user, refraction)',
+    '    local x, y, z = user.Transform:GetWorldPosition()',
+    '    local allies = TheSim:FindEntities(x, y, z, refraction.radius, { "player" })',
+    '    for _, ally in ipairs(allies) do',
+    '        if ally.components.health ~= nil then',
+    '            ally.components.health:SetInvincible(true)',
+    '            ally:DoTaskInTime(refraction.duration, function()',
+    '                if ally.components.health ~= nil then',
+    '                    ally.components.health:SetInvincible(false)',
+    '                end',
+    '            end)',
+    '        end',
+    '    end',
+    'end',
+    '',
+  ]
+}
+
 function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   const lines: string[] = []
   const hasAimedSpell = spells.some(isAimedSpell)
@@ -458,6 +488,9 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   }
   if (spells.some((spell) => spell.nova !== undefined)) {
     lines.push(...solarNovaHelperFunctionBlock())
+  }
+  if (spells.some((spell) => spell.refraction !== undefined)) {
+    lines.push(...solarRefractionHelperFunctionBlock())
   }
 
   spells.forEach((spell, index) => {
@@ -489,6 +522,9 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
     }
     if (spell.nova !== undefined) {
       lines.push(`    DoSpellNova(user, pos, ${spellNovaLuaTable(spell.nova)})`)
+    }
+    if (spell.refraction !== undefined) {
+      lines.push(`    DoSpellRefraction(user, ${spellRefractionLuaTable(spell.refraction)})`)
     }
     lines.push('    if inst.components.finiteuses ~= nil then')
     lines.push('        inst.components.finiteuses:Use(1)')
@@ -548,6 +584,7 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push(...aimedSpellHelperFunctionBlock())
   lines.push(...solarBeamHelperFunctionBlock())
   lines.push(...solarNovaHelperFunctionBlock())
+  lines.push(...solarRefractionHelperFunctionBlock())
   lines.push('local function spellbook_cast_from_slotitem(spellitem)')
   lines.push('    return function(inst, user, pos)')
   lines.push('        if spellitem.spell_manacost ~= nil and user.components.mana ~= nil')
@@ -582,6 +619,9 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('        end')
   lines.push('        if spellitem.spell_nova ~= nil then')
   lines.push('            DoSpellNova(user, pos, spellitem.spell_nova)')
+  lines.push('        end')
+  lines.push('        if spellitem.spell_refraction ~= nil then')
+  lines.push('            DoSpellRefraction(user, spellitem.spell_refraction)')
   lines.push('        end')
   lines.push('        if inst.components.finiteuses ~= nil then')
   lines.push('            inst.components.finiteuses:Use(1)')
@@ -727,6 +767,9 @@ function spellDefComponentBlock(item: ItemDef): string[] {
   }
   if (spell.nova !== undefined) {
     lines.push(`    inst.spell_nova = ${spellNovaLuaTable(spell.nova)}`)
+  }
+  if (spell.refraction !== undefined) {
+    lines.push(`    inst.spell_refraction = ${spellRefractionLuaTable(spell.refraction)}`)
   }
   if (spell.aimed) {
     lines.push('    inst.spell_aimed = true')

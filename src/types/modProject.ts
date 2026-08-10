@@ -263,6 +263,20 @@ export const spellbookSpellSchema = z
         stunSeconds: z.number().min(0.5).max(30),
       })
       .optional(),
+    // Confirmed real APIs: TheSim:FindEntities(..., radius, {"player"}) finds
+    // every nearby player (the caster included, since she's standing at the
+    // center) the same way squadAlertFunctionBlock already finds nearby
+    // allies of the same creature (creature.ts), and components/health.lua's
+    // Health:SetInvincible(val) is the same real, direct toggle
+    // CreatureDef.invincible already uses permanently — here it's flipped
+    // back off after immuneSeconds via a plain DoTaskInTime. Centered on the
+    // caster's own position, never aimed — see isAimedSpell.
+    refraction: z
+      .object({
+        radius: z.number().min(1).max(20),
+        immuneSeconds: z.number().min(1).max(60),
+      })
+      .optional(),
     // Confirmed in prefabs/abigail_flower.lua + ghostcommand_defs.lua (see
     // docs/dst-knowledge/patterns.md#69): lets a spell that summons something
     // spawn at a mouse-aimed point (via aoetargeting+aoespell) instead of
@@ -279,7 +293,8 @@ export const spellbookSpellSchema = z
       spell.sanityDelta !== undefined ||
       spell.hungerDelta !== undefined ||
       spell.beam !== undefined ||
-      spell.nova !== undefined,
+      spell.nova !== undefined ||
+      spell.refraction !== undefined,
     {
       message: 'A spell needs to do something — set a prefab to summon and/or a health/sanity/hunger effect',
       path: ['summonPrefab'],

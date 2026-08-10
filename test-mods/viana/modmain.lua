@@ -4,7 +4,7 @@ local TUNING = GLOBAL.TUNING
 local TECH = GLOBAL.TECH
 local Ingredient = GLOBAL.Ingredient
 
-PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solarbeamspell", "solarnovaspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "viana", "sunorb", "sunwisp", "lightpillar" }
+PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solarbeamspell", "refractionspell", "solarnovaspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "viana", "sunorb", "sunwisp", "lightpillar" }
 
 -- Items: tuning + strings
 GLOBAL.TUNING.SOLARLANTERN_MAX_FUEL = 100
@@ -35,6 +35,9 @@ STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNWISPSPELL = "Bind this in the Sun Codex t
 STRINGS.NAMES.SOLARBEAMSPELL = "Solar Beam Spell"
 STRINGS.RECIPE_DESC.SOLARBEAMSPELL = "Bind this in the Sun Codex to let the Sun Staff channel a beam of sunlight in front of her, burning anything it sweeps over."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARBEAMSPELL = "Bind this in the Sun Codex to let the Sun Staff channel a beam of sunlight in front of her, burning anything it sweeps over."
+STRINGS.NAMES.REFRACTIONSPELL = "Refraction Spell"
+STRINGS.RECIPE_DESC.REFRACTIONSPELL = "Bind this in the Sun Codex to let the Sun Staff turn her and any nearby allies into shimmering mirages, immune to harm for a short while."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.REFRACTIONSPELL = "Bind this in the Sun Codex to let the Sun Staff turn her and any nearby allies into shimmering mirages, immune to harm for a short while."
 STRINGS.NAMES.SOLARNOVASPELL = "Solar Nova Spell"
 STRINGS.RECIPE_DESC.SOLARNOVASPELL = "Bind this in the Sun Codex to let the Sun Staff burst a flare of sunlight where she aims, burning and locking in place anything caught in the blast."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARNOVASPELL = "Bind this in the Sun Codex to let the Sun Staff burst a flare of sunlight where she aims, burning and locking in place anything caught in the blast."
@@ -86,6 +89,9 @@ AddRecipe2("sunwispspell", { Ingredient("twigs", 1), Ingredient("goldnugget", 1)
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("solarbeamspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
+        image = "papyrus.tex",
+    }, { "MAGIC" })
+AddRecipe2("refractionspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("solarnovaspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {

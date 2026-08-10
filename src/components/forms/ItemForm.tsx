@@ -59,9 +59,18 @@ interface SpellFieldsRowProps {
   setValue: UseFormSetValue<ItemDef>
   beamEnabled: boolean
   novaEnabled: boolean
+  refractionEnabled: boolean
 }
 
-function SpellFieldsRow({ namePrefix, labelPlaceholder, register, setValue, beamEnabled, novaEnabled }: SpellFieldsRowProps) {
+function SpellFieldsRow({
+  namePrefix,
+  labelPlaceholder,
+  register,
+  setValue,
+  beamEnabled,
+  novaEnabled,
+  refractionEnabled,
+}: SpellFieldsRowProps) {
   return (
     <>
       <input className={inputClass} placeholder={labelPlaceholder} {...register(`${namePrefix}.label` as const)} />
@@ -217,6 +226,40 @@ function SpellFieldsRow({ namePrefix, labelPlaceholder, register, setValue, beam
             />
           </>
         )}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input
+            type="checkbox"
+            checked={refractionEnabled}
+            onChange={(e) =>
+              setValue(`${namePrefix}.refraction` as const, e.target.checked ? { radius: 8, immuneSeconds: 5 } : undefined, {
+                shouldDirty: true,
+              })
+            }
+          />
+          Shields herself and nearby players (temporary immunity, no aiming needed)
+        </label>
+        {refractionEnabled && (
+          <>
+            <input
+              type="number"
+              step="1"
+              min="1"
+              className="qty-input"
+              placeholder="Radius"
+              title="How far from the caster the shield reaches"
+              {...register(`${namePrefix}.refraction.radius` as const, { valueAsNumber: true })}
+            />
+            <input
+              type="number"
+              step="1"
+              min="1"
+              className="qty-input"
+              placeholder="Immune sec"
+              title="How many seconds the shielded players stay immune to damage"
+              {...register(`${namePrefix}.refraction.immuneSeconds` as const, { valueAsNumber: true })}
+            />
+          </>
+        )}
       </div>
     </>
   )
@@ -229,6 +272,7 @@ interface SpellbookEditorProps {
   errorMessage?: string
   watchedBeamFlags: boolean[]
   watchedNovaFlags: boolean[]
+  watchedRefractionFlags: boolean[]
 }
 
 // Owns the spells field array itself, mounted only while the spellbook is
@@ -241,7 +285,15 @@ interface SpellbookEditorProps {
 // but never rendered as rows, and the first "+ Add spell" click produced 3
 // rows (2 phantom + 1 appended) instead of 1. Mounting fresh here means
 // useFieldArray reads the already-updated value at construction time instead.
-function SpellbookEditor({ control, register, setValue, errorMessage, watchedBeamFlags, watchedNovaFlags }: SpellbookEditorProps) {
+function SpellbookEditor({
+  control,
+  register,
+  setValue,
+  errorMessage,
+  watchedBeamFlags,
+  watchedNovaFlags,
+  watchedRefractionFlags,
+}: SpellbookEditorProps) {
   const spells = useFieldArray({ control, name: 'spellbook.spells' as never })
 
   return (
@@ -255,6 +307,7 @@ function SpellbookEditor({ control, register, setValue, errorMessage, watchedBea
             setValue={setValue}
             beamEnabled={watchedBeamFlags[index] ?? false}
             novaEnabled={watchedNovaFlags[index] ?? false}
+            refractionEnabled={watchedRefractionFlags[index] ?? false}
           />
           <button type="button" className={btnDanger} onClick={() => spells.remove(index)}>
             Remove
@@ -918,6 +971,9 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       watchedNovaFlags={(watched.spellbook?.source === 'static' ? watched.spellbook.spells : []).map(
                         (s) => s.nova !== undefined,
                       )}
+                      watchedRefractionFlags={(watched.spellbook?.source === 'static' ? watched.spellbook.spells : []).map(
+                        (s) => s.refraction !== undefined,
+                      )}
                     />
                   ) : (
                     <FormField
@@ -1522,6 +1578,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   setValue={setValue}
                   beamEnabled={watched.spellDef?.beam !== undefined}
                   novaEnabled={watched.spellDef?.nova !== undefined}
+                  refractionEnabled={watched.spellDef?.refraction !== undefined}
                 />
               </div>
             )}

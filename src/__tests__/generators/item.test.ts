@@ -702,6 +702,75 @@ describe('generateItemFiles', () => {
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
+  // Confirmed real APIs (docs/dst-knowledge/patterns.md#72):
+  // TheSim:FindEntities(..., radius, {"player"}) is the same nearby-allies
+  // scan squadAlertFunctionBlock (creature.ts) already uses, and
+  // Health:SetInvincible(val) is the same toggle CreatureDef.invincible
+  // already uses permanently — here flipped off again after the duration.
+  // Never aimed, unlike beam/nova — it centers on the caster herself.
+  it('wires a static spell\'s refraction as an unaimed self-centered buff that shields nearby players temporarily', () => {
+    const refractionStaff: ItemDef = {
+      ...trinket,
+      id: 'testrefractionstaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          { label: 'Refraction', refraction: { radius: 8, immuneSeconds: 5 } },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(refractionStaff)
+    expect(code).toContain('local function DoSpellRefraction(user, refraction)')
+    expect(code).toContain('local allies = TheSim:FindEntities(x, y, z, refraction.radius, { "player" })')
+    expect(code).toContain('ally.components.health:SetInvincible(true)')
+    expect(code).toContain('ally:DoTaskInTime(refraction.duration, function()')
+    expect(code).toContain('ally.components.health:SetInvincible(false)')
+    expect(code).toContain('DoSpellRefraction(user, { radius = 8, duration = 5 })')
+
+    // Unaimed: no aoetargeting/aoespell components, no ForceFacePoint, and
+    // the wheel entry stays on the instant CastSpellBookFromInv path.
+    expect(code).not.toContain('aoetargeting')
+    expect(code).not.toContain('aoespell')
+    expect(code).not.toContain('ForceFacePoint')
+    const refractionEntryStart = code.indexOf('label = "Refraction"')
+    const sparkEntryStart = code.indexOf('label = "Free Spark"')
+    const refractionEntry = code.slice(refractionEntryStart, sparkEntryStart)
+    expect(refractionEntry).toContain('inst.components.spellbook:SetSpellFn(spellbook_cast_1)')
+    expect(refractionEntry).toContain('inventory:CastSpellBookFromInv(inst)')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('omits the refraction helper function from a static spellbook when no spell in it uses refraction', () => {
+    const code = generateItemPrefab({
+      ...trinket,
+      id: 'testnorefractionstaff',
+      spellbook: { source: 'static', spells: [{ label: 'A', summonPrefab: 'x' }, { label: 'B', summonPrefab: 'y' }] },
+    })
+    expect(code).not.toContain('DoSpellRefraction')
+  })
+
+  it('sets inst.spell_refraction on a spellDef item with a refraction, and a linkedContainer staff casts it', () => {
+    const refractionSpell: ItemDef = {
+      ...trinket,
+      id: 'testrefractionspell',
+      spellDef: { label: 'Refraction', refraction: { radius: 8, immuneSeconds: 5 } },
+    }
+    expect(generateItemPrefab(refractionSpell)).toContain('inst.spell_refraction = { radius = 8, duration = 5 }')
+
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkedrefractionstaff',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const code = generateItemPrefab(linked)
+    expect(code).toContain('local function DoSpellRefraction(user, refraction)')
+    expect(code).toContain('if spellitem.spell_refraction ~= nil then')
+    expect(code).toContain('DoSpellRefraction(user, spellitem.spell_refraction)')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
   it('rejects an item with both spellbook and spellEffect set', () => {
     const both: ItemDef = {
       ...trinket,

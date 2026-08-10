@@ -3517,3 +3517,38 @@ ferramenta, só combinados de um jeito novo.
   mesmo tempo.
 - UI (`ItemForm.tsx`): checkbox "Explodes in an aimed area" + campos de
   dano/raio/segundos de trava, no mesmo bloco de `SpellFieldsRow` do beam.
+
+## 72. Um feitiço de área SEM mira, que imuniza jogadores próximos — `Health:SetInvincible` temporário — **implementado**
+
+Motivação: novo feitiço da Viana, Refraction — transforma o jogador e
+aliados numa área X em miragens, deixando-os imunes por um tempo X.
+
+**Confirmado, mecanismo real**: de novo, dois pedaços já usados em outro
+lugar desta ferramenta, combinados de um jeito novo — e a diferença chave
+em relação a `beam`/`nova` (patterns.md#69/#71) é que este feitiço **não
+mira em nada**: ele sempre centraliza no ponto onde a própria conjuradora
+está, então nunca passa pelo caminho `aoetargeting`/`aoespell`.
+- `TheSim:FindEntities(x, y, z, radius, {"player"})` — a mesma técnica de
+  varredura já usada em `squadAlertFunctionBlock` (`creature.ts`), só que
+  filtrando por jogadores em vez de aliados da mesma criatura. Como a
+  conjuradora também carrega a tag `"player"` e está parada no centro da
+  varredura, ela mesma sempre entra na lista — não precisa de um caso
+  especial pra "ela e os aliados".
+- `components/health.lua`'s `Health:SetInvincible(val)` — o MESMO campo que
+  `CreatureDef.invincible` já usa (só que permanente, pro Sun Orb). Aqui é
+  ligado e, via um `DoTaskInTime(duration, ...)` simples, desligado de novo
+  depois do tempo configurado — sem precisar de nenhum componente novo.
+
+**Implementado:**
+- `spellbookSpellSchema.refraction` (`src/types/modProject.ts`) — `{ radius,
+  immuneSeconds }`. NÃO entra em `isAimedSpell` (diferente de `beam`/`nova`)
+  — continua no caminho instantâneo de sempre (`spellbook:SetSpellFn` +
+  `CastSpellBookFromInv`), sem precisar de `aoetargeting`/`aoespell`.
+- `src/generators/item.ts`: `solarRefractionHelperFunctionBlock` gera
+  `DoSpellRefraction(user, refraction)` — varre jogadores ao redor da
+  própria conjuradora, liga `SetInvincible(true)` em cada um, e agenda
+  `SetInvincible(false)` pro fim da duração. Reaproveitado tanto pro
+  `spellbook` estático quanto pro `linkedContainer`
+  (`spellitem.spell_refraction`), do mesmo jeito que `beam`/`nova`.
+- UI (`ItemForm.tsx`): checkbox "Shields herself and nearby players" + campos
+  de raio/segundos de imunidade, no mesmo bloco de `SpellFieldsRow`.

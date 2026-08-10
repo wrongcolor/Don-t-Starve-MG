@@ -153,6 +153,26 @@ export const viana: ModProject = {
       },
     },
     {
+      id: 'refractionspell',
+      displayName: 'Refraction Spell',
+      description: 'Bind this in the Sun Codex to let the Sun Staff turn her and any nearby allies into shimmering mirages, immune to harm for a short while.',
+      category: 'generic',
+      animation: { source: 'vanilla', build: 'papyrus' },
+      spellDef: {
+        label: 'Refraction',
+        manaCost: 45,
+        refraction: { radius: 8, immuneSeconds: 5 },
+      },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 2 },
+          { prefab: 'nightmarefuel', amount: 3 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+      },
+    },
+    {
       id: 'solarnovaspell',
       displayName: 'Solar Nova Spell',
       description: 'Bind this in the Sun Codex to let the Sun Staff burst a flare of sunlight where she aims, burning and locking in place anything caught in the blast.',

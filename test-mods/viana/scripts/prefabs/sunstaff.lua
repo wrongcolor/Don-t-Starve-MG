@@ -77,6 +77,21 @@ local function DoSpellNova(user, pos, nova)
     end
 end
 
+local function DoSpellRefraction(user, refraction)
+    local x, y, z = user.Transform:GetWorldPosition()
+    local allies = TheSim:FindEntities(x, y, z, refraction.radius, { "player" })
+    for _, ally in ipairs(allies) do
+        if ally.components.health ~= nil then
+            ally.components.health:SetInvincible(true)
+            ally:DoTaskInTime(refraction.duration, function()
+                if ally.components.health ~= nil then
+                    ally.components.health:SetInvincible(false)
+                end
+            end)
+        end
+    end
+end
+
 local function spellbook_cast_from_slotitem(spellitem)
     return function(inst, user, pos)
         if spellitem.spell_manacost ~= nil and user.components.mana ~= nil
@@ -111,6 +126,9 @@ local function spellbook_cast_from_slotitem(spellitem)
         end
         if spellitem.spell_nova ~= nil then
             DoSpellNova(user, pos, spellitem.spell_nova)
+        end
+        if spellitem.spell_refraction ~= nil then
+            DoSpellRefraction(user, spellitem.spell_refraction)
         end
         if inst.components.finiteuses ~= nil then
             inst.components.finiteuses:Use(1)
