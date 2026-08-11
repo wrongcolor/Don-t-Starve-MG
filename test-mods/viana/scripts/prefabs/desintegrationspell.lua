@@ -36,7 +36,7 @@ local function fn()
     inst.spell_healthdelta = nil
     inst.spell_sanitydelta = nil
     inst.spell_hungerdelta = nil
-    inst.spell_desintegrate = { radius = 6, damage = 2000, casttime = 4 }
+    inst.spell_desintegrate = { radius = 6, damage = 2000, casttime = 10 }
 
     return inst
 end

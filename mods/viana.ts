@@ -280,7 +280,7 @@ export const viana: ModProject = {
       spellDef: {
         label: 'Desintegration',
         manaCost: 75,
-        desintegrate: { radius: 6, damage: 2000, castTimeSeconds: 4 },
+        desintegrate: { radius: 6, damage: 2000, castTimeSeconds: 10 },
       },
       recipe: {
         ingredients: [
