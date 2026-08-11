@@ -4,7 +4,12 @@ local TUNING = GLOBAL.TUNING
 local TECH = GLOBAL.TECH
 local Ingredient = GLOBAL.Ingredient
 
-PrefabFiles = { "testsword", "testtrinket", "testaxe", "testfirestaff", "testarmor", "testfood", "testspellbook", "teststructure", "teststructure_placer", "testmob", "testspidermob", "testhound" }
+PrefabFiles = { "testsword", "testtrinket", "testaxe", "testfirestaff", "testarmor", "testfood", "testspellbook", "teststructure", "teststructure_placer", "testchar", "testmob", "testspidermob", "testhound" }
+
+Assets = {
+    Asset("ATLAS", "bigportraits/testchar.xml"),
+    Asset("ATLAS", "images/avatars/avatar_testchar.xml"),
+}
 
 -- Items: tuning + strings
 GLOBAL.TUNING.TESTSWORD_DAMAGE = 34
@@ -81,6 +86,19 @@ AddRecipe2("teststructure", { Ingredient("boards", 4) }, TECH.NONE, {
         placer = "teststructure_placer",
     }, { "STRUCTURES" })
 
+-- Lets a handheld spellbook item open the spell wheel from its own equipped action button
+local ACTIONS = GLOBAL.ACTIONS
+
+AddComponentAction("EQUIPPED", "spellbook", function(inst, doer, target, actions, right)
+    if target == doer then
+        if doer.HUD ~= nil and doer.HUD:GetCurrentOpenSpellBook() == inst then
+            table.insert(actions, ACTIONS.CLOSESPELLBOOK)
+        elseif inst.components.spellbook:CanBeUsedBy(doer) then
+            table.insert(actions, ACTIONS.USESPELLBOOK)
+        end
+    end
+end)
+
 -- Creatures: tuning + strings
 GLOBAL.TUNING.TESTMOB_HEALTH = 100
 GLOBAL.TUNING.TESTMOB_DAMAGE = 20
@@ -102,3 +120,23 @@ GLOBAL.TUNING.TESTHOUND_ATTACK_RANGE = 4
 GLOBAL.TUNING.TESTHOUND_SANITYAURA = -10
 STRINGS.NAMES.TESTHOUND = "Test Hound"
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.TESTHOUND = "A mob with combat/status effects for testing"
+
+-- Characters: tuning + strings + registration
+GLOBAL.TUNING.TESTCHAR_HEALTH = 150
+GLOBAL.TUNING.TESTCHAR_HUNGER = 150
+GLOBAL.TUNING.TESTCHAR_SANITY = 200
+STRINGS.CHARACTER_TITLES.testchar = "the tester"
+STRINGS.CHARACTER_NAMES.testchar = "Testy"
+STRINGS.CHARACTER_DESCRIPTIONS.testchar = "A character for testing"
+STRINGS.CHARACTER_QUOTES.testchar = "I test things."
+STRINGS.CHARACTERS.TESTCHAR = require("speech_testchar")
+AddModCharacter("testchar", "NEUTRAL")
+
+-- Keeps a reused-vanilla-build character visible after spawning (patterns.md#60)
+AddComponentPostInit("skinner", function(self)
+    self.base_change_cb = function()
+        if self.inst.prefab == "testchar" then
+            self.inst.AnimState:SetBuild("wilson")
+        end
+    end
+end)

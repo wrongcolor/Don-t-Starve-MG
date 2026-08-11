@@ -75,20 +75,6 @@ end)
 AddStategraphActionHandler("wilson", ActionHandler(ACTIONS.COMBINE_ITEM, "dolongaction"))
 AddStategraphActionHandler("wilson_client", ActionHandler(ACTIONS.COMBINE_ITEM, "dolongaction"))
 
--- Container widgets
-local containers = require("containers")
-local params = containers.params
-
-params.coldbox = GLOBAL.deepcopy(containers.params["icebox"])
-params.coldbox.issidewidget = true
-params.coldbox.type = "coldbox"
-
-containers.MAXITEMSLOTS = math.max(containers.MAXITEMSLOTS, #params.coldbox.widget.slotpos)
-
-function params.coldbox.itemtestfn(container, item, slot)
-    return item:HasTag("freezable")
-end
-
 -- Creatures: tuning + strings
 GLOBAL.TUNING.PACKWOLF_HEALTH = 150
 GLOBAL.TUNING.PACKWOLF_DAMAGE = 25

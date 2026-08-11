@@ -59,16 +59,16 @@ params.sawmill = {
         slotpos = {},
         animbank = "ui_sawmill",
         animbuild = "ui_sawmill",
-        pos = Vector3(0, 0, 0),
+        pos = GLOBAL.Vector3(0, 0, 0),
     },
 }
 
-table.insert(params.sawmill.widget.slotpos, Vector3(-75, 37.5, 0))
-table.insert(params.sawmill.widget.slotpos, Vector3(0, 37.5, 0))
-table.insert(params.sawmill.widget.slotpos, Vector3(75, 37.5, 0))
-table.insert(params.sawmill.widget.slotpos, Vector3(-75, -37.5, 0))
-table.insert(params.sawmill.widget.slotpos, Vector3(0, -37.5, 0))
-table.insert(params.sawmill.widget.slotpos, Vector3(75, -37.5, 0))
+table.insert(params.sawmill.widget.slotpos, GLOBAL.Vector3(-75, 37.5, 0))
+table.insert(params.sawmill.widget.slotpos, GLOBAL.Vector3(0, 37.5, 0))
+table.insert(params.sawmill.widget.slotpos, GLOBAL.Vector3(75, 37.5, 0))
+table.insert(params.sawmill.widget.slotpos, GLOBAL.Vector3(-75, -37.5, 0))
+table.insert(params.sawmill.widget.slotpos, GLOBAL.Vector3(0, -37.5, 0))
+table.insert(params.sawmill.widget.slotpos, GLOBAL.Vector3(75, -37.5, 0))
 params.sawmill.issidewidget = false
 params.sawmill.type = "sawmill"
 
@@ -79,16 +79,16 @@ params.quarry = {
         slotpos = {},
         animbank = "ui_quarry",
         animbuild = "ui_quarry",
-        pos = Vector3(0, 0, 0),
+        pos = GLOBAL.Vector3(0, 0, 0),
     },
 }
 
-table.insert(params.quarry.widget.slotpos, Vector3(-75, 37.5, 0))
-table.insert(params.quarry.widget.slotpos, Vector3(0, 37.5, 0))
-table.insert(params.quarry.widget.slotpos, Vector3(75, 37.5, 0))
-table.insert(params.quarry.widget.slotpos, Vector3(-75, -37.5, 0))
-table.insert(params.quarry.widget.slotpos, Vector3(0, -37.5, 0))
-table.insert(params.quarry.widget.slotpos, Vector3(75, -37.5, 0))
+table.insert(params.quarry.widget.slotpos, GLOBAL.Vector3(-75, 37.5, 0))
+table.insert(params.quarry.widget.slotpos, GLOBAL.Vector3(0, 37.5, 0))
+table.insert(params.quarry.widget.slotpos, GLOBAL.Vector3(75, 37.5, 0))
+table.insert(params.quarry.widget.slotpos, GLOBAL.Vector3(-75, -37.5, 0))
+table.insert(params.quarry.widget.slotpos, GLOBAL.Vector3(0, -37.5, 0))
+table.insert(params.quarry.widget.slotpos, GLOBAL.Vector3(75, -37.5, 0))
 params.quarry.issidewidget = false
 params.quarry.type = "quarry"
 
@@ -99,16 +99,16 @@ params.farmhouse = {
         slotpos = {},
         animbank = "ui_farmhouse",
         animbuild = "ui_farmhouse",
-        pos = Vector3(0, 0, 0),
+        pos = GLOBAL.Vector3(0, 0, 0),
     },
 }
 
-table.insert(params.farmhouse.widget.slotpos, Vector3(-75, 37.5, 0))
-table.insert(params.farmhouse.widget.slotpos, Vector3(0, 37.5, 0))
-table.insert(params.farmhouse.widget.slotpos, Vector3(75, 37.5, 0))
-table.insert(params.farmhouse.widget.slotpos, Vector3(-75, -37.5, 0))
-table.insert(params.farmhouse.widget.slotpos, Vector3(0, -37.5, 0))
-table.insert(params.farmhouse.widget.slotpos, Vector3(75, -37.5, 0))
+table.insert(params.farmhouse.widget.slotpos, GLOBAL.Vector3(-75, 37.5, 0))
+table.insert(params.farmhouse.widget.slotpos, GLOBAL.Vector3(0, 37.5, 0))
+table.insert(params.farmhouse.widget.slotpos, GLOBAL.Vector3(75, 37.5, 0))
+table.insert(params.farmhouse.widget.slotpos, GLOBAL.Vector3(-75, -37.5, 0))
+table.insert(params.farmhouse.widget.slotpos, GLOBAL.Vector3(0, -37.5, 0))
+table.insert(params.farmhouse.widget.slotpos, GLOBAL.Vector3(75, -37.5, 0))
 params.farmhouse.issidewidget = false
 params.farmhouse.type = "farmhouse"
 

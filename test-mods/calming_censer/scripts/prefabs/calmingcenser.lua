@@ -40,6 +40,7 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
+    inst.components.inventoryitem.imagename = "goldnugget"
 
     inst:AddComponent("finiteuses")
     inst.components.finiteuses:SetMaxUses(TUNING.CALMINGCENSER_USES)

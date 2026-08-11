@@ -108,6 +108,8 @@ local function common_postinit(inst)
 end
 
 local function master_postinit(inst)
+    inst.starting_inventory = { "sunstaff", "suncodex" }
+
     inst.components.health:SetMaxHealth(TUNING.VIANA_HEALTH)
     inst.components.hunger:SetMax(TUNING.VIANA_HUNGER)
     inst.components.sanity:SetMax(TUNING.VIANA_SANITY)
@@ -137,4 +139,4 @@ local function master_postinit(inst)
     inst.components.combat:AddConditionExternalDamageTakenMultiplier(ShadowDamageTakenMultiplier)
 end
 
-return MakePlayerCharacter("viana", prefabs, assets, common_postinit, master_postinit, start_inv)
+return MakePlayerCharacter("viana", prefabs, assets, common_postinit, master_postinit)

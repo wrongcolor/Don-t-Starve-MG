@@ -22,6 +22,8 @@ caminhos abaixo, substituindo os placeholders:
   - `testspellbook`: reaproveita o build "goldnugget" do jogo base — nenhum `anim/*.zip` próprio é necessário.
 - **Estruturas**: `images/inventoryimages/<id>.xml`/`.tex` (ícone de inventário, sempre necessário).
   - `teststructure`: reaproveita o build "treasurechest" do jogo base — nenhum `anim/*.zip` próprio é necessário.
+- **Personagens**: builds em `anim/`, ícone de seleção e ícone de minimapa.
+  - `testchar`: reaproveita o build "wilson" do jogo base como placeholder visual — nenhum `anim/*.zip` próprio é necessário, mas a aparência final ainda será a desse personagem vanilla até você trocar por um build real.
 - **Criaturas**: por padrão reaproveitam o build "pigman" do jogo base — só precisam de `anim/<id>.zip` próprio se a animação for explicitamente marcada como personalizada.
   - `testmob`: reaproveita o build "spider" do jogo base — confirme em-jogo que as animações "idle"/"walk"/"atk"/"hit"/"death" existem nesse build antes de publicar (não verificado por esta ferramenta).
   - `testspidermob`: reaproveita o build "spider" do jogo base — confirme em-jogo que as animações "idle"/"walk"/"atk"/"hit"/"death" existem nesse build antes de publicar (não verificado por esta ferramenta).
@@ -47,4 +49,5 @@ falas customizadas no formulário foram sobrescritas; o resto herda do Wilson.
 - [ ] O mod ativa sem erro no console (F1) ao carregar um mundo.
 - [ ] Para cada item: `c_give("<id>")` no console e verificar se craft aparece na aba certa.
 - [ ] Para cada estrutura: craftar e posicionar no mundo, e martelar pra confirmar que ela sai (hammer-destroy).
+- [ ] Para cada personagem: aparece na tela de seleção e carrega sem crash.
 - [ ] Para cada criatura: `c_spawn("<id>")` e observar se anda/ataca sem erro no log.

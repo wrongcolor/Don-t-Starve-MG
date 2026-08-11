@@ -28,6 +28,7 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
+    inst.components.inventoryitem.imagename = "papyrus"
 
     inst.spell_label = "Sunfed"
     inst.spell_summonprefab = nil

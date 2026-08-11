@@ -39,6 +39,7 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
+    inst.components.inventoryitem.imagename = "rocks"
 
     inst:AddComponent("tool")
     inst.components.tool:SetAction(ACTIONS.CHOP)

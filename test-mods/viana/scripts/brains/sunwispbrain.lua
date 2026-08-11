@@ -1,8 +1,6 @@
 require "behaviours/wander"
 require "behaviours/follow"
 
-local BrainClass = require "brain"
-
 local MAX_WANDER_DIST = 20
 local FOLLOW_MIN_DIST = 2
 local FOLLOW_TARGET_DIST = 4
@@ -13,8 +11,8 @@ local function GetHomePos(inst)
 end
 
 
-local SunwispBrain = Class(BrainClass, function(self, inst)
-    BrainClass._ctor(self, inst)
+local SunwispBrain = Class(Brain, function(self, inst)
+    Brain._ctor(self, inst)
 end)
 
 function SunwispBrain:OnStart()

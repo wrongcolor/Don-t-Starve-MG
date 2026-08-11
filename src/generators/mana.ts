@@ -48,6 +48,13 @@ function Mana:Spend(amount)
     return true
 end
 
+-- Non-destructive counterpart to Spend, used to grey out spell wheel entries
+-- the caster can't currently afford (widgets/wheel.lua's own checkenabled
+-- field) without actually spending anything.
+function Mana:IsEnough(amount)
+    return self.current >= amount
+end
+
 function Mana:OnUpdate(dt)
     if self.regenpersecond ~= nil and self.regenpersecond > 0 then
         self:DoDelta(self.regenpersecond * dt)

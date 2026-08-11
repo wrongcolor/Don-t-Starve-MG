@@ -35,6 +35,20 @@ export const viana: ModProject = {
       description: 'A staff that channels whatever spells are bound in her Sun Codex.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'staffs', idleClip: 'yellowstaff' },
+      // Real custom inventory icon (AI-referenced concept art, converted via
+      // scripts/png_to_ktex.py) — the in-world/in-hand look still reuses the
+      // vanilla "staffs" build above, no Spriter animation available for that.
+      hasCustomIcon: true,
+      // isHandheld (item.ts) only treats category 'tool' or a set `weapon`
+      // field as equippable — a bare category:'generic' spellbook item (like
+      // this one, matching Waxwell's Journal's own real mechanic) never gets
+      // the equippable/onequip wiring, reproduced in-game as "sunstaff não
+      // esta equipável". A staff is expected to be held in hand regardless,
+      // so a zero-damage weapon (same trick already used by testfirestaff)
+      // opts it into the existing handheld/swap-build code path — she never
+      // actually swings it (no onattack wired), it's purely for the
+      // equip-to-hand visual + hand slot.
+      weapon: { damage: 0 },
       spellbook: { source: 'linkedContainer', containerItemId: 'suncodex' },
       recipe: {
         ingredients: [
@@ -52,10 +66,29 @@ export const viana: ModProject = {
       description: 'Holds up to 3 spells at once — whatever is bound here is what the Sun Staff can cast.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'books', idleClip: 'book_light' },
+      // Real custom inventory icon (AI-referenced concept art, converted via
+      // scripts/png_to_ktex.py) — the in-world/in-hand look still reuses the
+      // vanilla "books" build above, no Spriter animation available for that.
+      hasCustomIcon: true,
+      // A 'custom' widget needs its own anim/ui_suncodex.zip (real UI art) —
+      // reproduced in-game as a load-time crash ("Could not find an asset
+      // matching anim/ui_suncodex.zip"). Reusing an existing vanilla
+      // container's whole widget (skin + grid) via deepcopy avoids needing
+      // any new art — same reuse mechanism already used in
+      // adventurersToolkit.ts (patterns.md#20).
+      // sideWidget (a backpack-style panel docked next to the inventory bar)
+      // is subject to the real game's own "Integrated Backpack" option/a
+      // connected controller (scripts/screens/redux/playerhud.lua's
+      // OpenContainer: `elseif side and (TheInput:ControllerAttached() or
+      // Profile:GetIntegratedBackpack())` merges it into the main inventory
+      // bar instead of showing anything on its own) — reproduced in-game as
+      // "nothing visibly opens". A centered popup (sideWidget: false, reusing
+      // treasurechest's own widget — pos = Vector3(0, 200, 0), i.e. actually
+      // centered) is never subject to that branch at all.
       container: {
         source: 'own',
-        widget: { source: 'custom', slots: 3, columns: 3 },
-        sideWidget: true,
+        widget: { source: 'vanilla', reusePrefab: 'treasurechest' },
+        sideWidget: false,
         acceptsTag: 'spell',
       },
       recipe: {
@@ -270,6 +303,12 @@ export const viana: ModProject = {
       description: 'She traded a life under open skies for one spent bent over spellbooks — the sun still answers when she calls.',
       quote: 'The sun lends its light. I just ask for it.',
       animation: { source: 'vanilla', build: 'wendy' },
+      // Real custom bigportrait (AI-referenced concept art, converted via
+      // scripts/png_to_ktex.py) — the in-world body still reuses Wendy's
+      // build above, no Spriter animation available for that part. The
+      // avatar (crafting menu filter icon) stays a Wendy alias — no
+      // dedicated avatar art was supplied.
+      hasCustomPortrait: true,
       stats: { health: 120, hunger: 150, sanity: 220 },
       mana: { max: 100, regenPerSecond: 1, label: 'Solar Energy', badgeTint: [1, 0.75, 0.15, 1] },
       startingInventory: ['sunstaff', 'suncodex'],

@@ -4,7 +4,13 @@ local TUNING = GLOBAL.TUNING
 local TECH = GLOBAL.TECH
 local Ingredient = GLOBAL.Ingredient
 
-PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solarbeamspell", "refractionspell", "solarnovaspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "viana", "sunorb", "sunwisp", "lightpillar" }
+PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solarbeamspell", "refractionspell", "solarnovaspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "solarchakram_proj", "viana", "sunorb", "sunwisp", "lightpillar" }
+
+Assets = {
+    Asset("ATLAS", "bigportraits/viana.xml"),
+    Asset("IMAGE", "bigportraits/viana.tex"),
+    Asset("ATLAS", "images/avatars/avatar_viana.xml"),
+}
 
 -- Items: tuning + strings
 GLOBAL.TUNING.SOLARLANTERN_MAX_FUEL = 100
@@ -14,6 +20,7 @@ GLOBAL.TUNING.SOLARLANTERN_LIGHT_RADIUS = 4
 STRINGS.NAMES.SOLARLANTERN = "Solar Lantern"
 STRINGS.RECIPE_DESC.SOLARLANTERN = "A lantern that only drinks from the sun — no fuel item will ever refill it, only standing in daylight will."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARLANTERN = "A lantern that only drinks from the sun — no fuel item will ever refill it, only standing in daylight will."
+GLOBAL.TUNING.SUNSTAFF_DAMAGE = 0
 STRINGS.NAMES.SUNSTAFF = "Sun Staff"
 STRINGS.RECIPE_DESC.SUNSTAFF = "A staff that channels whatever spells are bound in her Sun Codex."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNSTAFF = "A staff that channels whatever spells are bound in her Sun Codex."
@@ -71,10 +78,12 @@ AddRecipe2("solarlantern", { Ingredient("twigs", 2), Ingredient("goldnugget", 2)
         image = "lantern.tex",
     }, { "MAGIC" })
 AddRecipe2("sunstaff", { Ingredient("twigs", 2), Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
-        image = "staffs.tex",
+        atlas = "images/inventoryimages/sunstaff.xml",
+        image = "sunstaff.tex",
     }, { "MAGIC" })
 AddRecipe2("suncodex", { Ingredient("papyrus", 2), Ingredient("goldnugget", 1) }, TECH.MAGIC_TWO, {
-        image = "books.tex",
+        atlas = "images/inventoryimages/suncodex.xml",
+        image = "suncodex.tex",
     }, { "MAGIC" })
 AddRecipe2("emberwispspell", { Ingredient("goldnugget", 1), Ingredient("nightmarefuel", 1) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
@@ -110,6 +119,10 @@ AddRecipe2("solarchakram", { Ingredient("goldnugget", 2), Ingredient("nightmaref
         image = "boomerang.tex",
     }, { "MAGIC" })
 
+-- Items: register custom inventory icon atlases (simutil.lua GetInventoryItemAtlas)
+GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/sunstaff.xml", "sunstaff.tex")
+GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/suncodex.xml", "suncodex.tex")
+
 -- Solar battery charge action (shared by every solar battery item)
 local ACTIONS = GLOBAL.ACTIONS
 local ActionHandler = GLOBAL.ActionHandler
@@ -136,23 +149,25 @@ end)
 AddStategraphActionHandler("wilson", ActionHandler(ACTIONS.CHARGE_SOLAR, "doshortaction"))
 AddStategraphActionHandler("wilson_client", ActionHandler(ACTIONS.CHARGE_SOLAR, "doshortaction"))
 
+-- Lets a handheld spellbook item open the spell wheel from its own equipped action button
+local ACTIONS = GLOBAL.ACTIONS
+
+AddComponentAction("EQUIPPED", "spellbook", function(inst, doer, target, actions, right)
+    if target == doer then
+        if doer.HUD ~= nil and doer.HUD:GetCurrentOpenSpellBook() == inst then
+            table.insert(actions, ACTIONS.CLOSESPELLBOOK)
+        elseif inst.components.spellbook:CanBeUsedBy(doer) then
+            table.insert(actions, ACTIONS.USESPELLBOOK)
+        end
+    end
+end)
+
 -- Container widgets
 local containers = require("containers")
 local params = containers.params
 
-params.suncodex = {
-    widget = {
-        slotpos = {},
-        animbank = "ui_suncodex",
-        animbuild = "ui_suncodex",
-        pos = Vector3(0, 0, 0),
-    },
-}
-
-table.insert(params.suncodex.widget.slotpos, Vector3(-75, 0, 0))
-table.insert(params.suncodex.widget.slotpos, Vector3(0, 0, 0))
-table.insert(params.suncodex.widget.slotpos, Vector3(75, 0, 0))
-params.suncodex.issidewidget = true
+params.suncodex = GLOBAL.deepcopy(containers.params["treasurechest"])
+params.suncodex.issidewidget = false
 params.suncodex.type = "suncodex"
 
 containers.MAXITEMSLOTS = math.max(containers.MAXITEMSLOTS, #params.suncodex.widget.slotpos)
@@ -215,6 +230,15 @@ STRINGS.CHARACTER_QUOTES.viana = "The sun lends its light. I just ask for it."
 STRINGS.CHARACTERS.VIANA = require("speech_viana")
 AddModCharacter("viana", "FEMALE")
 
+-- Keeps a reused-vanilla-build character visible after spawning (patterns.md#60)
+AddComponentPostInit("skinner", function(self)
+    self.base_change_cb = function()
+        if self.inst.prefab == "viana" then
+            self.inst.AnimState:SetBuild("wendy")
+        end
+    end
+end)
+
 -- Mana HUD badges (docs/dst-knowledge/patterns.md#61)
 local ManaBadge = require("widgets/manabadge")
 
@@ -226,6 +250,7 @@ end
 
 local function OnVianaManaUpdate(inst)
     inst.viana_mana_percent:set(math.floor(inst.components.mana:GetPercent() * 100))
+    inst.mana_current:set(inst.components.mana.current)
 end
 
 local function VianaPlayerPostInit(inst)
@@ -234,9 +259,11 @@ local function VianaPlayerPostInit(inst)
     end
 
     inst.viana_mana_percent = GLOBAL.net_int(inst.GUID, "viana.manapercent", "viana_manaisdirty")
+    inst.mana_current = GLOBAL.net_float(inst.GUID, "mana.current", "manacurrentdirty")
 
     if GLOBAL.TheWorld.ismastersim then
         inst:ListenForEvent("manadelta", OnVianaManaUpdate)
+        OnVianaManaUpdate(inst)
     end
 
     if not GLOBAL.TheNet:IsDedicated() then

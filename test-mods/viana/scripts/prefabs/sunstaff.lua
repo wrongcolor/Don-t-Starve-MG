@@ -1,7 +1,21 @@
 local assets =
 {
     -- Build "staffs" reaproveitado do jogo base, sem asset próprio necessário.
+    -- ATENÇÃO: build vanilla escolhido para um item empunhável — confirme se "swap_staffs" existe no jogo base antes de publicar.
+    Asset("ATLAS", "images/inventoryimages/sunstaff.xml"),
+    Asset("IMAGE", "images/inventoryimages/sunstaff.tex"),
 }
+
+local function onequip(inst, owner)
+    owner.AnimState:OverrideSymbol("swap_object", "swap_staffs", "swap_staffs")
+    owner.AnimState:Show("ARM_carry")
+    owner.AnimState:Hide("ARM_normal")
+end
+
+local function onunequip(inst, owner)
+    owner.AnimState:Hide("ARM_carry")
+    owner.AnimState:Show("ARM_normal")
+end
 
 local function spell_aoe_reticuletargetfn()
     return Vector3(ThePlayer.entity:LocalToWorldSpace(5, 0.001, 0))
@@ -92,88 +106,114 @@ local function DoSpellRefraction(user, refraction)
     end
 end
 
-local function spellbook_cast_from_slotitem(spellitem)
-    return function(inst, user, pos)
-        if spellitem.spell_manacost ~= nil and user.components.mana ~= nil
-            and not user.components.mana:Spend(spellitem.spell_manacost) then
-            return false
-        end
-        local isaimed = spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed
-        if isaimed then
-            user:ForceFacePoint(pos:Get())
-        end
-        if spellitem.spell_healthdelta ~= nil and user.components.health ~= nil then
-            user.components.health:DoDelta(spellitem.spell_healthdelta)
-        end
-        if spellitem.spell_sanitydelta ~= nil and user.components.sanity ~= nil then
-            user.components.sanity:DoDelta(spellitem.spell_sanitydelta)
-        end
-        if spellitem.spell_hungerdelta ~= nil and user.components.hunger ~= nil then
-            user.components.hunger:DoDelta(spellitem.spell_hungerdelta)
-        end
-        if spellitem.spell_summonprefab ~= nil then
-            local fx = SpawnPrefab(spellitem.spell_summonprefab)
-            if fx ~= nil then
-                if isaimed then
-                    fx.Transform:SetPosition(pos:Get())
-                else
-                    fx.Transform:SetPosition(user.Transform:GetWorldPosition())
-                end
-            end
-        end
-        if spellitem.spell_beam ~= nil then
-            StartSpellBeam(user, spellitem.spell_beam)
-        end
-        if spellitem.spell_nova ~= nil then
-            DoSpellNova(user, pos, spellitem.spell_nova)
-        end
-        if spellitem.spell_refraction ~= nil then
-            DoSpellRefraction(user, spellitem.spell_refraction)
-        end
-        if inst.components.finiteuses ~= nil then
-            inst.components.finiteuses:Use(1)
-        end
-        return true
-    end
-end
-
 local function rebuild_spellbook_items(user)
-    local codex = user.components.inventory ~= nil and user.components.inventory:FindItem(function(item)
+    local codex = user.replica.inventory ~= nil and user.replica.inventory:FindItem(function(item)
         return item.prefab == "suncodex"
     end)
-    if codex == nil or codex.components.container == nil then
+    if codex == nil or codex.spell_contents == nil then
         return nil
     end
 
     local items = {}
-    for slot = 1, codex.components.container.numslots do
-        local spellitem = codex.components.container.slots[slot]
-        if spellitem ~= nil and spellitem.spell_label ~= nil then
-            table.insert(items, {
-                label = spellitem.spell_label,
-                onselect = function(inst)
-                    inst.components.spellbook:SetSpellName(spellitem.spell_label)
-                    if spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed then
-                        inst.components.spellbook:SetSpellFn(nil)
-                        if spellitem.spell_beam ~= nil then
-                            inst.components.aoetargeting:SetRange(spellitem.spell_beam.range)
+    for entry in codex.spell_contents:value():gmatch("[^\30]+") do
+        local fields = {}
+        for field in (entry .. "\31"):gmatch("(.-)\31") do
+            table.insert(fields, field)
+        end
+        local label, manacost, healthdelta, sanitydelta, hungerdelta, summonprefab,
+            isaimed, beamdamage, beamtickinterval, beamrange, beamduration, beamtelegraph,
+            novadamage, novaradius, novastun, refractionradius, refractionduration =
+            fields[1], fields[2], fields[3], fields[4], fields[5], fields[6],
+            fields[7], fields[8], fields[9], fields[10], fields[11], fields[12],
+            fields[13], fields[14], fields[15], fields[16], fields[17]
+        table.insert(items, {
+            label = label,
+            checkenabled = function(owner) return manacost == "" or owner.mana_current == nil or owner.mana_current:value() >= tonumber(manacost) end,
+            onselect = function(inst)
+                inst.components.spellbook:SetSpellName(label)
+                local function cast(inst, user, pos)
+                    if manacost ~= "" and user.components.mana ~= nil
+                        and not user.components.mana:Spend(tonumber(manacost)) then
+                        return false
+                    end
+                    if isaimed == "1" then
+                        user:ForceFacePoint(pos:Get())
+                    end
+                    if healthdelta ~= "" and user.components.health ~= nil then
+                        user.components.health:DoDelta(tonumber(healthdelta))
+                    end
+                    if sanitydelta ~= "" and user.components.sanity ~= nil then
+                        user.components.sanity:DoDelta(tonumber(sanitydelta))
+                    end
+                    if hungerdelta ~= "" and user.components.hunger ~= nil then
+                        user.components.hunger:DoDelta(tonumber(hungerdelta))
+                    end
+                    if summonprefab ~= "" then
+                        local fx = SpawnPrefab(summonprefab)
+                        if fx ~= nil then
+                            if isaimed == "1" then
+                                fx.Transform:SetPosition(pos:Get())
+                            else
+                                fx.Transform:SetPosition(user.Transform:GetWorldPosition())
+                            end
                         end
-                        inst.components.aoespell:SetSpellFn(spellbook_cast_from_slotitem(spellitem))
-                    else
-                        inst.components.spellbook:SetSpellFn(spellbook_cast_from_slotitem(spellitem))
+                    end
+                    if beamdamage ~= "" then
+                        StartSpellBeam(user, {
+                            damage = tonumber(beamdamage),
+                            tickinterval = tonumber(beamtickinterval),
+                            range = tonumber(beamrange),
+                            duration = tonumber(beamduration),
+                            telegraph = beamtelegraph ~= "" and tonumber(beamtelegraph) or nil,
+                        })
+                    end
+                    if novadamage ~= "" then
+                        DoSpellNova(user, pos, { damage = tonumber(novadamage), radius = tonumber(novaradius), stun = tonumber(novastun) })
+                    end
+                    if refractionradius ~= "" then
+                        DoSpellRefraction(user, { radius = tonumber(refractionradius), duration = tonumber(refractionduration) })
+                    end
+                    if inst.components.finiteuses ~= nil then
+                        inst.components.finiteuses:Use(1)
+                    end
+                    return true
+                end
+                if isaimed == "1" then
+                    inst.components.spellbook:SetSpellFn(nil)
+                    if beamrange ~= "" then
+                        inst.components.aoetargeting:SetRange(tonumber(beamrange))
+                    end
+                    if TheWorld.ismastersim then
+                        inst.components.aoespell:SetSpellFn(cast)
+                    end
+                else
+                    inst.components.spellbook:SetSpellFn(cast)
+                    if TheWorld.ismastersim then
                         inst.components.aoespell:SetSpellFn(nil)
                     end
-                end,
-                execute = (spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed) and StartAOETargeting or function(inst)
-                    local inventory = ThePlayer.replica.inventory
-                    if inventory ~= nil then
-                        inventory:CastSpellBookFromInv(inst)
-                    end
-                end,
-            })
-        end
+                end
+            end,
+            execute = (isaimed == "1") and StartAOETargeting or function(inst)
+                local inventory = ThePlayer.replica.inventory
+                if inventory ~= nil then
+                    inventory:CastSpellBookFromInv(inst)
+                end
+            end,
+        })
     end
     return items
+end
+
+local function GetSpellbookOwner(inst)
+    if TheWorld.ismastersim then
+        return inst.components.inventoryitem ~= nil and inst.components.inventoryitem:GetGrandOwner() or nil
+    end
+    return inst.replica.inventoryitem ~= nil and inst.replica.inventoryitem:IsGrandOwner(ThePlayer) and ThePlayer or nil
+end
+
+local function RefreshSpellbookItems(inst)
+    local owner = GetSpellbookOwner(inst)
+    inst.components.spellbook:SetItems(owner ~= nil and rebuild_spellbook_items(owner) or nil)
 end
 
 local prefabs = {}
@@ -193,6 +233,13 @@ local function fn()
 
     inst:AddTag("item")
 
+    inst:AddComponent("spellbook")
+    inst:DoPeriodicTask(0.5, RefreshSpellbookItems)
+
+    inst:AddComponent("aoetargeting")
+    inst.components.aoetargeting.reticule.targetfn = spell_aoe_reticuletargetfn
+    inst.components.aoetargeting.reticule.mouseenabled = true
+
     inst.entity:SetPristine()
     if not TheWorld.ismastersim then
         return inst
@@ -201,19 +248,12 @@ local function fn()
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
 
-    inst:AddComponent("spellbook")
-    inst.components.spellbook:SetShouldOpenFn(function(inst, user)
-        local items = rebuild_spellbook_items(user)
-        if items == nil or #items == 0 then
-            return false
-        end
-        inst.components.spellbook:SetItems(items)
-        return true
-    end)
+    inst:AddComponent("weapon")
+    inst.components.weapon:SetDamage(TUNING.SUNSTAFF_DAMAGE)
 
-    inst:AddComponent("aoetargeting")
-    inst.components.aoetargeting.reticule.targetfn = spell_aoe_reticuletargetfn
-    inst.components.aoetargeting.reticule.mouseenabled = true
+    inst:AddComponent("equippable")
+    inst.components.equippable:SetOnEquip(onequip)
+    inst.components.equippable:SetOnUnequip(onunequip)
 
     inst:AddComponent("aoespell")
 

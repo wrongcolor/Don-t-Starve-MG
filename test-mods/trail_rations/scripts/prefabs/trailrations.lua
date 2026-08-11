@@ -38,6 +38,7 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
+    inst.components.inventoryitem.imagename = "jerky"
 
     inst:AddComponent("stackable")
     inst.components.stackable:SetMaxSize(TUNING.TRAILRATIONS_STACK_SIZE)

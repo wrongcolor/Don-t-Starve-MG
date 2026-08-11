@@ -61,6 +61,7 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
+    inst.components.inventoryitem.imagename = "lantern"
 
     inst:AddComponent("equippable")
     inst.components.equippable.equipslot = EQUIPSLOTS.HEAD

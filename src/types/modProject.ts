@@ -521,6 +521,16 @@ export const itemDefSchema = z
     // and "raise the max" mode) to just: sum both items' remaining durability %,
     // cap at 100%, consume the second item.
     combinable: z.boolean().optional(),
+    // Decouples the inventory/recipe ICON from the body build: a vanilla-
+    // sourced item normally reuses the resolved build's own existing icon
+    // (itemRecipeIcon, no Asset("INV_IMAGE",...) declared — see that
+    // function's comment for the recipe.lua crash it avoids). Setting this
+    // means the mod ships its OWN images/inventoryimages/<id>.xml/.tex (real
+    // custom art, e.g. AI-referenced concept art converted via
+    // scripts/png_to_ktex.py) for JUST the static icon, while the in-world/
+    // in-hand look still reuses the vanilla build (no Spriter animation
+    // needed for that part).
+    hasCustomIcon: z.boolean().optional(),
     container: containerSchema.optional(),
     // Adapted from a real published Workshop mod ("Renameable Watches", see
     // docs/dst-knowledge/patterns.md#24) — confirmed real API: named + writeable
@@ -1002,6 +1012,19 @@ export const characterDefSchema = z.object({
   description: z.string().min(1, 'Required'),
   quote: z.string().min(1, 'Required'),
   animation: characterAnimationSchema.optional(),
+  // Confirmed against a real published character mod (e00dan/naruto-dont-
+  // starve-together's modmain.lua): the character-select screen's bigportrait
+  // needs Asset("IMAGE", "bigportraits/<id>.tex") + Asset("ATLAS",
+  // "bigportraits/<id>.xml") declared in modmain.lua's OWN top-level `Assets`
+  // table — a per-prefab Asset() declaration (inside scripts/prefabs/<id>.lua)
+  // loads too late, since the select screen never spawns the prefab.
+  // Reproduced in-game as "Invalid resource handle for atlas... did you
+  // remember to load the asset?" before this existed. A vanilla-sourced
+  // character with no real portrait art still needs the ATLAS half declared
+  // (its alias .xml really exists), but never the IMAGE half (there's no real
+  // <id>.tex — the alias just points at the reused build's own already-loaded
+  // texture) — this flag is what tells the generator a real <id>.tex exists.
+  hasCustomPortrait: z.boolean().optional(),
   stats: z.object({
     health: z.number().int().min(1),
     hunger: z.number().int().min(1),

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateCharacterPrefab } from '../../generators/character'
+import { generateCharacterPrefab, generateCharacterFiles, characterPortraitAssets } from '../../generators/character'
 import { generateSpeechFile } from '../../generators/speech'
 import { sampleCharacter } from '../fixtures'
 
@@ -9,7 +9,23 @@ describe('generateCharacterPrefab', () => {
 
   it('uses MakePlayerCharacter with the character id', () => {
     expect(code).toContain('require("prefabs/player_common")')
-    expect(code).toContain('return MakePlayerCharacter("testchar", prefabs, assets, common_postinit, master_postinit, start_inv)')
+    expect(code).toContain('return MakePlayerCharacter("testchar", prefabs, assets, common_postinit, master_postinit)')
+  })
+
+  // Confirmed in the real prefabs/player_common.lua: passing starting_inventory
+  // as MakePlayerCharacter's 6th constructor arg is explicitly commented "now
+  // deprecated -- set .starting_inventory property during master_postinit
+  // instead" — this only still works via a `starting_inventory == nil` fallback
+  // check, so setting it directly is the more reliable, current-recommended path.
+  it('sets inst.starting_inventory directly in master_postinit instead of passing the deprecated 6th constructor arg', () => {
+    expect(code).toContain('inst.starting_inventory = { "torch", "flint" }')
+    expect(code).not.toContain('start_inv')
+  })
+
+  it('does not set inst.starting_inventory at all when startingInventory is empty', () => {
+    const noItems = { ...character, startingInventory: [] }
+    const noItemsCode = generateCharacterPrefab(noItems)
+    expect(noItemsCode).not.toContain('starting_inventory')
   })
 
   it('sets health/hunger/sanity from TUNING', () => {
@@ -39,9 +55,41 @@ describe('generateCharacterPrefab', () => {
   })
 
   it('defaults to a custom build named after its own id when no animation is chosen, with real ghost-build naming (global.lua)', () => {
-    expect(code).toContain('Asset("ANIM", "anim/testchar.zip")')
-    expect(code).toContain('Asset("ANIM", "anim/ghost_testchar_build.zip")')
-    expect(code).not.toContain('SetBuild(')
+    const custom = { ...character, animation: undefined }
+    const customCode = generateCharacterPrefab(custom)
+    expect(customCode).toContain('Asset("ANIM", "anim/testchar.zip")')
+    expect(customCode).toContain('Asset("ANIM", "anim/ghost_testchar_build.zip")')
+    expect(customCode).not.toContain('SetBuild(')
+  })
+
+  // Reproduced in-game: the file must sit at exactly the path Asset("ATLAS", ...)
+  // declares (no "images/" prefix — bigportraits is its own top-level databundle,
+  // unlike images.zip-backed inventoryimages/anim) or resolvefilepath crashes at
+  // PrefabFiles load time with "Could not find an asset matching bigportraits/
+  // <id>.xml", even though the file exists one folder over.
+  it('writes the portrait alias file at the exact path the modmain Asset("ATLAS", ...) declaration expects', () => {
+    const files = generateCharacterFiles(character, '')
+    expect(files['bigportraits/testchar.xml']).toBeTruthy()
+    expect(files['bigportraits/testchar.xml']).toContain('wilson.tex')
+    expect(files['images/bigportraits/testchar.xml']).toBeUndefined()
+  })
+
+  // Reproduced in-game separately from the portrait crash: opening the
+  // crafting menu's character filter tab looks up images/avatars/avatar_<id>.xml
+  // at runtime (widgets/redux/bantab.lua's GetAvatarAtlas) — a different path
+  // convention (has the "images/" prefix, unlike bigportraits) but the SAME
+  // modmain-level Asset("ATLAS", ...) requirement (see characterPortraitAssets).
+  it('writes an avatar alias file for a vanilla build with known avatar UV data, reusing the shared avatars.tex sheet', () => {
+    const files = generateCharacterFiles(character, '')
+    expect(files['images/avatars/avatar_testchar.xml']).toBeTruthy()
+    expect(files['images/avatars/avatar_testchar.xml']).toContain('avatars.tex')
+    expect(files['images/avatars/avatar_testchar.xml']).toContain('avatar_testchar.tex')
+  })
+
+  it('skips the avatar alias for a vanilla build with no known avatar UV data (not one of the curated base characters)', () => {
+    const obscure = { ...character, animation: { source: 'vanilla' as const, build: 'pigman' } }
+    const files = generateCharacterFiles(obscure, '')
+    expect(files['images/avatars/avatar_testchar.xml']).toBeUndefined()
   })
 
   it('reuses a vanilla build without declaring an ANIM asset, overriding SetBuild after MakePlayerCharacter\'s own default', () => {
@@ -146,6 +194,43 @@ describe('generateCharacterPrefab', () => {
     const scholar = { ...character, perks: ['can_read_books' as const] }
     const scholarCode = generateCharacterPrefab(scholar)
     expect(scholarCode).toContain('inst:AddComponent("reader")')
+  })
+})
+
+// Confirmed against a real published character mod (e00dan/naruto-dont-
+// starve-together's modmain.lua): bigportraits/avatars must be declared in
+// modmain.lua's OWN top-level Assets table, not the prefab file — see
+// generateModMain's use of this function and character.ts's own comment for
+// the "Invalid resource handle... did you remember to load the asset?" crash
+// this fixes.
+describe('characterPortraitAssets', () => {
+  const character = sampleCharacter
+
+  it('declares only ATLAS (no IMAGE) for a vanilla-sourced character with no real portrait art', () => {
+    const lines = characterPortraitAssets(character)
+    expect(lines).toContain('Asset("ATLAS", "bigportraits/testchar.xml")')
+    expect(lines.some((l) => l.includes('Asset("IMAGE", "bigportraits'))).toBe(false)
+  })
+
+  it('also declares IMAGE when hasCustomPortrait is set (a real <id>.tex was supplied)', () => {
+    const withArt = { ...character, hasCustomPortrait: true }
+    const lines = characterPortraitAssets(withArt)
+    expect(lines).toContain('Asset("ATLAS", "bigportraits/testchar.xml")')
+    expect(lines).toContain('Asset("IMAGE", "bigportraits/testchar.tex")')
+  })
+
+  it('declares the avatar ATLAS only when the reused build has known avatar UV data', () => {
+    const known = characterPortraitAssets(character) // build: wilson
+    expect(known).toContain('Asset("ATLAS", "images/avatars/avatar_testchar.xml")')
+
+    const obscure = { ...character, animation: { source: 'vanilla' as const, build: 'pigman' } }
+    const unknown = characterPortraitAssets(obscure)
+    expect(unknown.some((l) => l.includes('avatars'))).toBe(false)
+  })
+
+  it('declares nothing at all for a custom-sourced character (no animation set)', () => {
+    const custom = { ...character, animation: undefined }
+    expect(characterPortraitAssets(custom)).toEqual([])
   })
 })
 

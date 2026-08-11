@@ -175,14 +175,31 @@ export const sampleProject: ModProject = {
       },
     },
   ],
-  // A playable character always needs its OWN bigportraits/<id>.xml for the
-  // character-select screen — confirmed in-game (characterutil.lua's
-  // SetOvalPortraitTexture hardcodes that path by character id, with no
-  // fallback the way GetInventoryItemAtlas covers item icons) — reusing a
-  // vanilla body build doesn't cover it. Left empty here since kitchen_sink's
-  // purpose is validating world-gen/items/creatures in-game, not a playable
-  // character; see mods/vex.ts for a real character (ships its own art).
-  characters: [],
+  characters: [
+    {
+      id: 'testchar',
+      gender: 'NEUTRAL',
+      title: 'the tester',
+      name: 'Testy',
+      description: 'A character for testing',
+      quote: 'I test things.',
+      // A playable character also needs its own bigportraits/<id>.xml for the
+      // character-select screen (characterutil.lua's SetOvalPortraitTexture
+      // hardcodes that path by character id, with no fallback the way
+      // GetInventoryItemAtlas covers item icons) — reproduced in-game as a
+      // crash before generatePortraitAlias existed. A vanilla-sourced
+      // character now gets that alias generated automatically.
+      animation: { source: 'vanilla', build: 'wilson' },
+      stats: { health: 150, hunger: 150, sanity: 200 },
+      startingInventory: ['torch', 'flint'],
+      speechOverrides: { ANNOUNCE_COLD: 'It is cold, for science.' },
+      perks: ['freeze_immune'],
+      damageMultiplier: 0.75,
+      hungerRateMultiplier: 0,
+      walkSpeedMultiplier: 1.25,
+      foodTypeAffinities: [{ foodType: 'VEGGIE', multiplier: 1.33 }],
+    },
+  ],
   creatures: [
     {
       id: 'testmob',

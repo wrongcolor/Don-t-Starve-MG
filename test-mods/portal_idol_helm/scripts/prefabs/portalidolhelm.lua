@@ -43,6 +43,7 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
+    inst.components.inventoryitem.imagename = "hat_football"
 
     inst:AddComponent("armor")
     inst.components.armor:InitCondition(TUNING.PORTALIDOLHELM_CONDITION, TUNING.PORTALIDOLHELM_ABSORPTION)

@@ -1,5 +1,5 @@
 name = "Dual Mount"
-description = "Prototype: a rideable creature with a second seat, so two players can ride together."
+description = "Prototype: lets a second player ride pillion on Woby, alongside her driver."
 author = "Tester"
 version = "1.0.0"
 

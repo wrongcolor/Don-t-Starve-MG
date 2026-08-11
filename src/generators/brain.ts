@@ -287,13 +287,23 @@ export function generateBrain(creature: CreatureDef): string {
     behaviorNodes.push('        Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
   }
 
-  const lines = [...requires, '', 'local BrainClass = require "brain"']
+  // Reproduced in-game (real crash, killed the whole game): "attempt to
+  // index upvalue 'BrainClass' (a boolean value)". Confirmed against the
+  // real scripts/brain.lua: it assigns the GLOBAL `Brain = Class(...)` and
+  // never returns anything — per standard Lua 5.1 require() semantics, a
+  // module with no explicit return value caches/returns `true` as a stand-in,
+  // not the class table. `Brain` is already loaded once by the engine at
+  // boot and available as a bare global everywhere (confirmed against every
+  // real vanilla brain, e.g. eyeturretbrain.lua's own
+  // `Class(Brain, function(self, inst) Brain._ctor(self, inst) end)`) — no
+  // require needed or possible.
+  const lines = [...requires]
   if (localConstants.length > 0) lines.push('', ...localConstants)
   if (localFunctions.length > 0) lines.push('', ...localFunctions)
   lines.push(
     '',
-    `local ${className} = Class(BrainClass, function(self, inst)`,
-    '    BrainClass._ctor(self, inst)',
+    `local ${className} = Class(Brain, function(self, inst)`,
+    '    Brain._ctor(self, inst)',
     'end)',
     '',
     `function ${className}:OnStart()`,

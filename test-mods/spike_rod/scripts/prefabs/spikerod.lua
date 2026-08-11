@@ -54,6 +54,7 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
+    inst.components.inventoryitem.imagename = "rocks"
 
     inst:AddComponent("finiteuses")
     inst.components.finiteuses:SetMaxUses(TUNING.SPIKEROD_USES)

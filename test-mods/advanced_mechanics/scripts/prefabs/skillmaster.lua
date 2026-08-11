@@ -4,6 +4,7 @@ local assets =
 {
     Asset("ANIM", "anim/skillmaster.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)
     Asset("ANIM", "anim/ghost_skillmaster_build.zip"), -- PLACEHOLDER: build do fantasma
+    Asset("IMAGE", "bigportraits/skillmaster.xml"), -- PLACEHOLDER: retrato real, ver README (também precisa estar em modmain.lua, ver characterPortraitAssets)
 }
 
 local prefabs = {}
@@ -15,9 +16,11 @@ local function common_postinit(inst)
 end
 
 local function master_postinit(inst)
+    inst.starting_inventory = { "torch" }
+
     inst.components.health:SetMaxHealth(TUNING.SKILLMASTER_HEALTH)
     inst.components.hunger:SetMax(TUNING.SKILLMASTER_HUNGER)
     inst.components.sanity:SetMax(TUNING.SKILLMASTER_SANITY)
 end
 
-return MakePlayerCharacter("skillmaster", prefabs, assets, common_postinit, master_postinit, start_inv)
+return MakePlayerCharacter("skillmaster", prefabs, assets, common_postinit, master_postinit)

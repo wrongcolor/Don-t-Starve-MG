@@ -68,7 +68,7 @@ function isVanillaAnimation(item: ItemDef): boolean {
 // already-loaded shared atlas — same mechanism scripts/widgets/recipepopup.lua uses
 // to look up any existing item's icon by filename.
 export function itemRecipeIcon(item: ItemDef): { atlas?: string; image: string } {
-  if (isVanillaAnimation(item)) {
+  if (isVanillaAnimation(item) && !item.hasCustomIcon) {
     return { image: `${resolveAnimationBuild(item)}.tex` }
   }
   return { atlas: `images/inventoryimages/${item.id}.xml`, image: `${item.id}.tex` }
@@ -314,6 +314,44 @@ function needsAimedSpell(item: ItemDef): boolean {
   return item.spellbook?.source === 'linkedContainer'
 }
 
+// Confirmed against the real waxwelljournal.lua (Wickerbottom's own spellbook
+// item): AddComponent("spellbook") + SetItems/SetShouldOpenFn happen BEFORE
+// SetPristine()/the ismastersim check — i.e. on BOTH client and server, unlike
+// every other component this generator adds (which are all server-only,
+// inside componentBlock). componentactions.lua's own spellbook action handler
+// confirms this ("--spellbook exists on clients too") and reads
+// inst.components.spellbook directly on the client; putting it in the
+// server-only block instead left it nil there, reproduced in-game as
+// "attempt to index field 'spellbook' (a nil value)" the moment a spellbook
+// item's tooltip/action list was ever computed (hovering over it or its
+// linked container in the inventory).
+function spellbookComponentLines(item: ItemDef): string[] {
+  if (!needsSpellbook(item)) return []
+  const lines = ['', '    inst:AddComponent("spellbook")']
+  if (item.spellbook?.source === 'linkedContainer') {
+    // Reproduced in-game: componentactions.lua's own INVENTORY.spellbook
+    // handler (the code that decides whether "Use Spell Book" even shows up
+    // in the right-click menu) gates on SpellBook:CanBeUsedBy(user), which
+    // requires self.items to ALREADY be a non-empty table — evaluated fresh
+    // every time the CLIENT computes that menu, running entirely independent
+    // of (and before) SetShouldOpenFn/ShouldOpen ever gets a chance to run
+    // (that only fires from actions.lua's USESPELLBOOK.pre_action_cb, which
+    // itself only runs once the action already exists in the menu). The
+    // previous SetShouldOpenFn-only approach left self.items permanently nil
+    // on both sides until the action had already appeared — a chicken/egg
+    // deadlock that meant "Use Spell Book" never appeared on the staff at
+    // all, confirmed via componentactions.lua/actions.lua from the real game
+    // scripts. Fix: keep self.items proactively in sync via a periodic task
+    // (RefreshSpellbookItems/rebuild_spellbook_items, emitted in
+    // linkedContainerSpellbookFunctionBlock) instead of lazily inside
+    // ShouldOpen.
+    lines.push('    inst:DoPeriodicTask(0.5, RefreshSpellbookItems)')
+  } else {
+    lines.push('    inst.components.spellbook:SetItems(SPELLBOOK_SPELLS)')
+  }
+  return lines
+}
+
 // Confirmed real, always-present vanilla API (docs/dst-knowledge/patterns.md#62):
 // health/sanity/hunger components' :DoDelta(n) is the same mechanism the base
 // game already uses everywhere for damage/healing/hunger loss. Shared by both
@@ -540,6 +578,26 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
     const label = luaString(spell.label)
     lines.push('    {')
     lines.push(`        label = ${label},`)
+    // Confirmed in the real widgets/wheel.lua: Wheel:Open() greys out (and
+    // blocks clicks on, per widgets/button.lua's own OnControl — a disabled
+    // button never fires onclick) any entry whose checkenabled(owner) returns
+    // false, evaluated fresh every time the wheel opens. Only meaningful for
+    // a spell with a manaCost — same mana check already used inside
+    // spellbook_cast_N above, just non-destructive (comparing against a
+    // netvar instead of calling Mana:IsEnough/Spend).
+    //
+    // Reproduced in-game: checkenabled runs on the WHEEL WIDGET, which only
+    // ever exists client-side — `owner.components.mana` is nil there (the
+    // custom "mana" component has no _replica.lua, unlike inventoryitem/
+    // container), so checking it here always fell through to "no mana
+    // component, let it through" regardless of the real amount, and every
+    // spell stayed clickable/castable no matter how little mana the caster
+    // had. Fix: read `owner.mana_current` — a plain netvar the mana HUD
+    // wiring (modmain.ts's characterManaHudBlock) already mirrors from the
+    // real server-side amount for exactly this kind of client-side check.
+    if (spell.manaCost !== undefined && spell.manaCost > 0) {
+      lines.push(`        checkenabled = function(owner) return owner.mana_current == nil or owner.mana_current:value() >= ${spell.manaCost} end,`)
+    }
     lines.push('        onselect = function(inst)')
     lines.push(`            inst.components.spellbook:SetSpellName(${label})`)
     if (isAimedSpell(spell)) {
@@ -547,11 +605,23 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
       if (spell.beam !== undefined) {
         lines.push(`            inst.components.aoetargeting:SetRange(${spell.beam.range})`)
       }
-      lines.push(`            inst.components.aoespell:SetSpellFn(spellbook_cast_${index + 1})`)
+      // Confirmed against the real prefabs/ghostcommand_defs.lua: onselect
+      // runs on BOTH client and server (it's what the wheel widget calls
+      // straight from a mouse click — see spellbook.lua's own "client and
+      // server" comment on SelectSpell), but aoespell is a server-only
+      // component (see aimedSpellSharedLines's comment). Real vanilla wraps
+      // exactly this SetSpellFn call in the same guard — reproduced in-game
+      // as "attempt to index field 'aoespell' (a nil value)" the moment an
+      // aimed spell was ever selected in the wheel without it.
+      lines.push('            if TheWorld.ismastersim then')
+      lines.push(`                inst.components.aoespell:SetSpellFn(spellbook_cast_${index + 1})`)
+      lines.push('            end')
     } else {
       lines.push(`            inst.components.spellbook:SetSpellFn(spellbook_cast_${index + 1})`)
       if (hasAimedSpell) {
-        lines.push('            inst.components.aoespell:SetSpellFn(nil)')
+        lines.push('            if TheWorld.ismastersim then')
+        lines.push('                inst.components.aoespell:SetSpellFn(nil)')
+        lines.push('            end')
       }
     }
     lines.push('        end,')
@@ -572,103 +642,161 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   return lines
 }
 
-// Confirmed against the real game scripts (docs/dst-knowledge/patterns.md#62):
-// SetShouldOpenFn(fn)/ShouldOpen(user) runs right before the spell wheel
-// opens (actions.lua's USESPELLBOOK.pre_action_cb calls ShouldOpen then
-// OpenSpellBook), which is the right moment to rebuild SetItems from
-// whatever "spell"-tagged items currently sit inside the linked container —
-// container.lua's self.slots/self.numslots and inventory.lua's
-// Inventory:FindItem are both real, confirmed APIs.
+// Confirmed against the real game scripts (docs/dst-knowledge/patterns.md#62,
+// componentactions.lua, actions.lua): the linked container's slot contents
+// (`container.slots`/`container.numslots`) only ever exist on the SERVER
+// component — the client-side replica (container_replica.lua) only exposes
+// them once the container has an "opener" (i.e. someone has it visibly OPEN
+// on screen right now), confirmed via GetItemInSlot/GetItems/FindItem all
+// gating on `self.opener ~= nil`. Since the spellbook's self.items must be
+// populated on the CLIENT's own copy too (CanBeUsedBy — the check gating
+// whether "Use Spell Book" even appears in the menu — runs locally on each
+// side), the staff can never read the codex's live slots directly without
+// the codex being open, which defeats the whole point. Fix: the codex itself
+// (see the `container.acceptsTag === 'spell'` branch in componentBlock)
+// mirrors its own contents into a plain custom net_string (inst.spell_contents,
+// declared in the shared section of its own prefab) every time its contents
+// change — a normal per-ENTITY netvar, unrelated to the container-open/opener
+// system, so it's always in sync for both sides regardless of whether the
+// codex is open. All data the wheel needs to render/cast (label + numeric
+// deltas + summon prefab) is baked directly into that string (encoded with
+// ASCII 30/31 field/entry separators — chosen simply because game text never
+// legitimately contains them), so this staff never needs the whole mod
+// project's item list, just the encoded payload.
 function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[] {
   const lines: string[] = []
   lines.push(...aimedSpellHelperFunctionBlock())
   lines.push(...solarBeamHelperFunctionBlock())
   lines.push(...solarNovaHelperFunctionBlock())
   lines.push(...solarRefractionHelperFunctionBlock())
-  lines.push('local function spellbook_cast_from_slotitem(spellitem)')
-  lines.push('    return function(inst, user, pos)')
-  lines.push('        if spellitem.spell_manacost ~= nil and user.components.mana ~= nil')
-  lines.push('            and not user.components.mana:Spend(spellitem.spell_manacost) then')
-  lines.push('            return false')
-  lines.push('        end')
-  lines.push('        local isaimed = spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed')
-  lines.push('        if isaimed then')
-  lines.push('            user:ForceFacePoint(pos:Get())')
-  lines.push('        end')
-  lines.push('        if spellitem.spell_healthdelta ~= nil and user.components.health ~= nil then')
-  lines.push('            user.components.health:DoDelta(spellitem.spell_healthdelta)')
-  lines.push('        end')
-  lines.push('        if spellitem.spell_sanitydelta ~= nil and user.components.sanity ~= nil then')
-  lines.push('            user.components.sanity:DoDelta(spellitem.spell_sanitydelta)')
-  lines.push('        end')
-  lines.push('        if spellitem.spell_hungerdelta ~= nil and user.components.hunger ~= nil then')
-  lines.push('            user.components.hunger:DoDelta(spellitem.spell_hungerdelta)')
-  lines.push('        end')
-  lines.push('        if spellitem.spell_summonprefab ~= nil then')
-  lines.push('            local fx = SpawnPrefab(spellitem.spell_summonprefab)')
-  lines.push('            if fx ~= nil then')
-  lines.push('                if isaimed then')
-  lines.push('                    fx.Transform:SetPosition(pos:Get())')
-  lines.push('                else')
-  lines.push('                    fx.Transform:SetPosition(user.Transform:GetWorldPosition())')
-  lines.push('                end')
-  lines.push('            end')
-  lines.push('        end')
-  lines.push('        if spellitem.spell_beam ~= nil then')
-  lines.push('            StartSpellBeam(user, spellitem.spell_beam)')
-  lines.push('        end')
-  lines.push('        if spellitem.spell_nova ~= nil then')
-  lines.push('            DoSpellNova(user, pos, spellitem.spell_nova)')
-  lines.push('        end')
-  lines.push('        if spellitem.spell_refraction ~= nil then')
-  lines.push('            DoSpellRefraction(user, spellitem.spell_refraction)')
-  lines.push('        end')
-  lines.push('        if inst.components.finiteuses ~= nil then')
-  lines.push('            inst.components.finiteuses:Use(1)')
-  lines.push('        end')
-  lines.push('        return true')
-  lines.push('    end')
-  lines.push('end')
-  lines.push('')
   lines.push('local function rebuild_spellbook_items(user)')
-  lines.push('    local codex = user.components.inventory ~= nil and user.components.inventory:FindItem(function(item)')
+  lines.push('    local codex = user.replica.inventory ~= nil and user.replica.inventory:FindItem(function(item)')
   lines.push(`        return item.prefab == ${luaString(containerItemId)}`)
   lines.push('    end)')
-  lines.push('    if codex == nil or codex.components.container == nil then')
+  lines.push('    if codex == nil or codex.spell_contents == nil then')
   lines.push('        return nil')
   lines.push('    end')
   lines.push('')
   lines.push('    local items = {}')
-  lines.push('    for slot = 1, codex.components.container.numslots do')
-  lines.push('        local spellitem = codex.components.container.slots[slot]')
-  lines.push('        if spellitem ~= nil and spellitem.spell_label ~= nil then')
-  lines.push('            table.insert(items, {')
-  lines.push('                label = spellitem.spell_label,')
-  lines.push('                onselect = function(inst)')
-  lines.push('                    inst.components.spellbook:SetSpellName(spellitem.spell_label)')
-  lines.push('                    if spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed then')
-  lines.push('                        inst.components.spellbook:SetSpellFn(nil)')
-  lines.push('                        if spellitem.spell_beam ~= nil then')
-  lines.push('                            inst.components.aoetargeting:SetRange(spellitem.spell_beam.range)')
+  lines.push('    for entry in codex.spell_contents:value():gmatch("[^\\30]+") do')
+  lines.push('        local fields = {}')
+  lines.push('        for field in (entry .. "\\31"):gmatch("(.-)\\31") do')
+  lines.push('            table.insert(fields, field)')
+  lines.push('        end')
+  lines.push('        local label, manacost, healthdelta, sanitydelta, hungerdelta, summonprefab,')
+  lines.push('            isaimed, beamdamage, beamtickinterval, beamrange, beamduration, beamtelegraph,')
+  lines.push('            novadamage, novaradius, novastun, refractionradius, refractionduration =')
+  lines.push('            fields[1], fields[2], fields[3], fields[4], fields[5], fields[6],')
+  lines.push('            fields[7], fields[8], fields[9], fields[10], fields[11], fields[12],')
+  lines.push('            fields[13], fields[14], fields[15], fields[16], fields[17]')
+  lines.push('        table.insert(items, {')
+  lines.push('            label = label,')
+  // Same real widgets/wheel.lua checkenabled convention, and the same
+  // client-side-only netvar fix, as the static mode above (see
+  // staticSpellbookFunctionBlock's comment) — closes over this loop
+  // iteration's own `manacost`.
+  lines.push('            checkenabled = function(owner) return manacost == "" or owner.mana_current == nil or owner.mana_current:value() >= tonumber(manacost) end,')
+  lines.push('            onselect = function(inst)')
+  lines.push('                inst.components.spellbook:SetSpellName(label)')
+  lines.push('                local function cast(inst, user, pos)')
+  lines.push('                    if manacost ~= "" and user.components.mana ~= nil')
+  lines.push('                        and not user.components.mana:Spend(tonumber(manacost)) then')
+  lines.push('                        return false')
+  lines.push('                    end')
+  lines.push('                    if isaimed == "1" then')
+  lines.push('                        user:ForceFacePoint(pos:Get())')
+  lines.push('                    end')
+  lines.push('                    if healthdelta ~= "" and user.components.health ~= nil then')
+  lines.push('                        user.components.health:DoDelta(tonumber(healthdelta))')
+  lines.push('                    end')
+  lines.push('                    if sanitydelta ~= "" and user.components.sanity ~= nil then')
+  lines.push('                        user.components.sanity:DoDelta(tonumber(sanitydelta))')
+  lines.push('                    end')
+  lines.push('                    if hungerdelta ~= "" and user.components.hunger ~= nil then')
+  lines.push('                        user.components.hunger:DoDelta(tonumber(hungerdelta))')
+  lines.push('                    end')
+  lines.push('                    if summonprefab ~= "" then')
+  lines.push('                        local fx = SpawnPrefab(summonprefab)')
+  lines.push('                        if fx ~= nil then')
+  // Reproduced in-game (real crash, killed the whole server process):
+  // "bad argument #2 to 'SetPosition' (number expected, got no value)".
+  // pos:Get()/GetWorldPosition() each return 3 values (x, y, z), but Lua
+  // truncates a multi-value expression down to ONE value the moment it's
+  // used as an operand of "and"/"or" — `cond and a() or b()` only ever
+  // yields a's or b's FIRST return value, never all three. SetPosition then
+  // received just an x with no y/z. An explicit if/else (each branch calling
+  // SetPosition directly, as the very last expression) keeps all 3 values.
+  lines.push('                            if isaimed == "1" then')
+  lines.push('                                fx.Transform:SetPosition(pos:Get())')
+  lines.push('                            else')
+  lines.push('                                fx.Transform:SetPosition(user.Transform:GetWorldPosition())')
+  lines.push('                            end')
   lines.push('                        end')
-  lines.push('                        inst.components.aoespell:SetSpellFn(spellbook_cast_from_slotitem(spellitem))')
-  lines.push('                    else')
-  lines.push('                        inst.components.spellbook:SetSpellFn(spellbook_cast_from_slotitem(spellitem))')
+  lines.push('                    end')
+  lines.push('                    if beamdamage ~= "" then')
+  lines.push('                        StartSpellBeam(user, {')
+  lines.push('                            damage = tonumber(beamdamage),')
+  lines.push('                            tickinterval = tonumber(beamtickinterval),')
+  lines.push('                            range = tonumber(beamrange),')
+  lines.push('                            duration = tonumber(beamduration),')
+  lines.push('                            telegraph = beamtelegraph ~= "" and tonumber(beamtelegraph) or nil,')
+  lines.push('                        })')
+  lines.push('                    end')
+  lines.push('                    if novadamage ~= "" then')
+  lines.push('                        DoSpellNova(user, pos, { damage = tonumber(novadamage), radius = tonumber(novaradius), stun = tonumber(novastun) })')
+  lines.push('                    end')
+  lines.push('                    if refractionradius ~= "" then')
+  lines.push('                        DoSpellRefraction(user, { radius = tonumber(refractionradius), duration = tonumber(refractionduration) })')
+  lines.push('                    end')
+  lines.push('                    if inst.components.finiteuses ~= nil then')
+  lines.push('                        inst.components.finiteuses:Use(1)')
+  lines.push('                    end')
+  lines.push('                    return true')
+  lines.push('                end')
+  lines.push('                if isaimed == "1" then')
+  lines.push('                    inst.components.spellbook:SetSpellFn(nil)')
+  lines.push('                    if beamrange ~= "" then')
+  lines.push('                        inst.components.aoetargeting:SetRange(tonumber(beamrange))')
+  lines.push('                    end')
+  // See the static-spellbook onselect's own comment: aoespell is server-only,
+  // but onselect runs on both sides (confirmed via ghostcommand_defs.lua),
+  // so this has to be guarded the same way real vanilla guards it.
+  lines.push('                    if TheWorld.ismastersim then')
+  lines.push('                        inst.components.aoespell:SetSpellFn(cast)')
+  lines.push('                    end')
+  lines.push('                else')
+  lines.push('                    inst.components.spellbook:SetSpellFn(cast)')
+  lines.push('                    if TheWorld.ismastersim then')
   lines.push('                        inst.components.aoespell:SetSpellFn(nil)')
   lines.push('                    end')
-  lines.push('                end,')
-  lines.push(
-    '                execute = (spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed) and StartAOETargeting or function(inst)',
-  )
-  lines.push('                    local inventory = ThePlayer.replica.inventory')
-  lines.push('                    if inventory ~= nil then')
-  lines.push('                        inventory:CastSpellBookFromInv(inst)')
-  lines.push('                    end')
-  lines.push('                end,')
-  lines.push('            })')
-  lines.push('        end')
+  lines.push('                end')
+  lines.push('            end,')
+  lines.push('            execute = (isaimed == "1") and StartAOETargeting or function(inst)')
+  lines.push('                local inventory = ThePlayer.replica.inventory')
+  lines.push('                if inventory ~= nil then')
+  lines.push('                    inventory:CastSpellBookFromInv(inst)')
+  lines.push('                end')
+  lines.push('            end,')
+  lines.push('        })')
   lines.push('    end')
   lines.push('    return items')
+  lines.push('end')
+  lines.push('')
+  // GetGrandOwner (server) / IsGrandOwner(ThePlayer) (client) — same real
+  // APIs already confirmed for the componentactions.lua INVENTORY.spellbook
+  // gate itself (IsGrandOwner). Needed here because rebuild_spellbook_items
+  // requires a `user` (whoever currently carries this staff) and, unlike the
+  // menu-click path, a periodic task has no doer handed to it.
+  lines.push('local function GetSpellbookOwner(inst)')
+  lines.push('    if TheWorld.ismastersim then')
+  lines.push('        return inst.components.inventoryitem ~= nil and inst.components.inventoryitem:GetGrandOwner() or nil')
+  lines.push('    end')
+  lines.push('    return inst.replica.inventoryitem ~= nil and inst.replica.inventoryitem:IsGrandOwner(ThePlayer) and ThePlayer or nil')
+  lines.push('end')
+  lines.push('')
+  lines.push('local function RefreshSpellbookItems(inst)')
+  lines.push('    local owner = GetSpellbookOwner(inst)')
+  lines.push('    inst.components.spellbook:SetItems(owner ~= nil and rebuild_spellbook_items(owner) or nil)')
   lines.push('end')
   lines.push('')
   return lines
@@ -952,40 +1080,26 @@ function summonTotemComponentBlock(item: ItemDef): string[] {
   ]
 }
 
-function spellbookComponentBlock(item: ItemDef): string[] {
-  const lines = ['', '    inst:AddComponent("spellbook")']
-  if (item.spellbook?.source === 'linkedContainer') {
-    lines.push(
-      '    inst.components.spellbook:SetShouldOpenFn(function(inst, user)',
-      '        local items = rebuild_spellbook_items(user)',
-      '        if items == nil or #items == 0 then',
-      '            return false',
-      '        end',
-      '        inst.components.spellbook:SetItems(items)',
-      '        return true',
-      '    end)',
-    )
-  } else {
-    lines.push('    inst.components.spellbook:SetItems(SPELLBOOK_SPELLS)')
-  }
-  return lines
-}
-
-// Confirmed in prefabs/abigail_flower.lua/prefabs/sleepbomb.lua: mouseenabled
-// makes the reticule follow TheInput:GetWorldPosition() in real time instead
-// of a fixed point, with targetfn kept as the controller-mode fallback
-// (components/reticule.lua). SetRange is set per-spell in onselect instead
-// (see staticSpellbookFunctionBlock/linkedContainerSpellbookFunctionBlock),
+// Confirmed against the real prefabs/abigail_flower.lua: AddComponent("aoetargeting")
+// happens in the SHARED (client+server) section, before SetPristine() — the
+// reticule it drives is drawn and moved by the CLIENT, so it must exist there
+// too. AddComponent("aoespell") stays server-only (added after the
+// ismastersim guard, same file) — it's what actually resolves the cast.
+// mouseenabled makes the reticule follow TheInput:GetWorldPosition() in real
+// time instead of a fixed point, with targetfn kept as the controller-mode
+// fallback (components/reticule.lua). SetRange is set per-spell in onselect
+// instead (see staticSpellbookFunctionBlock/linkedContainerSpellbookFunctionBlock),
 // matching prefabs/ghostcommand_defs.lua's own per-command SetRange calls.
-function aimedSpellComponentBlock(): string[] {
+function aimedSpellSharedLines(): string[] {
   return [
-    '',
     '    inst:AddComponent("aoetargeting")',
     '    inst.components.aoetargeting.reticule.targetfn = spell_aoe_reticuletargetfn',
     '    inst.components.aoetargeting.reticule.mouseenabled = true',
-    '',
-    '    inst:AddComponent("aoespell")',
   ]
+}
+
+function aimedSpellComponentBlock(): string[] {
+  return ['', '    inst:AddComponent("aoespell")']
 }
 
 function perishableComponentBlock(item: ItemDef): string[] {
@@ -1054,6 +1168,53 @@ function containerComponentBlock(item: ItemDef): string[] {
       lines.push(`    inst.components.preserver:SetTemperatureRateMultiplier(${container.preservation.temperatureRateMultiplier})`)
     }
   }
+  if (container.acceptsTag === 'spell') {
+    // Feeds a linkedContainer spellbook staff elsewhere in the mod (see
+    // linkedContainerSpellbookFunctionBlock's own comment for the full
+    // client-visibility explanation) — mirrors this container's own
+    // contents into inst.spell_contents (a plain per-entity netvar declared
+    // in the shared section below) every time a "spell"-tagged item is put
+    // in or taken out, so any staff can read it on both sides without this
+    // container ever needing to be open.
+    lines.push(
+      '',
+      '    local function UpdateSpellContents(inst)',
+      '        local parts = {}',
+      '        for slot = 1, inst.components.container.numslots do',
+      '            local slotitem = inst.components.container.slots[slot]',
+      '            if slotitem ~= nil and slotitem.spell_label ~= nil then',
+      '                local isaimed = slotitem.spell_beam ~= nil or slotitem.spell_nova ~= nil or slotitem.spell_aimed',
+      '                local beam = slotitem.spell_beam',
+      '                local nova = slotitem.spell_nova',
+      '                local refraction = slotitem.spell_refraction',
+      '                table.insert(parts, table.concat({',
+      '                    slotitem.spell_label,',
+      '                    tostring(slotitem.spell_manacost or ""),',
+      '                    tostring(slotitem.spell_healthdelta or ""),',
+      '                    tostring(slotitem.spell_sanitydelta or ""),',
+      '                    tostring(slotitem.spell_hungerdelta or ""),',
+      '                    slotitem.spell_summonprefab or "",',
+      '                    isaimed and "1" or "",',
+      '                    beam ~= nil and tostring(beam.damage) or "",',
+      '                    beam ~= nil and tostring(beam.tickinterval) or "",',
+      '                    beam ~= nil and tostring(beam.range) or "",',
+      '                    beam ~= nil and tostring(beam.duration) or "",',
+      '                    (beam ~= nil and beam.telegraph ~= nil) and tostring(beam.telegraph) or "",',
+      '                    nova ~= nil and tostring(nova.damage) or "",',
+      '                    nova ~= nil and tostring(nova.radius) or "",',
+      '                    nova ~= nil and tostring(nova.stun) or "",',
+      '                    refraction ~= nil and tostring(refraction.radius) or "",',
+      '                    refraction ~= nil and tostring(refraction.duration) or "",',
+      '                }, "\\31"))',
+      '            end',
+      '        end',
+      '        inst.spell_contents:set(table.concat(parts, "\\30"))',
+      '    end',
+      '    inst:ListenForEvent("itemget", UpdateSpellContents)',
+      '    inst:ListenForEvent("itemlose", UpdateSpellContents)',
+      '    UpdateSpellContents(inst)',
+    )
+  }
   return lines
 }
 
@@ -1079,6 +1240,26 @@ function componentBlock(item: ItemDef): string {
 
   lines.push('    inst:AddComponent("inspectable")')
   lines.push('    inst:AddComponent("inventoryitem")')
+  if (isVanillaAnimation(item) && !item.hasCustomIcon) {
+    // Confirmed in components/inventoryitem.lua: `imagename` is a LISTENABLE
+    // PROPERTY (3rd arg to this component's Class() definition), not a method
+    // — assigning it triggers the internal onimagename listener, which calls
+    // SetImage on the REPLICA (inventoryitem_replica.lua) automatically.
+    // SetImage/SetAtlas only exist on that replica; calling them directly on
+    // inst.components.inventoryitem (the server component) crashes with
+    // "attempt to call method 'SetImage' (a nil value)" — reproduced in-game.
+    // Without this property set at all, InventoryItem:GetImage() defaults to
+    // `self.inst.prefab..".tex"` (the item's OWN id) — completely independent
+    // of the recipe's own atlas/image config (itemRecipeIcon only affects the
+    // crafting-menu icon) — reproduced in-game as the crafting menu showing
+    // the reused build's icon fine, but the actual inventory slot / dropped-
+    // on-ground sprite showing nothing (not even the name). Assigning
+    // imagename here makes GetImage() return "<build>.tex" instead, and
+    // GetAtlas()'s own fallback (GetInventoryItemAtlas(self:GetImage()))
+    // then finds it in whichever shared sheet already has that real vanilla
+    // build's icon — no atlas registration needed here, unlike hasCustomIcon.
+    lines.push(`    inst.components.inventoryitem.imagename = ${luaString(resolveAnimationBuild(item))}`)
+  }
 
   if (item.spellDef) lines.push(...spellDefComponentBlock(item))
   if (item.category === 'tool' && item.toolAction) lines.push(...toolComponentBlock(item))
@@ -1092,8 +1273,15 @@ function componentBlock(item: ItemDef): string {
   if (item.summonTotem) lines.push(...summonTotemComponentBlock(item))
   if (item.solarBattery) lines.push(...solarBatteryComponentBlock(item))
   if (needsSpellcaster(item)) lines.push(...spellcasterComponentBlock(item))
-  if (needsSpellbook(item)) lines.push(...spellbookComponentBlock(item))
   if (needsAimedSpell(item)) lines.push(...aimedSpellComponentBlock())
+  // spellbook is deliberately NOT handled here — it's added in the SHARED
+  // (client+server) section of generateItemPrefab via spellbookComponentLines,
+  // not this server-only block. See that function's own comment: the real
+  // waxwelljournal.lua adds AddComponent("spellbook") before SetPristine(),
+  // and componentactions.lua reads inst.components.spellbook directly on the
+  // client too ("--spellbook exists on clients too") — adding it here instead
+  // left it nil client-side, crashing the moment the item's action list was
+  // computed.
   if (item.perishable) lines.push(...perishableComponentBlock(item))
   if (item.edible) lines.push(...edibleComponentBlock(item))
   if (item.combinable) lines.push(...combinableComponentBlock())
@@ -1315,9 +1503,22 @@ export function generateItemPrefab(item: ItemDef): string {
   if (item.container?.source === 'own' && item.container.widget.source === 'custom') {
     lines.push(`    Asset("ANIM", "anim/${containerCustomWidgetBuild(item.id)}.zip"), -- PLACEHOLDER: art da UI do contêiner, ver README`)
   }
-  // A vanilla-sourced item has no anim/<id>.zip of its own to derive this from —
-  // declaring it anyway doesn't crash, but it's a dead reference (see itemRecipeIcon).
-  if (!isVanillaAnimation(item)) {
+  if (item.hasCustomIcon) {
+    // Confirmed against a real published mod (e00dan/naruto-dont-starve-
+    // together's kunai.lua/bunshinjutsu.lua): a hand-built, standalone
+    // images/inventoryimages/<id>.xml+.tex pair (no matching anim.zip to
+    // derive one from) is declared as Asset("ATLAS", ...) + Asset("IMAGE", ...)
+    // — NOT Asset("INV_IMAGE", id), which only works when a REAL anim.zip
+    // bakes an "inventoryimage" build via Spriter for the engine to extract
+    // from (confirmed still a real, extensively-used vanilla asset type —
+    // e.g. abigail_flower_*'s own Asset("INV_IMAGE", ...) calls — just the
+    // wrong one for a standalone xml/tex pair with no anim.zip behind it).
+    lines.push(`    Asset("ATLAS", "images/inventoryimages/${item.id}.xml"),`)
+    lines.push(`    Asset("IMAGE", "images/inventoryimages/${item.id}.tex"),`)
+  } else if (!isVanillaAnimation(item)) {
+    // A vanilla-sourced item has no anim/<id>.zip of its own to derive this
+    // from — declaring it anyway doesn't crash, but it's a dead reference
+    // (see itemRecipeIcon).
     lines.push(`    Asset("INV_IMAGE", "${item.id}"),`)
   }
   lines.push('}')
@@ -1366,7 +1567,18 @@ export function generateItemPrefab(item: ItemDef): string {
     lines.push(...linkedDimensionAttachFunctionBlock(item.container.dimension))
   }
   const cloudPrefabId = item.tameBomb !== undefined ? tameCloudId(item) : item.smokeBomb !== undefined ? smokeCloudId(item) : undefined
-  lines.push(cloudPrefabId !== undefined ? `local prefabs = { ${luaString(cloudPrefabId)} }` : 'local prefabs = {}')
+  // Confirmed in-game: SetProjectile only stores the projectile's PREFAB NAME
+  // as a string (components/weapon.lua just does self.projectile = name) —
+  // it never itself declares that name as a load dependency anywhere. Without
+  // it in this item's own `prefabs` list (the array Prefab() uses to know
+  // what else to preload alongside this entity), the generated
+  // solarchakram_proj.lua file existed on disk but was never actually loaded,
+  // reproduced in-game as "Can't find prefab solarchakram_proj" every time
+  // something tried to reference it.
+  const extraPrefabIds = [cloudPrefabId, item.weapon?.chainReturn !== undefined ? chakramProjectileId(item) : undefined].filter(
+    (id): id is string => id !== undefined,
+  )
+  lines.push(extraPrefabIds.length > 0 ? `local prefabs = { ${extraPrefabIds.map(luaString).join(', ')} }` : 'local prefabs = {}')
   lines.push('')
   lines.push('local function fn()')
   lines.push('    local inst = CreateEntity()')
@@ -1376,6 +1588,14 @@ export function generateItemPrefab(item: ItemDef): string {
   lines.push('    inst.entity:AddNetwork()')
   if (isSolarLantern(item)) {
     lines.push('    inst.entity:AddLight()')
+  }
+  if (item.container?.source === 'own' && item.container.acceptsTag === 'spell') {
+    // Plain per-entity netvar (unrelated to the container-open/opener/
+    // classified system) — see the UpdateSpellContents comment in
+    // componentBlock and linkedContainerSpellbookFunctionBlock for why this
+    // is the only reliable way for another item's staff to read this
+    // container's contents on the client without it being open.
+    lines.push(`    inst.spell_contents = net_string(inst.GUID, "${item.id}.spell_contents", "spell_contentsdirty")`)
   }
   lines.push('')
   lines.push('    MakeInventoryPhysics(inst)')
@@ -1409,6 +1629,11 @@ export function generateItemPrefab(item: ItemDef): string {
   }
   if (item.solarBattery) {
     lines.push('    inst:AddTag("solarprism")')
+  }
+  lines.push(...spellbookComponentLines(item))
+  if (needsAimedSpell(item)) {
+    lines.push('')
+    lines.push(...aimedSpellSharedLines())
   }
   lines.push('')
   lines.push('    inst.entity:SetPristine()')

@@ -312,8 +312,93 @@ function seasonSetupLines(character: CharacterDef): string[] {
   return ['    inst:WatchWorldState("season", OnSeasonChange)', '    OnSeasonChange(inst, TheWorld.state.season)']
 }
 
+// Reproduced in-game: the character-select screen hard-crashes
+// ("Could not find an asset matching bigportraits/<id>.xml") for ANY new
+// character id — characterutil.lua's SetOvalPortraitTexture always looks up
+// "bigportraits/"..character..".xml" by prefab id, with no fallback the way
+// GetInventoryItemAtlas covers item icons (patterns.md has no prior research
+// on this — it was never handled at all before). For a vanilla-sourced
+// character we CAN cover it without needing real art: every base-game
+// character's own plain bigportraits/<id>.xml (extracted from the real
+// bigportraits.zip: wilson.xml, wendy.xml, wolfgang.xml, ...) is the exact
+// same 1-element atlas pointing at that character's own already-loaded
+// "<id>.tex" — same texture, same fixed UV rect, only the element name
+// varies. Re-declaring that Texture under our OWN character's element name
+// aliases the already-loaded vanilla portrait without shipping any new
+// pixel data. A 'custom' character has no vanilla texture to alias, so it's
+// still left as a documented real-art requirement (see README).
+function generatePortraitAlias(character: CharacterDef, build: string): string {
+  return `<Atlas><Texture filename="${build}.tex" /><Elements><Element name="${character.id}.tex" u1="0.0" u2="0.546875" v1="0.296875" v2="1.0" /></Elements></Atlas>\n`
+}
+
+// Reproduced in-game: opening the crafting menu's character filter tab hard-
+// crashes ("Could not find an asset matching images/avatars/avatar_<id>.xml")
+// for ANY new character id — widgets/redux/bantab.lua's GetAvatarAtlas looks
+// up MOD_AVATAR_LOCATIONS[character] (falling back to MOD_AVATAR_LOCATIONS
+// ["Default"], confirmed = "images/avatars/" from the crash path itself) and
+// expects a real file there; unlike the recipe-icon case there's no
+// GetInventoryItemAtlas-style runtime fallback. Every base character's own
+// avatar is one element inside ONE shared, already-loaded atlas
+// (images/avatars.xml / avatars.tex) at a fixed per-character UV rect
+// (extracted directly from that real file) — aliasing our own character's
+// element name onto the SAME shared texture at the SAME rect reuses the
+// reused build's existing avatar with no new pixel data, the same trick as
+// generatePortraitAlias but against a shared sheet instead of a per-character
+// texture, hence the explicit per-id UV table below.
+const VANILLA_CHARACTER_AVATAR_UV: Record<string, { u1: number; u2: number; v1: number; v2: number }> = {
+  wilson: { u1: 0.00048828125, u2: 0.09326171875, v1: 0.43798828125, v2: 0.53076171875 },
+  willow: { u1: 0.84423828125, u2: 0.93701171875, v1: 0.53173828125, v2: 0.62451171875 },
+  wolfgang: { u1: 0.18798828125, u2: 0.28076171875, v1: 0.43798828125, v2: 0.53076171875 },
+  wendy: { u1: 0.56298828125, u2: 0.65576171875, v1: 0.53173828125, v2: 0.62451171875 },
+  wx78: { u1: 0.37548828125, u2: 0.46826171875, v1: 0.34423828125, v2: 0.43701171875 },
+  wickerbottom: { u1: 0.75048828125, u2: 0.84326171875, v1: 0.53173828125, v2: 0.62451171875 },
+  woodie: { u1: 0.37548828125, u2: 0.46826171875, v1: 0.43798828125, v2: 0.53076171875 },
+  wes: { u1: 0.65673828125, u2: 0.74951171875, v1: 0.53173828125, v2: 0.62451171875 },
+  waxwell: { u1: 0.37548828125, u2: 0.46826171875, v1: 0.53173828125, v2: 0.62451171875 },
+  wathgrithr: { u1: 0.28173828125, u2: 0.37451171875, v1: 0.53173828125, v2: 0.62451171875 },
+  webber: { u1: 0.46923828125, u2: 0.56201171875, v1: 0.53173828125, v2: 0.62451171875 },
+  winona: { u1: 0.09423828125, u2: 0.18701171875, v1: 0.43798828125, v2: 0.53076171875 },
+  warly: { u1: 0.18798828125, u2: 0.28076171875, v1: 0.53173828125, v2: 0.62451171875 },
+  wortox: { u1: 0.18798828125, u2: 0.28076171875, v1: 0.34423828125, v2: 0.43701171875 },
+  wormwood: { u1: 0.75048828125, u2: 0.84326171875, v1: 0.43798828125, v2: 0.53076171875 },
+  wurt: { u1: 0.28173828125, u2: 0.37451171875, v1: 0.34423828125, v2: 0.43701171875 },
+  walter: { u1: 0.00048828125, u2: 0.09326171875, v1: 0.53173828125, v2: 0.62451171875 },
+  wanda: { u1: 0.09423828125, u2: 0.18701171875, v1: 0.53173828125, v2: 0.62451171875 },
+}
+
+function generateAvatarAlias(character: CharacterDef, build: string): string | undefined {
+  const uv = VANILLA_CHARACTER_AVATAR_UV[build]
+  if (!uv) return undefined
+  return `<Atlas><Texture filename="avatars.tex" /><Elements><Element name="avatar_${character.id}.tex" u1="${uv.u1}" u2="${uv.u2}" v1="${uv.v1}" v2="${uv.v2}" /></Elements></Atlas>\n`
+}
+
+// Confirmed against a real published character mod (e00dan/naruto-dont-
+// starve-together's modmain.lua): bigportraits/avatars are declared in
+// modmain.lua's own top-level `Assets` table (see generateModMain), NOT
+// inside the character's own prefab file — the character-select screen reads
+// them before ever spawning the prefab, so a per-prefab Asset() declaration
+// loads too late ("Invalid resource handle for atlas... did you remember to
+// load the asset?"). ATLAS is always declared for a vanilla-sourced character
+// (the alias .xml always exists); IMAGE (the real .tex) only when
+// hasCustomPortrait says one was actually supplied — the auto-generated alias
+// case has no real <id>.tex of its own, only a reference to the reused
+// build's already-loaded texture.
+export function characterPortraitAssets(character: CharacterDef): string[] {
+  const lines: string[] = []
+  if (!isVanillaAnimation(character)) return lines
+
+  lines.push(`Asset("ATLAS", "bigportraits/${character.id}.xml")`)
+  if (character.hasCustomPortrait) {
+    lines.push(`Asset("IMAGE", "bigportraits/${character.id}.tex")`)
+  }
+  if (VANILLA_CHARACTER_AVATAR_UV[resolveAnimationBuild(character)]) {
+    lines.push(`Asset("ATLAS", "images/avatars/avatar_${character.id}.xml")`)
+  }
+  return lines
+}
+
 // Assets: when the character reuses a vanilla build (animation.source ===
-// 'vanilla'), no Asset() is declared at all — that build is already
+// 'vanilla'), no Asset("ANIM", ...) is declared at all — that build is already
 // preloaded globally by the base game (global.lua's own Asset("PKGREF",
 // "anim/<id>.zip") list). Otherwise this is a PLACEHOLDER: the user must
 // supply anim/<id>.zip (and a matching ghost build) themselves — see README.
@@ -331,6 +416,7 @@ export function generateCharacterPrefab(character: CharacterDef): string {
   } else {
     lines.push(`    Asset("ANIM", "anim/${character.id}.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)`)
     lines.push(`    Asset("ANIM", "anim/ghost_${character.id}_build.zip"), -- PLACEHOLDER: build do fantasma`)
+    lines.push(`    Asset("IMAGE", "bigportraits/${character.id}.xml"), -- PLACEHOLDER: retrato real, ver README (também precisa estar em modmain.lua, ver characterPortraitAssets)`)
   }
   lines.push('}')
   lines.push('')
@@ -367,6 +453,14 @@ export function generateCharacterPrefab(character: CharacterDef): string {
   lines.push('end')
   lines.push('')
   lines.push('local function master_postinit(inst)')
+  // Confirmed in the real prefabs/player_common.lua: passing starting_inventory
+  // as MakePlayerCharacter's 6th constructor argument is explicitly commented
+  // "now deprecated -- set .starting_inventory property during master_postinit
+  // instead" — done here instead of via that parameter.
+  if (character.startingInventory.length > 0) {
+    lines.push(`    inst.starting_inventory = ${luaStringArray(character.startingInventory)}`)
+    lines.push('')
+  }
   lines.push(`    inst.components.health:SetMaxHealth(TUNING.${upper}_HEALTH)`)
   lines.push(`    inst.components.hunger:SetMax(TUNING.${upper}_HUNGER)`)
   lines.push(`    inst.components.sanity:SetMax(TUNING.${upper}_SANITY)`)
@@ -413,7 +507,7 @@ export function generateCharacterPrefab(character: CharacterDef): string {
   lines.push('end')
   lines.push('')
   lines.push(
-    `return MakePlayerCharacter("${character.id}", prefabs, assets, common_postinit, master_postinit, start_inv)`,
+    `return MakePlayerCharacter("${character.id}", prefabs, assets, common_postinit, master_postinit)`,
   )
 
   return lines.join('\n') + '\n'
@@ -429,6 +523,23 @@ export function generateCharacterFiles(
   }
   if (character.skillTree) {
     files[`scripts/prefabs/skilltree_${character.id}.lua`] = generateSkillTreeFile(character)
+  }
+  // Path confirmed in-game: must match the Asset("IMAGE", "bigportraits/<id>.xml")
+  // declaration exactly — no "images/" prefix. Unlike inventoryimages/anim (which
+  // live inside images.zip, hence the "images/" prefix), the base game's own
+  // portraits are their own separate top-level databundle (bigportraits.zip,
+  // unpacked as bigportraits/<id>.xml directly) — a mod's own copy has to mirror
+  // that same root-level layout, not the images/ one.
+  if (isVanillaAnimation(character)) {
+    const build = resolveAnimationBuild(character)
+    files[`bigportraits/${character.id}.xml`] = generatePortraitAlias(character, build)
+    // Path confirmed in-game (MOD_AVATAR_LOCATIONS["Default"], widgets/redux/
+    // bantab.lua) — a plain runtime resolvefilepath lookup, not a preloaded
+    // Asset(), so no Asset() declaration is needed for this one.
+    const avatarAlias = generateAvatarAlias(character, build)
+    if (avatarAlias) {
+      files[`images/avatars/avatar_${character.id}.xml`] = avatarAlias
+    }
   }
   return files
 }

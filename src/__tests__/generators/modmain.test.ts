@@ -31,6 +31,23 @@ describe('generateModMain', () => {
     expect(code).toContain('placer = "teststructure_placer"')
   })
 
+  // Confirmed against scripts/simutil.lua's GetInventoryItemAtlas — see
+  // modmain.ts's comment for the "Could not find region... from atlas
+  // 'images/inventoryimages4.xml'" warning this fixes (Asset("ATLAS"/"IMAGE")
+  // alone loads the file but doesn't make the inventory-slot widget find it).
+  it('registers a custom-icon item\'s atlas via GLOBAL.RegisterInventoryItemAtlas', () => {
+    const withCustomIcon = {
+      ...sampleProject,
+      items: [{ ...sampleProject.items[0], hasCustomIcon: true }, ...sampleProject.items.slice(1)],
+    }
+    const customIconCode = generateModMain(withCustomIcon)
+    expect(customIconCode).toContain('GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/testsword.xml", "testsword.tex")')
+  })
+
+  it('does not register anything when no item has a custom icon', () => {
+    expect(code).not.toContain('RegisterInventoryItemAtlas')
+  })
+
   it('registers every character with AddModCharacter and its gender', () => {
     expect(code).toContain('AddModCharacter("testchar", "NEUTRAL")')
   })
@@ -38,6 +55,20 @@ describe('generateModMain', () => {
   it('wires up character strings and speech require', () => {
     expect(code).toContain('STRINGS.CHARACTER_TITLES.testchar = "the tester"')
     expect(code).toContain('STRINGS.CHARACTERS.TESTCHAR = require("speech_testchar")')
+  })
+
+  // Confirmed against a real published character mod's modmain.lua
+  // (e00dan/naruto-dont-starve-together) — see characterPortraitAssets.
+  it('declares a top-level Assets table with the bigportrait/avatar ATLAS entries for a vanilla-sourced character', () => {
+    expect(code).toContain('Assets = {')
+    expect(code).toContain('Asset("ATLAS", "bigportraits/testchar.xml")')
+    expect(code).toContain('Asset("ATLAS", "images/avatars/avatar_testchar.xml")')
+  })
+
+  it('does not declare a top-level Assets table when no character has any (custom-sourced, no portrait assets to preload)', () => {
+    const noPortraitProject = { ...sampleProject, characters: [{ ...sampleProject.characters[0], animation: undefined }] }
+    const noPortraitCode = generateModMain(noPortraitProject)
+    expect(noPortraitCode).not.toContain('Assets = {')
   })
 
   describe('mana HUD (docs/dst-knowledge/patterns.md#61)', () => {
@@ -73,6 +104,20 @@ describe('generateModMain', () => {
     it('does not wire any mana HUD code when no character has mana', () => {
       expect(code).not.toContain('ManaBadge')
       expect(code).not.toContain('AddPlayerPostInit')
+    })
+
+    // Reproduced in-game: item.ts's spellbook checkenabled needs to read the
+    // caster's CURRENT mana from a CLIENT-side context (the wheel widget),
+    // where `.components.mana` never exists — checking that field there
+    // always fell through to "no component, allow it" and never actually
+    // blocked casting a spell with insufficient mana. This netvar (deliberately
+    // NOT prefixed by the character's own id, unlike testchar_mana_percent
+    // above) mirrors the raw current amount so any item can check it without
+    // knowing which CharacterDef(s) exist in the project.
+    it('mirrors the raw current mana into a plain, non-character-prefixed netvar for item.ts\'s checkenabled to read', () => {
+      expect(mageCode).toContain('inst.mana_current = GLOBAL.net_float(inst.GUID, "mana.current", "manacurrentdirty")')
+      expect(mageCode).toContain('inst.mana_current:set(inst.components.mana.current)')
+      expect(mageCode).toContain('OnTestcharManaUpdate(inst)')
     })
   })
 
@@ -324,6 +369,40 @@ describe('generateModMain', () => {
     expect(batteryCode).toContain('if right and inst:HasTag("solarprism") then')
     expect(batteryCode).toContain('AddStategraphActionHandler("wilson", ActionHandler(ACTIONS.CHARGE_SOLAR, "doshortaction"))')
     expect(batteryCode.split('AddAction("CHARGE_SOLAR"').length - 1).toBe(1)
+  })
+
+  // Reproduced in-game: the user wanted the staff's own action button (while
+  // equipped) to open the spell wheel, not just a right-click-in-inventory
+  // action — but componentactions.lua's real "spellbook" handler only exists
+  // under INVENTORY, never EQUIPPED. AddComponentAction adds this without
+  // touching the base game's own tables (same real API combineActionBlock
+  // already uses above).
+  it('wires an EQUIPPED spellbook action once when at least one item has a spellbook (sampleProject already has testspellbook)', () => {
+    expect(code).toContain('AddComponentAction("EQUIPPED", "spellbook", function(inst, doer, target, actions, right)')
+    expect(code).toContain('if target == doer then')
+    expect(code).toContain('table.insert(actions, ACTIONS.USESPELLBOOK)')
+    expect(code).toContain('table.insert(actions, ACTIONS.CLOSESPELLBOOK)')
+  })
+
+  it('does not emit the EQUIPPED spellbook action twice even with two spellbook items', () => {
+    const withTwoSpellbooks = {
+      ...sampleProject,
+      items: [
+        ...sampleProject.items,
+        {
+          ...sampleProject.items[0],
+          id: 'testspellbookitem2',
+          spellbook: { source: 'static' as const, spells: [{ label: 'A', summonPrefab: 'x' }, { label: 'B', summonPrefab: 'y' }] },
+        },
+      ],
+    }
+    const spellbookCode = generateModMain(withTwoSpellbooks)
+    expect(spellbookCode.split('AddComponentAction("EQUIPPED", "spellbook"').length - 1).toBe(1)
+  })
+
+  it('does not wire the EQUIPPED spellbook action when no item has a spellbook', () => {
+    const noSpellbook = { ...sampleProject, items: sampleProject.items.filter((item) => item.spellbook === undefined) }
+    expect(generateModMain(noSpellbook)).not.toContain('"spellbook"')
   })
 
   it('does not require the containers module when no item is a container (patterns.md#20)', () => {

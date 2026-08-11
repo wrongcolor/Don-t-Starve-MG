@@ -42,6 +42,7 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
+    inst.components.inventoryitem.imagename = "staffs"
 
     inst:AddComponent("rechargeable")
     inst.components.rechargeable:SetChargeTime(TUNING.EMBERROD_COOLDOWN)

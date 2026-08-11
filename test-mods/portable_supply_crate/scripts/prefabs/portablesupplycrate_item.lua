@@ -35,6 +35,7 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
+    inst.components.inventoryitem.imagename = "treasurechest"
 
     inst:AddComponent("deployable")
     inst.components.deployable.ondeploy = ondeploy

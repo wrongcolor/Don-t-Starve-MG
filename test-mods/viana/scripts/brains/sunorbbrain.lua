@@ -1,8 +1,6 @@
 require "behaviours/wander"
 require "behaviours/chaseandattack"
 
-local BrainClass = require "brain"
-
 local MAX_WANDER_DIST = 20
 local SEE_TARGET_DIST = 10
 
@@ -11,8 +9,8 @@ local function GetHomePos(inst)
 end
 
 
-local SunorbBrain = Class(BrainClass, function(self, inst)
-    BrainClass._ctor(self, inst)
+local SunorbBrain = Class(Brain, function(self, inst)
+    Brain._ctor(self, inst)
 end)
 
 function SunorbBrain:OnStart()

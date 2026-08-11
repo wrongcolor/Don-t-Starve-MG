@@ -3,6 +3,7 @@ import { luaString, luaStringArray, toUpperSnake } from './luaUtils'
 import { containerColumns, containerSlotCount, containerCustomWidgetBuild, itemRecipeIcon, chakramProjectileId } from './item'
 import { structureRecipeIcon } from './structure'
 import { generateWorldEventBlock, isWorldScopedTrigger, pickRandomOnlinePlayerBlock, worldEventTuningBlock } from './worldEvent'
+import { characterPortraitAssets } from './character'
 
 function itemRecipeBlock(item: ItemDef): string {
   const ingredients = item.recipe.ingredients
@@ -300,7 +301,12 @@ function containerParamsBlock(id: string, container: Extract<Container, { source
     lines.push('        slotpos = {},')
     lines.push(`        animbank = ${luaString(build)},`)
     lines.push(`        animbuild = ${luaString(build)},`)
-    lines.push('        pos = Vector3(0, 0, 0),')
+    // GLOBAL. prefix confirmed necessary in-game: modmain.lua's sandboxed
+    // environment doesn't expose Vector3 as a bare global (unlike a prefab
+    // script's own require-loaded scope, where item.ts/structure.ts/creature.ts
+    // already use it bare without issue) — same class of fix as the static
+    // layout GLOBAL.LAYOUT_POSITION/GLOBAL.PLACE_MASK crash.
+    lines.push('        pos = GLOBAL.Vector3(0, 0, 0),')
     lines.push('    },')
     lines.push('}')
     lines.push('')
@@ -313,7 +319,7 @@ function containerParamsBlock(id: string, container: Extract<Container, { source
       const col = i % columns
       const x = (col - (columns - 1) / 2) * 75
       const y = ((rows - 1) / 2 - row) * 75
-      lines.push(`table.insert(params.${id}.widget.slotpos, Vector3(${x}, ${y}, 0))`)
+      lines.push(`table.insert(params.${id}.widget.slotpos, GLOBAL.Vector3(${x}, ${y}, 0))`)
     }
   }
 
@@ -341,6 +347,41 @@ function containerParamsBlock(id: string, container: Extract<Container, { source
 
 function needsCombineAction(project: ModProject): boolean {
   return project.items.some((item) => item.combinable)
+}
+
+function needsSpellbookEquippedAction(project: ModProject): boolean {
+  return project.items.some((item) => item.spellbook !== undefined)
+}
+
+// Confirmed against the real componentactions.lua: the "spellbook" component
+// only has a handler under INVENTORY (right-click the item directly while it
+// sits in your bag/hand slot) — there is no EQUIPPED entry for it at all, so
+// a handheld spellbook item's own action button (the one used while it's
+// equipped, pointed at nothing/yourself) never offers "Use Spell Book" out of
+// the box. AddComponentAction (same real, whitelisted API already used by
+// combineActionBlock above) lets a mod register an ADDITIONAL handler without
+// touching componentactions.lua itself — the game merges it with the base
+// game's own component-to-action tables. Logic mirrors the real INVENTORY
+// handler (componentactions.lua) exactly, just for the EQUIPPED signature
+// (inst, doer, target, actions, right) — gated on target == doer (the same
+// "self-targeted while equipped" convention real vanilla uses for
+// mightydumbbell/channelcastable, i.e. the action button pressed with nothing
+// else valid under the cursor) so it doesn't fight with the item's own
+// ATTACK action when actually pointing at something else.
+function spellbookEquippedActionBlock(): string[] {
+  return [
+    'local ACTIONS = GLOBAL.ACTIONS',
+    '',
+    'AddComponentAction("EQUIPPED", "spellbook", function(inst, doer, target, actions, right)',
+    '    if target == doer then',
+    '        if doer.HUD ~= nil and doer.HUD:GetCurrentOpenSpellBook() == inst then',
+    '            table.insert(actions, ACTIONS.CLOSESPELLBOOK)',
+    '        elseif inst.components.spellbook:CanBeUsedBy(doer) then',
+    '            table.insert(actions, ACTIONS.USESPELLBOOK)',
+    '        end',
+    '    end',
+    'end)',
+  ]
 }
 
 // Adapted from a real published Workshop mod ("Repair Combine", see
@@ -420,6 +461,53 @@ function characterStringsAndRegistrationBlock(character: CharacterDef): string[]
   ]
 }
 
+function needsSkinBuildOverride(character: CharacterDef): boolean {
+  return character.animation?.source === 'vanilla'
+}
+
+// Reproduced in-game: a character with animation.source 'vanilla' correctly
+// shows the reused build right after spawning (character.ts's common_postinit
+// calls AnimState:SetBuild AFTER player_common.lua's own default SetBuild(name)
+// — see patterns.md#60), but goes invisible ("sem visual") the moment the
+// player actually joins the world. Root cause, confirmed against the real
+// networking.lua (SpawnNewPlayerOnServerFromSim) and components/skinner.lua:
+// spawning calls skinner:SetSkinName(skin_base) then skinner:SetSkinMode
+// ("normal_skin"), which resolves the actual build via
+// `self.skin_data[skintype] or default_build or self.inst.prefab` — skin_data
+// stays empty (no "<id>_none" skin prefab exists for a modded character,
+// unlike every vanilla character's own registered default skin), so it falls
+// through to self.inst.prefab (e.g. "viana"), a build/asset that was never
+// loaded, silently reverting the AnimState to nothing.
+//
+// A first fix attempt wrapped skinner:SetSkinMode itself to inject a default
+// build, gated on `self.inst.prefab == id` checked right when
+// AddComponentPostInit's callback fires — reported as still not working. Root
+// cause, confirmed against the real mainfunctions.lua (SpawnPrefabFromSim):
+// the ENTIRE prefab fn() (which is where AddComponent("skinner") runs, and
+// with it any ComponentPostInit hook) executes BEFORE inst:SetPrefabName()
+// ever runs — so inst.prefab could not yet be reliably "viana" at the moment
+// this hook fired, silently disabling the whole check. Fix: don't gate the
+// OUTER hook at all (it fires once per player regardless of character, same
+// as it always would); defer the prefab check to INSIDE the callback itself.
+// components/skinner.lua's own SetSkinMode always calls self.base_change_cb()
+// (if set) as its very last step, regardless of whatever build it just
+// computed, and only ever runs well after spawning is complete (long after
+// inst.prefab is guaranteed set) — the same "self-correcting, run-after-
+// every-change" approach already proven for the dual_mount mod's own
+// seat-position fix, just applied to skin/build instead of position.
+function characterSkinBuildOverrideBlock(character: CharacterDef): string[] {
+  if (character.animation?.source !== 'vanilla') return []
+  return [
+    'AddComponentPostInit("skinner", function(self)',
+    '    self.base_change_cb = function()',
+    `        if self.inst.prefab == ${luaString(character.id)} then`,
+    `            self.inst.AnimState:SetBuild(${luaString(character.animation.build)})`,
+    '        end',
+    '    end',
+    'end)',
+  ]
+}
+
 // Confirmed in the base game's own scripts/prefabs/skilltree_defs.lua (see
 // docs/dst-knowledge/patterns.md#28), mirrored exactly by a real character mod's
 // modmain.lua ("Dryad"): registering a tree is require the generated skill file,
@@ -459,6 +547,7 @@ function characterManaHudBlock(character: CharacterDef): string[] {
     '',
     `local function On${capId}ManaUpdate(inst)`,
     `    inst.${id}_mana_percent:set(math.floor(inst.components.mana:GetPercent() * 100))`,
+    `    inst.mana_current:set(inst.components.mana.current)`,
     'end',
     '',
     `local function ${capId}PlayerPostInit(inst)`,
@@ -467,9 +556,25 @@ function characterManaHudBlock(character: CharacterDef): string[] {
     '    end',
     '',
     `    inst.${id}_mana_percent = GLOBAL.net_int(inst.GUID, ${luaString(`${id}.manapercent`)}, ${dirtyEvent})`,
+    // Reproduced in-game: item.ts's spellbook checkenabled (widgets/wheel.lua's
+    // own real per-entry gate — greys out AND blocks clicking any spell the
+    // caster can't afford) runs purely CLIENT-SIDE, where `.components.mana`
+    // never exists (components are server-only — this custom "mana" component
+    // has no dedicated _replica.lua of its own, unlike inventoryitem/container).
+    // Checking `owner.components.mana` there always evaluated to "component is
+    // nil, so let it through" and never actually blocked anything, regardless
+    // of the real current amount — confirmed as the reason spells stayed
+    // castable even at 0 mana. Fix: mirror the RAW current amount (not just
+    // the rounded display percent above) into its own plain netvar, using a
+    // name that isn't prefixed by this character's own id — item.ts has no
+    // knowledge of which CharacterDef(s) exist in the project, so it needs one
+    // predictable field name to check regardless of which mana character
+    // ends up holding the item.
+    `    inst.mana_current = GLOBAL.net_float(inst.GUID, "mana.current", "manacurrentdirty")`,
     '',
     '    if GLOBAL.TheWorld.ismastersim then',
     `        inst:ListenForEvent("manadelta", On${capId}ManaUpdate)`,
+    `        On${capId}ManaUpdate(inst)`,
     '    end',
     '',
     '    if not GLOBAL.TheNet:IsDedicated() then',
@@ -507,6 +612,12 @@ export function generateModMain(project: ModProject): string {
     prefabFiles.push(item.id)
     if (item.tameBomb) prefabFiles.push(`${item.id}_cloud`)
     if (item.smokeBomb) prefabFiles.push(`${item.id}_smoke`)
+    // Reproduced in-game: the generated <id>_proj.lua file existed on disk
+    // but the mod loader only ever parses files listed here — declaring it
+    // in the item's own local `prefabs` array (item.ts) isn't enough by
+    // itself, reproduced as "Can't find prefab solarchakram_proj" every time
+    // something tried to reference it.
+    if (item.weapon?.chainReturn !== undefined) prefabFiles.push(chakramProjectileId(item))
   }
   for (const structure of project.structures) {
     prefabFiles.push(structure.id, structure.deployMode === 'deployableItem' ? `${structure.id}_item` : `${structure.id}_placer`)
@@ -530,6 +641,21 @@ export function generateModMain(project: ModProject): string {
   sections.push('')
   sections.push(`PrefabFiles = ${luaStringArray(prefabFiles)}`)
 
+  // Confirmed against a real published character mod (e00dan/naruto-dont-
+  // starve-together's modmain.lua): bigportraits/avatars belong in modmain.lua's
+  // OWN top-level `Assets` table, not inside any prefab's local `assets` — see
+  // characterPortraitAssets for why (the character-select screen never spawns
+  // the prefab, so a per-prefab Asset() declaration loads too late).
+  const modmainAssets = project.characters.flatMap(characterPortraitAssets)
+  if (modmainAssets.length > 0) {
+    sections.push('')
+    sections.push('Assets = {')
+    for (const line of modmainAssets) {
+      sections.push(`    ${line},`)
+    }
+    sections.push('}')
+  }
+
   if (project.items.length > 0) {
     sections.push('')
     sections.push('-- Items: tuning + strings')
@@ -541,6 +667,27 @@ export function generateModMain(project: ModProject): string {
     sections.push('-- Items: recipes')
     for (const item of project.items) {
       sections.push(itemRecipeBlock(item))
+    }
+
+    const customIconItems = project.items.filter((item) => item.hasCustomIcon)
+    if (customIconItems.length > 0) {
+      sections.push('')
+      // Confirmed in scripts/simutil.lua's GetInventoryItemAtlas: it checks
+      // an explicit registry (populated ONLY via RegisterInventoryItemAtlas)
+      // before falling back to the 4 shared vanilla inventoryimages*.xml
+      // sheets — it never looks at a mod's own images/inventoryimages/<id>.xml
+      // on its own. Without this, Asset("ATLAS"/"IMAGE", ...) above is enough
+      // for the file to load without crashing, but the actual inventory-slot
+      // icon widget still can't find it (reproduced in-game as repeated
+      // "Could not find region '<id>.tex' from atlas 'images/inventoryimages4.xml'"
+      // warnings, even though the recipe menu icon — which reads the atlas/
+      // image config directly, not through GetInventoryItemAtlas — is fine).
+      sections.push('-- Items: register custom inventory icon atlases (simutil.lua GetInventoryItemAtlas)')
+      for (const item of customIconItems) {
+        sections.push(
+          `GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/${item.id}.xml", "${item.id}.tex")`,
+        )
+      }
     }
   }
 
@@ -568,6 +715,12 @@ export function generateModMain(project: ModProject): string {
     sections.push('')
     sections.push('-- Solar battery charge action (shared by every solar battery item)')
     sections.push(...solarBatteryActionBlock())
+  }
+
+  if (needsSpellbookEquippedAction(project)) {
+    sections.push('')
+    sections.push('-- Lets a handheld spellbook item open the spell wheel from its own equipped action button')
+    sections.push(...spellbookEquippedActionBlock())
   }
 
   if (needsContainerParams(project)) {
@@ -604,6 +757,15 @@ export function generateModMain(project: ModProject): string {
     for (const character of project.characters) {
       sections.push(...characterTuningBlock(character))
       sections.push(...characterStringsAndRegistrationBlock(character))
+    }
+  }
+
+  const charactersWithSkinBuildOverride = project.characters.filter(needsSkinBuildOverride)
+  if (charactersWithSkinBuildOverride.length > 0) {
+    sections.push('')
+    sections.push('-- Keeps a reused-vanilla-build character visible after spawning (patterns.md#60)')
+    for (const character of charactersWithSkinBuildOverride) {
+      sections.push(...characterSkinBuildOverrideBlock(character))
     }
   }
 

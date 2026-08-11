@@ -24,6 +24,13 @@ describe('generateManaComponentFile', () => {
     expect(code).toContain('return false')
   })
 
+  // Used by spellbook wheel entries (item.ts's checkenabled) to grey out
+  // spells the caster can't currently afford, without actually spending.
+  it('exposes a non-destructive IsEnough check alongside Spend', () => {
+    expect(code).toContain('function Mana:IsEnough(amount)')
+    expect(code).toContain('return self.current >= amount')
+  })
+
   it('SetMax fills current to the new max, so a freshly spawned character starts full', () => {
     expect(code).toContain('self.current = max')
     expect(code).not.toContain('math.min(self.current, self.max)')

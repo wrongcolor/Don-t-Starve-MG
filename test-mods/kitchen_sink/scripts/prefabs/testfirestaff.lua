@@ -60,6 +60,7 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
+    inst.components.inventoryitem.imagename = "nightmarefuel"
 
     inst:AddComponent("weapon")
     inst.components.weapon:SetDamage(TUNING.TESTFIRESTAFF_DAMAGE)

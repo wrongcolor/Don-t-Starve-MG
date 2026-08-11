@@ -78,16 +78,16 @@ params.toolbelt = {
         slotpos = {},
         animbank = "ui_toolbelt",
         animbuild = "ui_toolbelt",
-        pos = Vector3(0, 0, 0),
+        pos = GLOBAL.Vector3(0, 0, 0),
     },
 }
 
-table.insert(params.toolbelt.widget.slotpos, Vector3(-75, 37.5, 0))
-table.insert(params.toolbelt.widget.slotpos, Vector3(0, 37.5, 0))
-table.insert(params.toolbelt.widget.slotpos, Vector3(75, 37.5, 0))
-table.insert(params.toolbelt.widget.slotpos, Vector3(-75, -37.5, 0))
-table.insert(params.toolbelt.widget.slotpos, Vector3(0, -37.5, 0))
-table.insert(params.toolbelt.widget.slotpos, Vector3(75, -37.5, 0))
+table.insert(params.toolbelt.widget.slotpos, GLOBAL.Vector3(-75, 37.5, 0))
+table.insert(params.toolbelt.widget.slotpos, GLOBAL.Vector3(0, 37.5, 0))
+table.insert(params.toolbelt.widget.slotpos, GLOBAL.Vector3(75, 37.5, 0))
+table.insert(params.toolbelt.widget.slotpos, GLOBAL.Vector3(-75, -37.5, 0))
+table.insert(params.toolbelt.widget.slotpos, GLOBAL.Vector3(0, -37.5, 0))
+table.insert(params.toolbelt.widget.slotpos, GLOBAL.Vector3(75, -37.5, 0))
 params.toolbelt.issidewidget = false
 params.toolbelt.type = "toolbelt"
 

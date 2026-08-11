@@ -38,6 +38,7 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
+    inst.components.inventoryitem.imagename = "cutgrass"
 
     inst:AddComponent("edible")
     inst.components.edible.foodtype = FOODTYPE.MEAT

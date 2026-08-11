@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parse } from 'luaparse'
-import { generateItemFiles, generateItemPrefab } from '../../generators/item'
+import { generateItemFiles, generateItemPrefab, itemRecipeIcon } from '../../generators/item'
 import { itemDefSchema, type ItemDef } from '../../types/modProject'
 import { sampleProject } from '../fixtures'
 
@@ -43,7 +43,50 @@ describe('generateItemFiles', () => {
     expect(code).not.toContain('Asset("ANIM"')
     expect(code).toContain('inst.AnimState:SetBank("trinket_1")')
     expect(code).toContain('inst.AnimState:SetBuild("trinket_1")')
+    // A vanilla-sourced item has no anim/<id>.zip to derive this from — see
+    // itemRecipeIcon's crash-fix comment in item.ts.
     expect(code).not.toContain('Asset("INV_IMAGE"')
+  })
+
+  // Reproduced in-game (twice): InventoryItem:GetImage() (inventoryitem_replica.lua)
+  // defaults to the item's OWN prefab id whenever `imagename` was never set —
+  // completely separate from itemRecipeIcon's atlas/image, which only affects
+  // the crafting-menu icon. Without this, the crafting menu showed the reused
+  // build's icon fine, but the actual inventory slot / dropped-on-ground
+  // sprite showed nothing at all (not even the name). `imagename` is a
+  // LISTENABLE PROPERTY (components/inventoryitem.lua's Class() 3rd arg), not
+  // a method — `:SetImage(...)` only exists on the replica and crashed with
+  // "attempt to call method 'SetImage' (a nil value)" on the real server component.
+  it('sets inventoryitem.imagename to the reused build for a vanilla-sourced item with no custom icon', () => {
+    const code = generateItemPrefab(trinket)
+    expect(code).toContain('inst.components.inventoryitem.imagename = "trinket_1"')
+    expect(code).not.toContain(':SetImage')
+  })
+
+  it('does not override imagename for a vanilla-sourced item WITH hasCustomIcon (keeps the item\'s own real icon)', () => {
+    const customIconTrinket = { ...trinket, hasCustomIcon: true }
+    const code = generateItemPrefab(customIconTrinket)
+    expect(code).not.toContain('imagename')
+  })
+
+  it('does not set imagename for a custom-sourced item (its own id is already the right default)', () => {
+    const code = generateItemPrefab({ ...trinket, animation: undefined })
+    expect(code).not.toContain('imagename')
+  })
+
+  // hasCustomIcon decouples the static icon from the body build: a mod can
+  // ship a real images/inventoryimages/<id>.xml/.tex (see scripts/png_to_ktex.py)
+  // for a vanilla-bodied item, instead of only ever reusing the build's own icon.
+  it('declares a real ATLAS+IMAGE pair (not INV_IMAGE, which needs a real anim.zip to derive from) for a vanilla-build item with hasCustomIcon set', () => {
+    const customIconItem = { ...trinket, hasCustomIcon: true }
+    const code = generateItemPrefab(customIconItem)
+    expect(code).toContain('Asset("ATLAS", "images/inventoryimages/testtrinket.xml")')
+    expect(code).toContain('Asset("IMAGE", "images/inventoryimages/testtrinket.tex")')
+    expect(code).not.toContain('Asset("INV_IMAGE"')
+    expect(itemRecipeIcon(customIconItem)).toEqual({
+      atlas: 'images/inventoryimages/testtrinket.xml',
+      image: 'testtrinket.tex',
+    })
   })
 
   // Confirmed directly against the real game scripts (staff.lua, books.lua):
@@ -428,6 +471,27 @@ describe('generateItemFiles', () => {
     expect(code).toContain('local function spellbook_cast_2(inst, user, pos)')
     expect(code).toContain('SpawnPrefab("firefly")')
     expect(code).toContain('label = "Summon Light"')
+  })
+
+  // Reproduced in-game: componentactions.lua's own spellbook inventory-action
+  // handler reads inst.components.spellbook directly on the CLIENT (confirmed
+  // in the real waxwelljournal.lua: AddComponent("spellbook") happens before
+  // SetPristine()/the ismastersim check, unlike every other component here).
+  // Adding it inside the server-only block left it nil on the client, crashing
+  // as soon as the item's tooltip/action list was computed ("attempt to index
+  // field 'spellbook' (a nil value)").
+  it('adds the spellbook component on BOTH client and server (before SetPristine), not just the server', () => {
+    const spellbookItem: ItemDef = {
+      ...trinket,
+      id: 'testspellbook',
+      spellbook: { source: 'static', spells: [{ label: 'A', summonPrefab: 'x' }, { label: 'B', summonPrefab: 'y' }] },
+    }
+    const code = generateItemPrefab(spellbookItem)
+    const addComponentIdx = code.indexOf('inst:AddComponent("spellbook")')
+    const setPristineIdx = code.indexOf('inst.entity:SetPristine()')
+    expect(addComponentIdx).toBeGreaterThan(-1)
+    expect(setPristineIdx).toBeGreaterThan(-1)
+    expect(addComponentIdx).toBeLessThan(setPristineIdx)
     expect(code).toContain('inventory:CastSpellBookFromInv(inst)')
   })
 
@@ -456,6 +520,42 @@ describe('generateItemFiles', () => {
 
     const cast2Body = code.slice(cast1End)
     expect(cast2Body).not.toContain('user.components.mana')
+  })
+
+  // Confirmed in the real widgets/wheel.lua: Wheel:Open() greys out (and,
+  // per widgets/button.lua's OnControl, actually blocks clicks on) any wheel
+  // entry whose checkenabled(owner) returns false — evaluated fresh every
+  // time the wheel opens, so it can't be bypassed once mana regenerates back
+  // above the cost either.
+  //
+  // Reproduced in-game (twice): checkenabled runs on the wheel WIDGET, which
+  // only exists client-side, where `.components.mana` is always nil (this
+  // custom "mana" component has no _replica.lua) — checking it there always
+  // fell through to "no mana component, allow it" and never actually
+  // blocked anything, letting every spell stay clickable/castable regardless
+  // of the caster's real mana. Fixed by reading `owner.mana_current` instead
+  // — a plain netvar modmain.ts's characterManaHudBlock mirrors from the
+  // real server-side amount specifically for this kind of client-side check.
+  it('adds checkenabled (reading the client-visible mana_current netvar) only for the spell that has a manaCost', () => {
+    const spellbookItem: ItemDef = {
+      ...trinket,
+      id: 'testmanastaff2',
+      spellbook: {
+        source: 'static',
+        spells: [
+          { label: 'Sunbeam', summonPrefab: 'stafflight', manaCost: 10 },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(spellbookItem)
+    expect(code).toContain('checkenabled = function(owner) return owner.mana_current == nil or owner.mana_current:value() >= 10 end,')
+    expect(code).not.toContain('owner.components.mana')
+
+    const tableStart = code.indexOf('local SPELLBOOK_SPELLS =')
+    const freeSparkEntry = code.indexOf('label = "Free Spark"', tableStart)
+    const freeSparkEntryEnd = code.indexOf('},', freeSparkEntry)
+    expect(code.slice(freeSparkEntry, freeSparkEntryEnd)).not.toContain('checkenabled')
   })
 
   it('wires a static spell\'s beam as a channeled, direction-facing area tick over its own duration', () => {
@@ -566,8 +666,8 @@ describe('generateItemFiles', () => {
   })
 
   // The staff side (linkedContainer) can't know ahead of time which slot
-  // items are aimed — it reads spellitem.spell_aimed off whatever's plugged
-  // in at cast time, same as it already does for spell_beam.
+  // items are aimed — it decodes the "isaimed" field off the net_string
+  // payload at cast time, same as it already does for beam/nova/refraction.
   it('sets inst.spell_aimed on a spellDef item marked aimed, and a linkedContainer staff branches on it at runtime', () => {
     const wispSpell: ItemDef = {
       ...trinket,
@@ -585,11 +685,9 @@ describe('generateItemFiles', () => {
       spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
     }
     const code = generateItemPrefab(linked)
-    expect(code).toContain('local isaimed = spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed')
-    expect(code).toContain('if isaimed then')
-    expect(code).toContain('fx.Transform:SetPosition(pos:Get())')
-    expect(code).toContain('fx.Transform:SetPosition(user.Transform:GetWorldPosition())')
-    expect(code).toContain('if spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed then')
+    expect(code).toContain('isaimed and "1" or ""')
+    expect(code).toContain('if isaimed == "1" then')
+    expect(code).toContain('fx.Transform:SetPosition(isaimed == "1" and pos:Get() or user.Transform:GetWorldPosition())')
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
@@ -697,8 +795,8 @@ describe('generateItemFiles', () => {
     const linked: ItemDef = { ...trinket, id: 'testlinkednovastaff', spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' } }
     const code = generateItemPrefab(linked)
     expect(code).toContain('local function DoSpellNova(user, pos, nova)')
-    expect(code).toContain('if spellitem.spell_nova ~= nil then')
-    expect(code).toContain('DoSpellNova(user, pos, spellitem.spell_nova)')
+    expect(code).toContain('if novadamage ~= "" then')
+    expect(code).toContain('DoSpellNova(user, pos, { damage = tonumber(novadamage), radius = tonumber(novaradius), stun = tonumber(novastun) })')
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
@@ -766,8 +864,8 @@ describe('generateItemFiles', () => {
     }
     const code = generateItemPrefab(linked)
     expect(code).toContain('local function DoSpellRefraction(user, refraction)')
-    expect(code).toContain('if spellitem.spell_refraction ~= nil then')
-    expect(code).toContain('DoSpellRefraction(user, spellitem.spell_refraction)')
+    expect(code).toContain('if refractionradius ~= "" then')
+    expect(code).toContain('DoSpellRefraction(user, { radius = tonumber(refractionradius), duration = tonumber(refractionduration) })')
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
@@ -794,11 +892,20 @@ describe('generateItemFiles', () => {
     expect(itemDefSchema.safeParse(oneSpell).success).toBe(false)
   })
 
-  // Confirmed against the real game scripts (docs/dst-knowledge/patterns.md#62):
-  // SetShouldOpenFn rebuilds the spell list from whatever sits inside the
-  // linked container's slots right before the spell wheel opens, instead of a
-  // fixed SPELLBOOK_SPELLS table baked in at generation time.
-  it('wires a linkedContainer spellbook to rebuild its spells from another item at open time', () => {
+  // Reproduced in-game (twice): componentactions.lua's own INVENTORY.spellbook
+  // handler — the code deciding whether "Use Spell Book" even appears in the
+  // right-click menu — gates on SpellBook:CanBeUsedBy(user), which requires
+  // self.items to ALREADY be non-empty, checked independently and BEFORE
+  // SetShouldOpenFn/ShouldOpen ever runs (that only fires once the action
+  // already exists, from actions.lua's USESPELLBOOK.pre_action_cb). The old
+  // SetShouldOpenFn-only design left self.items permanently nil, so the
+  // action never appeared on the staff at all — confirmed against real
+  // componentactions.lua/actions.lua. Fix: a periodic task keeps self.items
+  // proactively in sync (RefreshSpellbookItems), and the container's own
+  // slots (server-only, invisible client-side unless actually open — see
+  // container_replica.lua) are mirrored into a plain per-entity netvar
+  // (codex.spell_contents) that both sides can read regardless of open state.
+  it('wires a linkedContainer spellbook to proactively keep its spells in sync via a periodic task', () => {
     const linked: ItemDef = {
       ...trinket,
       id: 'testlinkedstaff',
@@ -809,22 +916,42 @@ describe('generateItemFiles', () => {
 
     expect(code).toContain('inst:AddComponent("spellbook")')
     expect(code).not.toContain('SPELLBOOK_SPELLS')
+    expect(code).not.toContain('SetShouldOpenFn')
+    expect(code).not.toContain('codex.components.container')
     expect(code).toContain('local function rebuild_spellbook_items(user)')
+    expect(code).toContain('user.replica.inventory ~= nil and user.replica.inventory:FindItem(function(item)')
     expect(code).toContain('return item.prefab == "testcodex"')
-    expect(code).toContain('for slot = 1, codex.components.container.numslots do')
-    expect(code).toContain('local spellitem = codex.components.container.slots[slot]')
-    expect(code).toContain('inst.components.spellbook:SetShouldOpenFn(function(inst, user)')
-    expect(code).toContain('inst.components.spellbook:SetItems(items)')
+    expect(code).toContain('if codex == nil or codex.spell_contents == nil then')
+    expect(code).toContain('for entry in codex.spell_contents:value():gmatch("[^\\30]+") do')
+    expect(code).toContain('local function GetSpellbookOwner(inst)')
+    expect(code).toContain('inst.components.inventoryitem:GetGrandOwner()')
+    expect(code).toContain('inst.replica.inventoryitem:IsGrandOwner(ThePlayer)')
+    expect(code).toContain('local function RefreshSpellbookItems(inst)')
+    expect(code).toContain('inst.components.spellbook:SetItems(owner ~= nil and rebuild_spellbook_items(owner) or nil)')
+    expect(code).toContain('inst:DoPeriodicTask(0.5, RefreshSpellbookItems)')
   })
 
-  it('spends the slot item\'s own mana cost when casting a linkedContainer spell', () => {
+  it('spends the slot item\'s own mana cost (decoded from the netvar payload) when casting a linkedContainer spell', () => {
     const linked: ItemDef = {
       ...trinket,
       id: 'testlinkedstaff2',
       spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
     }
     const code = generateItemPrefab(linked)
-    expect(code).toContain('not user.components.mana:Spend(spellitem.spell_manacost)')
+    expect(code).toContain('not user.components.mana:Spend(tonumber(manacost))')
+  })
+
+  it('gates a linkedContainer spell\'s wheel entry on checkenabled (reading the client-visible mana_current netvar) too', () => {
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkedstaff4',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const code = generateItemPrefab(linked)
+    expect(code).toContain(
+      'checkenabled = function(owner) return manacost == "" or owner.mana_current == nil or owner.mana_current:value() >= tonumber(manacost) end,',
+    )
+    expect(code).not.toContain('owner.components.mana')
   })
 
   it('always wires the beam helper functions for a linkedContainer spellbook, since the codex contents are only known at runtime', () => {
@@ -836,9 +963,9 @@ describe('generateItemFiles', () => {
     const code = generateItemPrefab(linked)
     expect(code).toContain('local function DoSpellBeamDamage(user, beam)')
     expect(code).toContain('local function StartSpellBeam(user, beam)')
-    expect(code).toContain('if spellitem.spell_beam ~= nil then')
+    expect(code).toContain('if beamdamage ~= "" then')
     expect(code).toContain('user:ForceFacePoint(pos:Get())')
-    expect(code).toContain('StartSpellBeam(user, spellitem.spell_beam)')
+    expect(code).toContain('StartSpellBeam(user, {')
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
@@ -856,13 +983,11 @@ describe('generateItemFiles', () => {
     expect(code).toContain('inst:AddComponent("aoetargeting")')
     expect(code).toContain('inst.components.aoetargeting.reticule.mouseenabled = true')
     expect(code).toContain('inst:AddComponent("aoespell")')
-    expect(code).toContain('if spellitem.spell_beam ~= nil then')
+    expect(code).toContain('if isaimed == "1" then')
     expect(code).toContain('inst.components.spellbook:SetSpellFn(nil)')
-    expect(code).toContain('inst.components.aoetargeting:SetRange(spellitem.spell_beam.range)')
-    expect(code).toContain('inst.components.aoespell:SetSpellFn(spellbook_cast_from_slotitem(spellitem))')
-    expect(code).toContain(
-      'execute = (spellitem.spell_beam ~= nil or spellitem.spell_nova ~= nil or spellitem.spell_aimed) and StartAOETargeting or function(inst)',
-    )
+    expect(code).toContain('inst.components.aoetargeting:SetRange(tonumber(beamrange))')
+    expect(code).toContain('inst.components.aoespell:SetSpellFn(cast)')
+    expect(code).toContain('execute = (isaimed == "1") and StartAOETargeting or function(inst)')
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
@@ -894,18 +1019,53 @@ describe('generateItemFiles', () => {
     expect(code).toContain('user.components.hunger:DoDelta(25)')
   })
 
-  it('reads the slot item\'s own stat deltas at runtime when casting a linkedContainer spell', () => {
+  it('reads the slot item\'s own stat deltas (decoded from the netvar payload) at cast time for a linkedContainer spell', () => {
     const linked: ItemDef = {
       ...trinket,
       id: 'testlinkedstaff3',
       spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
     }
     const code = generateItemPrefab(linked)
-    expect(code).toContain('if spellitem.spell_healthdelta ~= nil and user.components.health ~= nil then')
-    expect(code).toContain('user.components.health:DoDelta(spellitem.spell_healthdelta)')
-    expect(code).toContain('if spellitem.spell_sanitydelta ~= nil and user.components.sanity ~= nil then')
-    expect(code).toContain('if spellitem.spell_hungerdelta ~= nil and user.components.hunger ~= nil then')
-    expect(code).toContain('if spellitem.spell_summonprefab ~= nil then')
+    expect(code).toContain('if healthdelta ~= "" and user.components.health ~= nil then')
+    expect(code).toContain('user.components.health:DoDelta(tonumber(healthdelta))')
+    expect(code).toContain('if sanitydelta ~= "" and user.components.sanity ~= nil then')
+    expect(code).toContain('if hungerdelta ~= "" and user.components.hunger ~= nil then')
+    expect(code).toContain('if summonprefab ~= "" then')
+  })
+
+  // The other half of the linkedContainer mechanic: the container item itself
+  // (acceptsTag: 'spell') mirrors its own contents into a netvar every time a
+  // spell item is put in or taken out — this is what makes rebuild_spellbook_items
+  // (above) work on the client without the container ever needing to be open.
+  it('mirrors a spell container\'s contents into a netvar whenever items are put in or taken out', () => {
+    const codex: ItemDef = {
+      ...trinket,
+      id: 'testcodex',
+      container: { source: 'own', widget: { source: 'vanilla', reusePrefab: 'treasurechest' }, sideWidget: false, acceptsTag: 'spell' },
+    }
+    const code = generateItemPrefab(codex)
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+
+    expect(code).toContain('inst.spell_contents = net_string(inst.GUID, "testcodex.spell_contents", "spell_contentsdirty")')
+    expect(code).toContain('local function UpdateSpellContents(inst)')
+    expect(code).toContain('for slot = 1, inst.components.container.numslots do')
+    expect(code).toContain('local slotitem = inst.components.container.slots[slot]')
+    expect(code).toContain('if slotitem ~= nil and slotitem.spell_label ~= nil then')
+    expect(code).toContain('inst.spell_contents:set(table.concat(parts, "\\30"))')
+    expect(code).toContain('inst:ListenForEvent("itemget", UpdateSpellContents)')
+    expect(code).toContain('inst:ListenForEvent("itemlose", UpdateSpellContents)')
+    expect(code).toContain('UpdateSpellContents(inst)')
+  })
+
+  it('does not declare the spell_contents netvar for a plain container without acceptsTag "spell"', () => {
+    const bag: ItemDef = {
+      ...trinket,
+      id: 'testplainbag2',
+      container: { source: 'own', widget: { source: 'vanilla', reusePrefab: 'treasurechest' }, sideWidget: false },
+    }
+    const code = generateItemPrefab(bag)
+    expect(code).not.toContain('spell_contents')
+    expect(code).not.toContain('UpdateSpellContents')
   })
 
   it('marks a pure stat-effect spellDef item with nil summonPrefab and the right deltas', () => {

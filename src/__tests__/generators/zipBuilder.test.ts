@@ -137,7 +137,11 @@ describe('buildModFiles', () => {
   })
 
   it('documents a custom-build character needing its own anim/ghost zips in the README, not a hardcoded Wilson placeholder', () => {
-    const readme = files['README.md']
+    const customCharProject = {
+      ...sampleProject,
+      characters: [{ ...sampleProject.characters[0], animation: undefined }],
+    }
+    const readme = buildModFiles(customCharProject)['README.md']
     expect(readme).toContain('precisa de `anim/testchar.zip` (build/bank próprio) e `anim/ghost_testchar_build.zip`')
     expect(readme).not.toContain('player_wilson')
     expect(readme).not.toContain('build do Wilson')

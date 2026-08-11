@@ -293,7 +293,7 @@ describe('generateStructureFiles', () => {
 })
 
 describe('generateStructureFiles (deployMode: deployableItem)', () => {
-  const portable: StructureDef = { ...sampleProject.structures[0], id: 'testportable', deployMode: 'deployableItem' }
+  const portable: StructureDef = { ...sampleProject.structures[0], id: 'testportable', deployMode: 'deployableItem', animation: undefined }
 
   it('generates the item prefab instead of a placer', () => {
     const files = generateStructureFiles(portable)
@@ -356,5 +356,26 @@ describe('generateStructureFiles (deployMode: deployableItem)', () => {
     const code = generateStructurePrefab(withLoot)
     expect(code).not.toContain('AddChancedLoot')
     expect(code).not.toContain('inst:AddComponent("lootdropper")')
+  })
+
+  // Same bug/fix as item.ts's own imagename assignment (see its tests): a
+  // vanilla-sourced deployableItem's carried-item half defaults to its own
+  // prefab id via InventoryItem:GetImage() unless `imagename` is set, leaving
+  // the inventory slot / dropped-on-ground sprite blank even though the
+  // crafting-menu icon (structureRecipeIcon) shows fine. `imagename` is a
+  // listenable PROPERTY, not a method — `:SetImage(...)` only exists on the
+  // client replica and crashes when called on the server component.
+  it('sets inventoryitem.imagename to the reused build for a vanilla-sourced deployableItem', () => {
+    const vanillaPortable: StructureDef = { ...portable, id: 'testvanillaportable', animation: { source: 'vanilla', build: 'researchlab' } }
+    const code = generateStructureItemPrefab(vanillaPortable)
+    expect(code).toContain('inst.components.inventoryitem.imagename = "researchlab"')
+    expect(code).not.toContain(':SetImage')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('does not set imagename for a custom-sourced deployableItem (its own id is already the right default)', () => {
+    const code = generateStructureItemPrefab(portable)
+    expect(code).not.toContain('imagename')
   })
 })

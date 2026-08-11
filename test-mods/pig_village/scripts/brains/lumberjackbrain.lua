@@ -2,8 +2,6 @@ require "behaviours/wander"
 require "behaviours/chaseandattack"
 require "behaviours/doaction"
 
-local BrainClass = require "brain"
-
 local MAX_WANDER_DIST = 20
 local SEE_TARGET_DIST = 10
 local CHOP_RADIUS = 12
@@ -37,8 +35,8 @@ local function CollectChoppedLootAction(inst)
     return item ~= nil and BufferedAction(inst, item, ACTIONS.PICKUP) or nil
 end
 
-local LumberjackBrain = Class(BrainClass, function(self, inst)
-    BrainClass._ctor(self, inst)
+local LumberjackBrain = Class(Brain, function(self, inst)
+    Brain._ctor(self, inst)
 end)
 
 function LumberjackBrain:OnStart()

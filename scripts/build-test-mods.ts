@@ -4,7 +4,7 @@
 // Documents/Klei/DoNotStarveTogether/mods/ for manual in-game testing.
 // Every generated .lua file is also parsed with luaparse, so a broken
 // generator is caught here instead of only after a manual "Generate" click.
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parse } from 'luaparse'
@@ -91,6 +91,21 @@ async function writeModFiles(slug: string, files: Record<string, string>) {
   return { fileCount: Object.keys(files).length, errors }
 }
 
+// Real binary assets (KTEX .tex + matching .xml — see scripts/png_to_ktex.py)
+// this repo can't produce from a ModProject alone, since buildModFiles only
+// generates text. Kept as a plain file tree at mods/<slug>-assets/ mirroring
+// the mod's own layout and copied in (overwriting any placeholder/alias the
+// generator itself wrote at the same path, e.g. a vanilla-reuse portrait
+// alias) after the normal generate step, so regenerating never loses them.
+async function copyStaticAssets(slug: string, modDir: string) {
+  const assetsDir = path.join(projectRoot, 'mods', `${slug}-assets`)
+  const exists = await stat(assetsDir).then(() => true).catch(() => false)
+  if (!exists) return 0
+
+  await cp(assetsDir, modDir, { recursive: true })
+  return assetsDir
+}
+
 async function main() {
   let hadErrors = false
 
@@ -98,8 +113,9 @@ async function main() {
     try {
       const files = buildModFiles(project)
       const { fileCount, errors } = await writeModFiles(slug, files)
+      const copiedFrom = await copyStaticAssets(slug, path.join(outputRoot, slug))
 
-      console.log(`${slug}: ${fileCount} files written to test-mods/${slug}/`)
+      console.log(`${slug}: ${fileCount} files written to test-mods/${slug}/${copiedFrom ? ` (+ static assets from ${path.relative(projectRoot, copiedFrom)})` : ''}`)
       if (errors.length > 0) {
         hadErrors = true
         console.log(`  ${errors.length} Lua file(s) failed to parse:`)

@@ -2,8 +2,6 @@ require "behaviours/wander"
 require "behaviours/chaseandattack"
 require "behaviours/doaction"
 
-local BrainClass = require "brain"
-
 local MAX_WANDER_DIST = 20
 local SEE_TARGET_DIST = 10
 local HARVEST_RADIUS = 10
@@ -21,8 +19,8 @@ local function HarvestCropAction(inst)
     return crop ~= nil and BufferedAction(inst, crop, ACTIONS.HARVEST) or nil
 end
 
-local FarmerBrain = Class(BrainClass, function(self, inst)
-    BrainClass._ctor(self, inst)
+local FarmerBrain = Class(Brain, function(self, inst)
+    Brain._ctor(self, inst)
 end)
 
 function FarmerBrain:OnStart()

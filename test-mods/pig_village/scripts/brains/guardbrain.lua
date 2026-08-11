@@ -2,8 +2,6 @@ require "behaviours/wander"
 require "behaviours/chaseandattack"
 require "behaviours/follow"
 
-local BrainClass = require "brain"
-
 local MAX_WANDER_DIST = 20
 local SEE_TARGET_DIST = 10
 local FOLLOW_MIN_DIST = 2
@@ -15,8 +13,8 @@ local function GetHomePos(inst)
 end
 
 
-local GuardBrain = Class(BrainClass, function(self, inst)
-    BrainClass._ctor(self, inst)
+local GuardBrain = Class(Brain, function(self, inst)
+    Brain._ctor(self, inst)
 end)
 
 function GuardBrain:OnStart()

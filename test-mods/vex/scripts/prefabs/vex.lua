@@ -4,6 +4,7 @@ local assets =
 {
     Asset("ANIM", "anim/vex.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)
     Asset("ANIM", "anim/ghost_vex_build.zip"), -- PLACEHOLDER: build do fantasma
+    Asset("IMAGE", "bigportraits/vex.xml"), -- PLACEHOLDER: retrato real, ver README (também precisa estar em modmain.lua, ver characterPortraitAssets)
 }
 
 local prefabs = {}
@@ -15,6 +16,8 @@ local function common_postinit(inst)
 end
 
 local function master_postinit(inst)
+    inst.starting_inventory = { "torch", "nightmarefuel" }
+
     inst.components.health:SetMaxHealth(TUNING.VEX_HEALTH)
     inst.components.hunger:SetMax(TUNING.VEX_HUNGER)
     inst.components.sanity:SetMax(TUNING.VEX_SANITY)
@@ -30,4 +33,4 @@ local function master_postinit(inst)
     inst.components.foodaffinity:AddFoodtypeAffinity(FOODTYPE.ELEMENTAL, 1.5)
 end
 
-return MakePlayerCharacter("vex", prefabs, assets, common_postinit, master_postinit, start_inv)
+return MakePlayerCharacter("vex", prefabs, assets, common_postinit, master_postinit)

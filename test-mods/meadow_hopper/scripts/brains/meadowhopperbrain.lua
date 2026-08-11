@@ -3,8 +3,6 @@ require "behaviours/panic"
 require "behaviours/doaction"
 require "behaviours/follow"
 
-local BrainClass = require "brain"
-
 local MAX_WANDER_DIST = 20
 local CHOP_RADIUS = 12
 local COLLECT_RADIUS = 10
@@ -40,8 +38,8 @@ local function CollectItemAction(inst)
     return item ~= nil and BufferedAction(inst, item, ACTIONS.PICKUP) or nil
 end
 
-local MeadowhopperBrain = Class(BrainClass, function(self, inst)
-    BrainClass._ctor(self, inst)
+local MeadowhopperBrain = Class(Brain, function(self, inst)
+    Brain._ctor(self, inst)
 end)
 
 function MeadowhopperBrain:OnStart()

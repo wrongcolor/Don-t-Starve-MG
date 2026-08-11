@@ -72,6 +72,9 @@ local function fn()
 
     inst:AddTag("item")
 
+    inst:AddComponent("spellbook")
+    inst.components.spellbook:SetItems(SPELLBOOK_SPELLS)
+
     inst.entity:SetPristine()
     if not TheWorld.ismastersim then
         return inst
@@ -79,9 +82,7 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
-
-    inst:AddComponent("spellbook")
-    inst.components.spellbook:SetItems(SPELLBOOK_SPELLS)
+    inst.components.inventoryitem.imagename = "goldnugget"
 
     return inst
 end

@@ -659,6 +659,12 @@ export function generateStructureItemPrefab(structure: StructureDef): string {
   lines.push('')
   lines.push('    inst:AddComponent("inspectable")')
   lines.push('    inst:AddComponent("inventoryitem")')
+  if (isVanillaAnimation(structure)) {
+    // Same fix as item.ts's own imagename assignment — see its comment for
+    // the full explanation (imagename is a listenable PROPERTY, not a method;
+    // SetImage only exists on the replica, not the server component).
+    lines.push(`    inst.components.inventoryitem.imagename = ${luaString(build)}`)
+  }
   lines.push('')
   lines.push('    inst:AddComponent("deployable")')
   lines.push('    inst.components.deployable.ondeploy = ondeploy')
