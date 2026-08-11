@@ -304,7 +304,7 @@ function needsSpellbook(item: ItemDef): boolean {
 // summon-only spell is only aimed when explicitly marked so via
 // spellbookSpellSchema.aimed.
 function isAimedSpell(spell: SpellbookSpell): boolean {
-  return spell.beam !== undefined || spell.nova !== undefined || spell.aimed === true
+  return spell.beam !== undefined || spell.nova !== undefined || spell.cage !== undefined || spell.aimed === true
 }
 
 function needsAimedSpell(item: ItemDef): boolean {
@@ -387,6 +387,10 @@ function spellRefractionLuaTable(refraction: NonNullable<SpellbookSpell['refract
 
 function spellFlashbangLuaTable(flashbang: NonNullable<SpellbookSpell['flashbang']>): string {
   return `{ radius = ${flashbang.radius}, stun = ${flashbang.stunSeconds} }`
+}
+
+function spellCageLuaTable(cage: NonNullable<SpellbookSpell['cage']>): string {
+  return `{ prefab = ${luaString(cage.pillarPrefab)}, radius = ${cage.radius}, count = ${cage.pillarCount}, rooted = ${cage.rootedSeconds} }`
 }
 
 // Confirmed against the real game scripts (components/aoespell.lua,
@@ -546,6 +550,61 @@ function flashbangHelperFunctionBlock(): string[] {
   ]
 }
 
+// Confirmed real mechanism (Waxwell's own "Shadow Pillars" spell —
+// prefabs/waxwelljournal.lua's PillarsSpellFn + prefabs/shadow_pillar.lua's
+// DoPillarsTarget/DoPillars): rings pillar props evenly around a circle
+// (same TWOPI * i / count angle math groundAttack.ts/structure.ts already
+// use for their own circular placement) and adds the real
+// components/rooted.lua component to every enemy caught inside — an actual
+// movement lock (Physics:Stop() + 0 speed), not a slow. AddSource/RemoveSource
+// are the real ref-counted API (the component removes itself once its last
+// source is gone), so a fresh AddComponent is only needed the first time.
+// Pillars self-remove once the root wears off — the real spell's own pillars
+// are ephemeral too (each carries its own lifetime timer), not a permanent
+// structure. Excludes the caster's own companion the same way flashbang
+// does (components.follower:GetLeader() == user).
+function cageHelperFunctionBlock(): string[] {
+  return [
+    'local function DoSpellCage(user, pos, cage)',
+    '    local x, y, z = pos:Get()',
+    '    local pillars = {}',
+    '    for i = 1, cage.count do',
+    '        local angle = TWOPI * (i - 1) / cage.count',
+    '        local pillar = SpawnPrefab(cage.prefab)',
+    '        if pillar ~= nil then',
+    '            pillar.Transform:SetPosition(x + math.cos(angle) * cage.radius, 0, z - math.sin(angle) * cage.radius)',
+    '            table.insert(pillars, pillar)',
+    '        end',
+    '    end',
+    '',
+    '    local victims = TheSim:FindEntities(x, y, z, cage.radius, nil, { "INLIMBO", "player" })',
+    '    for _, victim in ipairs(victims) do',
+    '        local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user',
+    '        if victim.components.locomotor ~= nil and not isowncompanion then',
+    '            if victim.components.rooted == nil then',
+    '                victim:AddComponent("rooted")',
+    '            end',
+    '            victim.components.rooted:AddSource(user)',
+    '            victim:DoTaskInTime(cage.rooted, function()',
+    '                if victim.components.rooted ~= nil then',
+    '                    victim.components.rooted:RemoveSource(user)',
+    '                end',
+    '            end)',
+    '        end',
+    '    end',
+    '',
+    '    user:DoTaskInTime(cage.rooted, function()',
+    '        for _, pillar in ipairs(pillars) do',
+    '            if pillar:IsValid() then',
+    '                pillar:Remove()',
+    '            end',
+    '        end',
+    '    end)',
+    'end',
+    '',
+  ]
+}
+
 function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   const lines: string[] = []
   const hasAimedSpell = spells.some(isAimedSpell)
@@ -563,6 +622,9 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   }
   if (spells.some((spell) => spell.flashbang !== undefined)) {
     lines.push(...flashbangHelperFunctionBlock())
+  }
+  if (spells.some((spell) => spell.cage !== undefined)) {
+    lines.push(...cageHelperFunctionBlock())
   }
 
   spells.forEach((spell, index) => {
@@ -600,6 +662,9 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
     }
     if (spell.flashbang !== undefined) {
       lines.push(`    DoSpellFlashbang(user, ${spellFlashbangLuaTable(spell.flashbang)})`)
+    }
+    if (spell.cage !== undefined) {
+      lines.push(`    DoSpellCage(user, pos, ${spellCageLuaTable(spell.cage)})`)
     }
     lines.push('    if inst.components.finiteuses ~= nil then')
     lines.push('        inst.components.finiteuses:Use(1)')
@@ -707,6 +772,7 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push(...solarNovaHelperFunctionBlock())
   lines.push(...solarRefractionHelperFunctionBlock())
   lines.push(...flashbangHelperFunctionBlock())
+  lines.push(...cageHelperFunctionBlock())
   // Confirmed in the real components/inventory.lua (server) and prefabs/
   // inventory_classified.lua (client): the replica's own FindItem only
   // scans itemslots/activeitem/overflow — it never checks equipslots (that's
@@ -747,11 +813,11 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('        local label, manacost, healthdelta, sanitydelta, hungerdelta, summonprefab,')
   lines.push('            isaimed, beamdamage, beamtickinterval, beamrange, beamduration, beamtelegraph,')
   lines.push('            novadamage, novaradius, novastun, refractionradius, refractionduration,')
-  lines.push('            flashbangradius, flashbangstun =')
+  lines.push('            flashbangradius, flashbangstun, cageprefab, cageradius, cagecount, cagerooted =')
   lines.push('            fields[1], fields[2], fields[3], fields[4], fields[5], fields[6],')
   lines.push('            fields[7], fields[8], fields[9], fields[10], fields[11], fields[12],')
   lines.push('            fields[13], fields[14], fields[15], fields[16], fields[17],')
-  lines.push('            fields[18], fields[19]')
+  lines.push('            fields[18], fields[19], fields[20], fields[21], fields[22], fields[23]')
   lines.push('        table.insert(items, {')
   lines.push('            label = label,')
   // Same real widgets/wheel.lua checkenabled convention, and the same
@@ -813,6 +879,9 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('                    end')
   lines.push('                    if flashbangradius ~= "" then')
   lines.push('                        DoSpellFlashbang(user, { radius = tonumber(flashbangradius), stun = tonumber(flashbangstun) })')
+  lines.push('                    end')
+  lines.push('                    if cageprefab ~= "" then')
+  lines.push('                        DoSpellCage(user, pos, { prefab = cageprefab, radius = tonumber(cageradius), count = tonumber(cagecount), rooted = tonumber(cagerooted) })')
   lines.push('                    end')
   lines.push('                    if inst.components.finiteuses ~= nil then')
   lines.push('                        inst.components.finiteuses:Use(1)')
@@ -967,6 +1036,9 @@ function spellDefComponentBlock(item: ItemDef): string[] {
   }
   if (spell.flashbang !== undefined) {
     lines.push(`    inst.spell_flashbang = ${spellFlashbangLuaTable(spell.flashbang)}`)
+  }
+  if (spell.cage !== undefined) {
+    lines.push(`    inst.spell_cage = ${spellCageLuaTable(spell.cage)}`)
   }
   if (spell.aimed) {
     lines.push('    inst.spell_aimed = true')
@@ -1252,11 +1324,12 @@ function containerComponentBlock(item: ItemDef): string[] {
       '        for slot = 1, inst.components.container.numslots do',
       '            local slotitem = inst.components.container.slots[slot]',
       '            if slotitem ~= nil and slotitem.spell_label ~= nil then',
-      '                local isaimed = slotitem.spell_beam ~= nil or slotitem.spell_nova ~= nil or slotitem.spell_aimed',
+      '                local isaimed = slotitem.spell_beam ~= nil or slotitem.spell_nova ~= nil or slotitem.spell_cage ~= nil or slotitem.spell_aimed',
       '                local beam = slotitem.spell_beam',
       '                local nova = slotitem.spell_nova',
       '                local refraction = slotitem.spell_refraction',
       '                local flashbang = slotitem.spell_flashbang',
+      '                local cage = slotitem.spell_cage',
       '                table.insert(parts, table.concat({',
       '                    slotitem.spell_label,',
       '                    tostring(slotitem.spell_manacost or ""),',
@@ -1277,6 +1350,10 @@ function containerComponentBlock(item: ItemDef): string[] {
       '                    refraction ~= nil and tostring(refraction.duration) or "",',
       '                    flashbang ~= nil and tostring(flashbang.radius) or "",',
       '                    flashbang ~= nil and tostring(flashbang.stun) or "",',
+      '                    cage ~= nil and cage.prefab or "",',
+      '                    cage ~= nil and tostring(cage.radius) or "",',
+      '                    cage ~= nil and tostring(cage.count) or "",',
+      '                    cage ~= nil and tostring(cage.rooted) or "",',
       '                }, "\\31"))',
       '            end',
       '        end',

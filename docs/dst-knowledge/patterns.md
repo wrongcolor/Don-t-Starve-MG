@@ -3809,3 +3809,68 @@ Nenhum dos companions atuais da Viana (Sun Orb/Sun Wisp) tem
 `freezable: true` hoje, então nem chegam a entrar no `if` — o portal
 (`sunportal`) também não, e não é `companion` (é `mapPortal`), então essa
 exclusão não o afeta nem seria a ferramenta certa pra isso.
+
+## 76. Um feitiço mirado que prende inimigos num anel de pilares — `cage`, baseado no "Shadow Pillars" real do Waxwell — **implementado**
+
+Motivação: novo feitiço da Viana, Solar Cage — pedido original foi "um
+círculo de paredes de luz que impede os inimigos de sair", com a dica
+explícita de usar "a base da armadilha do Maxwell". Não existe um prefab
+vanilla literal de "armadilha do Maxwell" — o usuário pediu pra eu olhar as
+magias do próprio personagem Waxwell (Maxwell) e achar algo relacionado.
+
+**Confirmado, mecanismo real**: `prefabs/waxwelljournal.lua`'s
+`PillarsSpellFn` (feitiço "Shadow Pillars" do próprio livro de feitiços dele)
++ `prefabs/shadow_pillar.lua`'s `DoPillarsTarget`/`DoPillars`. O mecanismo
+real: pra CADA inimigo achado numa área (raio 4), levanta um anel de pilares
+AO REDOR DAQUELE INIMIGO especificamente (raio do anel = raio físico do alvo
++ folga, pilares espaçados por `circ / 1.4`), e usa o componente real
+`components/rooted.lua` (`Physics:Stop()` + `locomotor:
+SetExternalSpeedMultiplier(inst, "rooted", 0)` — trava movimento de verdade,
+não é só lentidão) por uma duração; quanto mais jogadores atacam o alvo
+preso, mais rápido o anel quebra ("prison break", não implementado aqui).
+
+Perguntei duas coisas antes de implementar:
+- Um anel por inimigo (fiel ao real) ou um círculo só na área? Usuário
+  escolheu **um círculo só** — mais simples, evita redundância visual.
+- O que forma o anel? Não existe prefab vanilla de "parede de luz" pronto —
+  usuário escolheu reaproveitar a criatura `lightpillar` (Light Pillar,
+  patterns.md#70) que a Viana já tem.
+
+Simplificado do real: UM círculo de raio fixo centrado no ponto mirado (não
+um raio calculado por inimigo), sem o mecanismo de quebra por ataque, sem
+dano. Os pilares somem sozinhos quando o `rooted` expira (o real também é
+efêmero — cada pilar tem seu próprio timer de vida) — decidi isso sem
+perguntar, pra não virar uma estrutura permanente toda vez que o feitiço é
+usado (`lightpillar` reaproveitado aqui é um `sentry` de 200 HP permanente
+por padrão, então sem essa limpeza o mundo acumularia pilares a cada cast).
+
+**Implementado:**
+- `spellbookSpellSchema.cage` (`src/types/modProject.ts`) —
+  `{ pillarPrefab, radius, pillarCount, rootedSeconds }`. Sempre mirado
+  (`isAimedSpell`), igual `nova`/`beam`.
+- `src/generators/item.ts`: `spellCageLuaTable` + `cageHelperFunctionBlock`
+  (`DoSpellCage`) — mesma matemática de círculo (`TWOPI * (i - 1) / count`)
+  já usada em `groundAttack.ts`/`structure.ts` pra posicionamento circular.
+  Poupa o próprio companion do caster, mesmo mecanismo do `flashbang`
+  (patterns.md#75). Usado nos dois modos de spellbook — `static`
+  (`staticSpellbookFunctionBlock`, helper condicional) e `linkedContainer`
+  (`linkedContainerSpellbookFunctionBlock`, helper incondicional, payload
+  ganhou mais 4 campos codificados — `cageprefab`/`cageradius`/`cagecount`/
+  `cagerooted`, índices 20-23). `local isaimed = ...` (tanto na codificação
+  do container quanto implicitamente via `isAimedSpell`) precisou incluir
+  `spell_cage`/`spell.cage`, já que é o primeiro efeito mirado além de
+  `beam`/`nova`.
+- UI (`ItemForm.tsx`): checkbox "Rings the aimed area with pillars and roots
+  every enemy caught inside" + campo de prefab (com `PrefabPickerButton`) +
+  raio/quantidade de pilares/segundos de raiz — mesmo `SpellFieldsRow`
+  compartilhado, `cageEnabled`/`watchedCageFlags` passados por toda a cadeia
+  de props.
+- `mods/viana.ts`: o feitiço Solar Cage (`spellDef.cage: { pillarPrefab:
+  'lightpillar', radius: 6, pillarCount: 8, rootedSeconds: 8 }`).
+
+**O que NÃO foi testado em jogo**: se o raio/quantidade de pilares (6/8)
+produzem um anel com espaçamento visualmente coerente (a matemática do
+círculo foi só verificada por leitura, não em jogo), e se `lightpillar`
+(um `sentry` que ataca sozinho) causa algum efeito colateral estranho por
+ser removido no meio de uma animação/ataque quando o `DoTaskInTime` final
+chama `pillar:Remove()`.

@@ -943,6 +943,75 @@ describe('generateItemFiles', () => {
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
+  // Confirmed real mechanism (Waxwell's own "Shadow Pillars" — prefabs/
+  // shadow_pillar.lua's DoPillarsTarget): rings pillar props evenly around a
+  // circle and locks every enemy caught inside with the real
+  // components/rooted.lua component — an actual movement lock, not a slow.
+  // Always aimed, like nova and beam — needs a point to center on.
+  it('wires a static spell\'s cage as an aimed ring of pillars that roots every non-player creature caught inside', () => {
+    const cageStaff: ItemDef = {
+      ...trinket,
+      id: 'testcagestaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          { label: 'Solar Cage', cage: { pillarPrefab: 'lightpillar', radius: 6, pillarCount: 8, rootedSeconds: 8 } },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(cageStaff)
+    expect(code).toContain('local function DoSpellCage(user, pos, cage)')
+    expect(code).toContain('local angle = TWOPI * (i - 1) / cage.count')
+    expect(code).toContain('local victims = TheSim:FindEntities(x, y, z, cage.radius, nil, { "INLIMBO", "player" })')
+    expect(code).toContain('local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user')
+    expect(code).toContain('if victim.components.locomotor ~= nil and not isowncompanion then')
+    expect(code).toContain('victim.components.rooted:AddSource(user)')
+    expect(code).toContain('DoSpellCage(user, pos, { prefab = "lightpillar", radius = 6, count = 8, rooted = 8 })')
+
+    // Aimed: needs aoetargeting/aoespell and ForceFacePoint, unlike flashbang/refraction.
+    expect(code).toContain('aoetargeting')
+    expect(code).toContain('aoespell')
+    expect(code).toContain('ForceFacePoint')
+    const cageEntryStart = code.indexOf('label = "Solar Cage"')
+    const sparkEntryStart = code.indexOf('label = "Free Spark"')
+    const cageEntry = code.slice(cageEntryStart, sparkEntryStart)
+    expect(cageEntry).toContain('execute = StartAOETargeting,')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('omits the cage helper function from a static spellbook when no spell in it uses cage', () => {
+    const code = generateItemPrefab({
+      ...trinket,
+      id: 'testnocagestaff',
+      spellbook: { source: 'static', spells: [{ label: 'A', summonPrefab: 'x' }, { label: 'B', summonPrefab: 'y' }] },
+    })
+    expect(code).not.toContain('DoSpellCage')
+  })
+
+  it('sets inst.spell_cage on a spellDef item with a cage, and a linkedContainer staff casts it', () => {
+    const cageSpell: ItemDef = {
+      ...trinket,
+      id: 'testcagespell',
+      spellDef: { label: 'Solar Cage', cage: { pillarPrefab: 'lightpillar', radius: 6, pillarCount: 8, rootedSeconds: 8 } },
+    }
+    expect(generateItemPrefab(cageSpell)).toContain('inst.spell_cage = { prefab = "lightpillar", radius = 6, count = 8, rooted = 8 }')
+
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkedcagestaff',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const code = generateItemPrefab(linked)
+    expect(code).toContain('local function DoSpellCage(user, pos, cage)')
+    expect(code).toContain('if cageprefab ~= "" then')
+    expect(code).toContain(
+      'DoSpellCage(user, pos, { prefab = cageprefab, radius = tonumber(cageradius), count = tonumber(cagecount), rooted = tonumber(cagerooted) })',
+    )
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
   it('rejects an item with both spellbook and spellEffect set', () => {
     const both: ItemDef = {
       ...trinket,
@@ -1149,6 +1218,11 @@ describe('generateItemFiles', () => {
     expect(code).toContain('local flashbang = slotitem.spell_flashbang')
     expect(code).toContain('flashbang ~= nil and tostring(flashbang.radius) or ""')
     expect(code).toContain('flashbang ~= nil and tostring(flashbang.stun) or ""')
+    expect(code).toContain('local cage = slotitem.spell_cage')
+    expect(code).toContain('cage ~= nil and cage.prefab or ""')
+    expect(code).toContain('cage ~= nil and tostring(cage.radius) or ""')
+    expect(code).toContain('cage ~= nil and tostring(cage.count) or ""')
+    expect(code).toContain('cage ~= nil and tostring(cage.rooted) or ""')
     expect(code).toContain('inst.spell_contents:set(table.concat(parts, "\\30"))')
     expect(code).toContain('inst:ListenForEvent("itemget", UpdateSpellContents)')
     expect(code).toContain('inst:ListenForEvent("itemlose", UpdateSpellContents)')

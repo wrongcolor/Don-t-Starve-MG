@@ -290,6 +290,29 @@ export const spellbookSpellSchema = z
         stunSeconds: z.number().min(0.5).max(30),
       })
       .optional(),
+    // Confirmed real mechanism (Waxwell's own "Shadow Pillars" spell —
+    // prefabs/waxwelljournal.lua's PillarsSpellFn + prefabs/shadow_pillar.lua's
+    // DoPillarsTarget/DoPillars): rings a target with pillar props and adds
+    // the real components/rooted.lua component (Physics:Stop() +
+    // locomotor:SetExternalSpeedMultiplier(inst, "rooted", 0) — an actual
+    // movement lock, not just a slow) for a duration. Simplified from the
+    // real spell (which finds every enemy in an AOE and rings EACH one in
+    // its own individually-sized circle, `radius = target's own physics
+    // radius + padding`) down to ONE fixed-radius circle centered on the
+    // aimed point — every enemy caught inside it gets rooted, instead of
+    // one ring per enemy. `pillarPrefab` is a prefab id (e.g. a stationary
+    // creature already in this project) spawned pillarCount times evenly
+    // around the circle — no matching vanilla "light wall" prefab exists to
+    // default to, so this is deliberately left curated/user-supplied rather
+    // than picking one. Always aimed, like nova — needs a point to center on.
+    cage: z
+      .object({
+        pillarPrefab: z.string().min(1, 'Enter the prefab to ring the area with (e.g. lightpillar)'),
+        radius: z.number().min(1).max(20),
+        pillarCount: z.number().int().min(3).max(16),
+        rootedSeconds: z.number().min(1).max(60),
+      })
+      .optional(),
     // Confirmed in prefabs/abigail_flower.lua + ghostcommand_defs.lua (see
     // docs/dst-knowledge/patterns.md#69): lets a spell that summons something
     // spawn at a mouse-aimed point (via aoetargeting+aoespell) instead of
@@ -308,7 +331,8 @@ export const spellbookSpellSchema = z
       spell.beam !== undefined ||
       spell.nova !== undefined ||
       spell.refraction !== undefined ||
-      spell.flashbang !== undefined,
+      spell.flashbang !== undefined ||
+      spell.cage !== undefined,
     {
       message: 'A spell needs to do something — set a prefab to summon and/or a health/sanity/hunger effect',
       path: ['summonPrefab'],

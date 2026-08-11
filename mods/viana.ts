@@ -252,6 +252,26 @@ export const viana: ModProject = {
       },
     },
     {
+      id: 'solarcagespell',
+      displayName: 'Solar Cage Spell',
+      description: 'Bind this in the Sun Codex to ring an area with pillars of light where she aims, trapping any enemy caught inside until they burn out.',
+      category: 'generic',
+      animation: { source: 'vanilla', build: 'papyrus' },
+      spellDef: {
+        label: 'Solar Cage',
+        manaCost: 50,
+        cage: { pillarPrefab: 'lightpillar', radius: 6, pillarCount: 8, rootedSeconds: 8 },
+      },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 3 },
+          { prefab: 'nightmarefuel', amount: 3 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+      },
+    },
+    {
       id: 'lightpillarspell',
       displayName: 'Light Pillar Spell',
       description: 'Bind this in the Sun Codex to raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close.',

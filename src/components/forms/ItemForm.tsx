@@ -61,6 +61,7 @@ interface SpellFieldsRowProps {
   novaEnabled: boolean
   refractionEnabled: boolean
   flashbangEnabled: boolean
+  cageEnabled: boolean
 }
 
 function SpellFieldsRow({
@@ -72,6 +73,7 @@ function SpellFieldsRow({
   novaEnabled,
   refractionEnabled,
   flashbangEnabled,
+  cageEnabled,
 }: SpellFieldsRowProps) {
   return (
     <>
@@ -296,6 +298,60 @@ function SpellFieldsRow({
             />
           </>
         )}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input
+            type="checkbox"
+            checked={cageEnabled}
+            onChange={(e) =>
+              setValue(
+                `${namePrefix}.cage` as const,
+                e.target.checked ? { pillarPrefab: '', radius: 6, pillarCount: 8, rootedSeconds: 8 } : undefined,
+                { shouldDirty: true },
+              )
+            }
+          />
+          Rings the aimed area with pillars and roots every enemy caught inside (can't move at all)
+        </label>
+        {cageEnabled && (
+          <>
+            <input
+              className={inputClass}
+              placeholder="Pillar prefab (e.g. lightpillar)"
+              {...register(`${namePrefix}.cage.pillarPrefab` as const)}
+            />
+            <PrefabPickerButton
+              onSelect={(id) => setValue(`${namePrefix}.cage.pillarPrefab` as const, id, { shouldDirty: true })}
+            />
+            <input
+              type="number"
+              step="1"
+              min="1"
+              className="qty-input"
+              placeholder="Radius"
+              title="How far from the aimed point the ring of pillars reaches"
+              {...register(`${namePrefix}.cage.radius` as const, { valueAsNumber: true })}
+            />
+            <input
+              type="number"
+              step="1"
+              min="3"
+              max="16"
+              className="qty-input"
+              placeholder="Pillars"
+              title="How many pillars form the ring"
+              {...register(`${namePrefix}.cage.pillarCount` as const, { valueAsNumber: true })}
+            />
+            <input
+              type="number"
+              step="1"
+              min="1"
+              className="qty-input"
+              placeholder="Rooted sec"
+              title="How many seconds everything caught inside is rooted in place for — the pillars vanish once it wears off"
+              {...register(`${namePrefix}.cage.rootedSeconds` as const, { valueAsNumber: true })}
+            />
+          </>
+        )}
       </div>
     </>
   )
@@ -310,6 +366,7 @@ interface SpellbookEditorProps {
   watchedNovaFlags: boolean[]
   watchedRefractionFlags: boolean[]
   watchedFlashbangFlags: boolean[]
+  watchedCageFlags: boolean[]
 }
 
 // Owns the spells field array itself, mounted only while the spellbook is
@@ -331,6 +388,7 @@ function SpellbookEditor({
   watchedNovaFlags,
   watchedRefractionFlags,
   watchedFlashbangFlags,
+  watchedCageFlags,
 }: SpellbookEditorProps) {
   const spells = useFieldArray({ control, name: 'spellbook.spells' as never })
 
@@ -347,6 +405,7 @@ function SpellbookEditor({
             novaEnabled={watchedNovaFlags[index] ?? false}
             refractionEnabled={watchedRefractionFlags[index] ?? false}
             flashbangEnabled={watchedFlashbangFlags[index] ?? false}
+            cageEnabled={watchedCageFlags[index] ?? false}
           />
           <button type="button" className={btnDanger} onClick={() => spells.remove(index)}>
             Remove
@@ -1016,6 +1075,9 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       watchedFlashbangFlags={(watched.spellbook?.source === 'static' ? watched.spellbook.spells : []).map(
                         (s) => s.flashbang !== undefined,
                       )}
+                      watchedCageFlags={(watched.spellbook?.source === 'static' ? watched.spellbook.spells : []).map(
+                        (s) => s.cage !== undefined,
+                      )}
                     />
                   ) : (
                     <FormField
@@ -1622,6 +1684,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   novaEnabled={watched.spellDef?.nova !== undefined}
                   refractionEnabled={watched.spellDef?.refraction !== undefined}
                   flashbangEnabled={watched.spellDef?.flashbang !== undefined}
+                  cageEnabled={watched.spellDef?.cage !== undefined}
                 />
               </div>
             )}

@@ -22,6 +22,7 @@ caminhos abaixo, substituindo os placeholders:
   - `refractionspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solarnovaspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `flashbangspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
+  - `solarcagespell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `lightpillarspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `suntotem`: reaproveita o build "moonrock_idol" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solarprism`: reaproveita o build "gems" do jogo base — nenhum `anim/*.zip` próprio é necessário.

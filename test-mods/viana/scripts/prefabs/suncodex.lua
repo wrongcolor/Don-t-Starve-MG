@@ -117,6 +117,43 @@ local function DoSpellFlashbang(user, flashbang)
     end
 end
 
+local function DoSpellCage(user, pos, cage)
+    local x, y, z = pos:Get()
+    local pillars = {}
+    for i = 1, cage.count do
+        local angle = TWOPI * (i - 1) / cage.count
+        local pillar = SpawnPrefab(cage.prefab)
+        if pillar ~= nil then
+            pillar.Transform:SetPosition(x + math.cos(angle) * cage.radius, 0, z - math.sin(angle) * cage.radius)
+            table.insert(pillars, pillar)
+        end
+    end
+
+    local victims = TheSim:FindEntities(x, y, z, cage.radius, nil, { "INLIMBO", "player" })
+    for _, victim in ipairs(victims) do
+        local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user
+        if victim.components.locomotor ~= nil and not isowncompanion then
+            if victim.components.rooted == nil then
+                victim:AddComponent("rooted")
+            end
+            victim.components.rooted:AddSource(user)
+            victim:DoTaskInTime(cage.rooted, function()
+                if victim.components.rooted ~= nil then
+                    victim.components.rooted:RemoveSource(user)
+                end
+            end)
+        end
+    end
+
+    user:DoTaskInTime(cage.rooted, function()
+        for _, pillar in ipairs(pillars) do
+            if pillar:IsValid() then
+                pillar:Remove()
+            end
+        end
+    end)
+end
+
 local function FindCodex(user)
     local codex = user.replica.inventory ~= nil and user.replica.inventory:FindItem(function(item)
         return item.prefab == "suncodex"
@@ -145,11 +182,11 @@ local function rebuild_spellbook_items(user)
         local label, manacost, healthdelta, sanitydelta, hungerdelta, summonprefab,
             isaimed, beamdamage, beamtickinterval, beamrange, beamduration, beamtelegraph,
             novadamage, novaradius, novastun, refractionradius, refractionduration,
-            flashbangradius, flashbangstun =
+            flashbangradius, flashbangstun, cageprefab, cageradius, cagecount, cagerooted =
             fields[1], fields[2], fields[3], fields[4], fields[5], fields[6],
             fields[7], fields[8], fields[9], fields[10], fields[11], fields[12],
             fields[13], fields[14], fields[15], fields[16], fields[17],
-            fields[18], fields[19]
+            fields[18], fields[19], fields[20], fields[21], fields[22], fields[23]
         table.insert(items, {
             label = label,
             checkenabled = function(owner) return manacost == "" or owner.mana_current == nil or owner.mana_current:value() >= tonumber(manacost) end,
@@ -199,6 +236,9 @@ local function rebuild_spellbook_items(user)
                     end
                     if flashbangradius ~= "" then
                         DoSpellFlashbang(user, { radius = tonumber(flashbangradius), stun = tonumber(flashbangstun) })
+                    end
+                    if cageprefab ~= "" then
+                        DoSpellCage(user, pos, { prefab = cageprefab, radius = tonumber(cageradius), count = tonumber(cagecount), rooted = tonumber(cagerooted) })
                     end
                     if inst.components.finiteuses ~= nil then
                         inst.components.finiteuses:Use(1)
@@ -296,11 +336,12 @@ local function fn()
         for slot = 1, inst.components.container.numslots do
             local slotitem = inst.components.container.slots[slot]
             if slotitem ~= nil and slotitem.spell_label ~= nil then
-                local isaimed = slotitem.spell_beam ~= nil or slotitem.spell_nova ~= nil or slotitem.spell_aimed
+                local isaimed = slotitem.spell_beam ~= nil or slotitem.spell_nova ~= nil or slotitem.spell_cage ~= nil or slotitem.spell_aimed
                 local beam = slotitem.spell_beam
                 local nova = slotitem.spell_nova
                 local refraction = slotitem.spell_refraction
                 local flashbang = slotitem.spell_flashbang
+                local cage = slotitem.spell_cage
                 table.insert(parts, table.concat({
                     slotitem.spell_label,
                     tostring(slotitem.spell_manacost or ""),
@@ -321,6 +362,10 @@ local function fn()
                     refraction ~= nil and tostring(refraction.duration) or "",
                     flashbang ~= nil and tostring(flashbang.radius) or "",
                     flashbang ~= nil and tostring(flashbang.stun) or "",
+                    cage ~= nil and cage.prefab or "",
+                    cage ~= nil and tostring(cage.radius) or "",
+                    cage ~= nil and tostring(cage.count) or "",
+                    cage ~= nil and tostring(cage.rooted) or "",
                 }, "\31"))
             end
         end
