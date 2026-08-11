@@ -39,13 +39,13 @@ function upsertById<T extends { id: string }>(list: T[], entry: T): T[] {
 // keys (whole arrays like rooms/tasks), not fields inside an already-persisted entity.
 // A project saved before such a field existed would otherwise fail schema validation
 // (or crash a generator reading it as undefined) the moment the user hits "Generate".
-const PROJECT_SCHEMA_VERSION = 2
+const PROJECT_SCHEMA_VERSION = 3
 
 function migrateProject(persistedState: unknown, version: number): unknown {
   if (persistedState === null || typeof persistedState !== 'object' || !('project' in persistedState)) {
     return persistedState
   }
-  const state = persistedState as { project?: { items?: unknown[]; rooms?: unknown[] } }
+  const state = persistedState as { project?: { items?: unknown[]; rooms?: unknown[]; structures?: unknown[] } }
   if (version < 1 && Array.isArray(state.project?.items)) {
     state.project.items = state.project.items.map((item) => {
       if (item === null || typeof item !== 'object' || !('armor' in item)) return item
@@ -58,6 +58,14 @@ function migrateProject(persistedState: unknown, version: number): unknown {
     state.project.rooms = state.project.rooms.map((room) => {
       if (room === null || typeof room !== 'object' || 'staticLayouts' in room) return room
       return { ...room, staticLayouts: [] }
+    })
+  }
+  if (version < 3 && Array.isArray(state.project?.structures)) {
+    state.project.structures = state.project.structures.map((structure) => {
+      if (structure === null || typeof structure !== 'object' || !('interior' in structure)) return structure
+      const interior = (structure as { interior?: unknown }).interior
+      if (interior === null || typeof interior !== 'object' || 'decorations' in interior) return structure
+      return { ...structure, interior: { ...interior, decorations: [] } }
     })
   }
   return state

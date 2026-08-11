@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -66,6 +66,14 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
   const enableMaze = watched.interior?.maze !== undefined
   const enableBonusLoot = watched.interior?.maze?.bonusLootPrefab !== undefined
   const interiorDecorations = watched.interior?.decorations ?? []
+  // interior.decorations can't use useFieldArray like loot/recipe.ingredients
+  // above — registering a field array at that path makes react-hook-form
+  // materialize `interior` as a defined object from first render, breaking
+  // `enableInterior`'s "interior is undefined until the checkbox is on" check
+  // for every structure, not just ones with decorations. Stable per-row keys
+  // (instead of the array index) are tracked by hand here instead.
+  const [decorationKeys, setDecorationKeys] = useState<number[]>(() => interiorDecorations.map((_, i) => i))
+  const nextDecorationKey = useRef(decorationKeys.length)
 
   const onSubmit = (data: StructureDef) => onSave(data)
 
@@ -515,7 +523,10 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
                 <input
                   type="checkbox"
                   checked={enableInterior}
-                  onChange={(e) => setValue('interior', e.target.checked ? { size: 'tiny', decorations: [] } : undefined)}
+                  onChange={(e) => {
+                    setValue('interior', e.target.checked ? { size: 'tiny', decorations: [] } : undefined)
+                    setDecorationKeys([])
+                  }}
                 />
                 Walking through its door leads to a separate interior room
                 <InfoTip text="Real mechanism from the published mod 'Above the Clouds' (interiorspawner) — the generated mod will declare a dependency on it (mod_dependencies), so players need it installed too." />
@@ -608,7 +619,7 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
                     setValue('interior.decorations' as const, next, { shouldDirty: true })
                   }
                   return (
-                    <div key={index} className="ingredient-row">
+                    <div key={decorationKeys[index]} className="ingredient-row">
                       <input
                         className={inputClass}
                         placeholder="deco_roomglow"
@@ -644,13 +655,14 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
                       <button
                         type="button"
                         className={btnDanger}
-                        onClick={() =>
+                        onClick={() => {
                           setValue(
                             'interior.decorations' as const,
                             interiorDecorations.filter((_, i) => i !== index),
                             { shouldDirty: true },
                           )
-                        }
+                          setDecorationKeys((keys) => keys.filter((_, i) => i !== index))
+                        }}
                       >
                         Remove
                       </button>
@@ -660,13 +672,14 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
                 <button
                   type="button"
                   className="add-ingredient"
-                  onClick={() =>
+                  onClick={() => {
                     setValue(
                       'interior.decorations' as const,
                       [...interiorDecorations, { prefab: '', xOffset: 0, zOffset: 0 }],
                       { shouldDirty: true },
                     )
-                  }
+                    setDecorationKeys((keys) => [...keys, nextDecorationKey.current++])
+                  }}
                 >
                   + Add decoration
                 </button>

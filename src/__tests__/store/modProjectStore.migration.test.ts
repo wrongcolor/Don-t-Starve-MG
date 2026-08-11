@@ -60,4 +60,36 @@ describe('modProjectStore persisted-state migration', () => {
 
     expect(project.items[0].armor).toEqual({ absorption: 0.8, condition: 100 })
   })
+
+  it('backfills interior.decorations on structures saved before that field existed', async () => {
+    localStorage.setItem(
+      'dst-mod-creator-project',
+      JSON.stringify({
+        state: {
+          project: {
+            meta: { name: 'Old Mod', description: 'x', author: 'x', version: '1.0.0', allClientsRequireMod: true, configOptions: [] },
+            items: [],
+            characters: [],
+            creatures: [],
+            structures: [
+              {
+                id: 'oldhut',
+                displayName: 'Old Hut',
+                description: 'x',
+                loot: [],
+                interior: { size: 'tiny' },
+                recipe: { ingredients: [{ prefab: 'boards', amount: 1 }], techLevel: 'NONE', filters: ['STRUCTURES'] },
+              },
+            ],
+          },
+        },
+        version: 2,
+      }),
+    )
+
+    const { useModProjectStore } = await import('../../store/modProjectStore')
+    const project = useModProjectStore.getState().project
+
+    expect(project.structures[0].interior).toEqual({ size: 'tiny', decorations: [] })
+  })
 })
