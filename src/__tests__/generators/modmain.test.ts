@@ -31,6 +31,24 @@ describe('generateModMain', () => {
     expect(code).toContain('placer = "teststructure_placer"')
   })
 
+  // Real DST maps this to CHARACTER_INGREDIENT.HEALTH/SANITY, e.g. Recipe2's
+  // waxwelljournal charging Ingredient(CHARACTER_INGREDIENT.HEALTH, 50).
+  it('adds a CHARACTER_INGREDIENT ingredient when an item recipe has a characterCost', () => {
+    const withCharacterCost = {
+      ...sampleProject,
+      items: [
+        { ...sampleProject.items[0], recipe: { ...sampleProject.items[0].recipe, characterCost: { type: 'health' as const, amount: 20 } } },
+        ...sampleProject.items.slice(1),
+      ],
+    }
+    const characterCostCode = generateModMain(withCharacterCost)
+    expect(characterCostCode).toContain('Ingredient(CHARACTER_INGREDIENT.HEALTH, 20)')
+  })
+
+  it('does not add a CHARACTER_INGREDIENT ingredient when no item recipe has a characterCost', () => {
+    expect(code).not.toContain('CHARACTER_INGREDIENT')
+  })
+
   // Confirmed against scripts/simutil.lua's GetInventoryItemAtlas — see
   // modmain.ts's comment for the "Could not find region... from atlas
   // 'images/inventoryimages4.xml'" warning this fixes (Asset("ATLAS"/"IMAGE")

@@ -110,40 +110,40 @@ AddRecipe2("suncodex", { Ingredient("twigs", 2), Ingredient("goldnugget", 3), In
         atlas = "images/inventoryimages/suncodex.xml",
         image = "suncodex.tex",
     }, { "MAGIC" })
-AddRecipe2("emberwispspell", { Ingredient("goldnugget", 1), Ingredient("nightmarefuel", 1) }, TECH.MAGIC_TWO, {
+AddRecipe2("emberwispspell", { Ingredient("papyrus", 1), Ingredient("torch", 1), Ingredient("charcoal", 5) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
-AddRecipe2("solsticeblessingspell", { Ingredient("petals", 2), Ingredient("goldnugget", 1) }, TECH.MAGIC_TWO, {
+AddRecipe2("solsticeblessingspell", { Ingredient("papyrus", 2), Ingredient("spidergland", 10), Ingredient(CHARACTER_INGREDIENT.HEALTH, 20) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
-AddRecipe2("sunfedspell", { Ingredient("twigs", 1), Ingredient("goldnugget", 1) }, TECH.MAGIC_TWO, {
+AddRecipe2("sunfedspell", { Ingredient("papyrus", 1), Ingredient("seeds", 10), Ingredient("petals", 10) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
-AddRecipe2("solargatespell", { Ingredient("goldnugget", 3), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
+AddRecipe2("solargatespell", { Ingredient("papyrus", 3), Ingredient("purebrilliance", 3), Ingredient("solarprism", 1) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
-AddRecipe2("solarbeamspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
+AddRecipe2("solarbeamspell", { Ingredient("papyrus", 1), Ingredient("goldnugget", 10), Ingredient("yellowgem", 2) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
-AddRecipe2("refractionspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
+AddRecipe2("refractionspell", { Ingredient("papyrus", 1), Ingredient("moonglass", 5), Ingredient("mandrake", 1) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
-AddRecipe2("solarnovaspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
+AddRecipe2("solarnovaspell", { Ingredient("papyrus", 2), Ingredient("gunpowder", 4), Ingredient("goldnugget", 5) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
-AddRecipe2("flashbangspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
+AddRecipe2("flashbangspell", { Ingredient("papyrus", 1), Ingredient("nightmarefuel", 3), Ingredient("slurtleslime", 5) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
-AddRecipe2("solarcagespell", { Ingredient("goldnugget", 3), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
+AddRecipe2("solarcagespell", { Ingredient("papyrus", 3), Ingredient("nightmarefuel", 10), Ingredient("fence_item", 6) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
-AddRecipe2("desintegrationspell", { Ingredient("goldnugget", 4), Ingredient("nightmarefuel", 4) }, TECH.MAGIC_TWO, {
+AddRecipe2("desintegrationspell", { Ingredient("papyrus", 4), Ingredient("moonrocknugget", 1), Ingredient("purebrilliance", 5) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
-AddRecipe2("solargloriesspell", { Ingredient("goldnugget", 3), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
+AddRecipe2("solargloriesspell", { Ingredient("papyrus", 2), Ingredient("nightsword", 1), Ingredient("armor_sanity", 1) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
-AddRecipe2("lightpillarspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
+AddRecipe2("lightpillarspell", { Ingredient("papyrus", 3), Ingredient("redgem", 5), Ingredient("deerclops_eyeball", 1) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("suntotem", { Ingredient("twigs", 3), Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {

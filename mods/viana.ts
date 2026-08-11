@@ -94,8 +94,9 @@ export const viana: ModProject = {
       spellDef: { label: 'Ember Wisp', summonPrefab: 'emberlight', temperatureDelta: 10, manaCost: 40, aimed: true },
       recipe: {
         ingredients: [
-          { prefab: 'goldnugget', amount: 1 },
-          { prefab: 'nightmarefuel', amount: 1 },
+          { prefab: 'papyrus', amount: 1 },
+          { prefab: 'torch', amount: 1 },
+          { prefab: 'charcoal', amount: 5 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
@@ -116,11 +117,12 @@ export const viana: ModProject = {
       },
       recipe: {
         ingredients: [
-          { prefab: 'petals', amount: 2 },
-          { prefab: 'goldnugget', amount: 1 },
+          { prefab: 'papyrus', amount: 2 },
+          { prefab: 'spidergland', amount: 10 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
+        characterCost: { type: 'health', amount: 20 },
       },
     },
     {
@@ -132,8 +134,9 @@ export const viana: ModProject = {
       spellDef: { label: 'Sunfed', hungerDelta: 20, temperatureDelta: 5, manaCost: 50 },
       recipe: {
         ingredients: [
-          { prefab: 'twigs', amount: 1 },
-          { prefab: 'goldnugget', amount: 1 },
+          { prefab: 'papyrus', amount: 1 },
+          { prefab: 'seeds', amount: 10 },
+          { prefab: 'petals', amount: 10 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
@@ -153,8 +156,9 @@ export const viana: ModProject = {
       },
       recipe: {
         ingredients: [
-          { prefab: 'goldnugget', amount: 3 },
-          { prefab: 'nightmarefuel', amount: 3 },
+          { prefab: 'papyrus', amount: 3 },
+          { prefab: 'purebrilliance', amount: 3 },
+          { prefab: 'solarprism', amount: 1 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
@@ -174,8 +178,9 @@ export const viana: ModProject = {
       },
       recipe: {
         ingredients: [
-          { prefab: 'goldnugget', amount: 2 },
-          { prefab: 'nightmarefuel', amount: 2 },
+          { prefab: 'papyrus', amount: 1 },
+          { prefab: 'goldnugget', amount: 10 },
+          { prefab: 'yellowgem', amount: 2 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
@@ -194,8 +199,9 @@ export const viana: ModProject = {
       },
       recipe: {
         ingredients: [
-          { prefab: 'goldnugget', amount: 2 },
-          { prefab: 'nightmarefuel', amount: 3 },
+          { prefab: 'papyrus', amount: 1 },
+          { prefab: 'moonglass', amount: 5 },
+          { prefab: 'mandrake', amount: 1 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
@@ -215,8 +221,9 @@ export const viana: ModProject = {
       },
       recipe: {
         ingredients: [
-          { prefab: 'goldnugget', amount: 2 },
-          { prefab: 'nightmarefuel', amount: 2 },
+          { prefab: 'papyrus', amount: 2 },
+          { prefab: 'gunpowder', amount: 4 },
+          { prefab: 'goldnugget', amount: 5 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
@@ -236,8 +243,9 @@ export const viana: ModProject = {
       },
       recipe: {
         ingredients: [
-          { prefab: 'goldnugget', amount: 2 },
+          { prefab: 'papyrus', amount: 1 },
           { prefab: 'nightmarefuel', amount: 3 },
+          { prefab: 'slurtleslime', amount: 5 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
@@ -256,8 +264,9 @@ export const viana: ModProject = {
       },
       recipe: {
         ingredients: [
-          { prefab: 'goldnugget', amount: 3 },
-          { prefab: 'nightmarefuel', amount: 3 },
+          { prefab: 'papyrus', amount: 3 },
+          { prefab: 'nightmarefuel', amount: 10 },
+          { prefab: 'fence_item', amount: 6 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
@@ -276,8 +285,9 @@ export const viana: ModProject = {
       },
       recipe: {
         ingredients: [
-          { prefab: 'goldnugget', amount: 4 },
-          { prefab: 'nightmarefuel', amount: 4 },
+          { prefab: 'papyrus', amount: 4 },
+          { prefab: 'moonrocknugget', amount: 1 },
+          { prefab: 'purebrilliance', amount: 5 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
@@ -296,8 +306,9 @@ export const viana: ModProject = {
       },
       recipe: {
         ingredients: [
-          { prefab: 'goldnugget', amount: 3 },
-          { prefab: 'nightmarefuel', amount: 3 },
+          { prefab: 'papyrus', amount: 2 },
+          { prefab: 'nightsword', amount: 1 },
+          { prefab: 'armor_sanity', amount: 1 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
@@ -312,8 +323,9 @@ export const viana: ModProject = {
       spellDef: { label: 'Solar Pillar', summonPrefab: 'solarpillar', manaCost: 80, aimed: true },
       recipe: {
         ingredients: [
-          { prefab: 'goldnugget', amount: 2 },
-          { prefab: 'nightmarefuel', amount: 3 },
+          { prefab: 'papyrus', amount: 3 },
+          { prefab: 'redgem', amount: 5 },
+          { prefab: 'deerclops_eyeball', amount: 1 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],

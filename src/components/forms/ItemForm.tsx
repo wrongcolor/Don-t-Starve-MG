@@ -617,6 +617,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const enableSpellEffect = watched.spellEffect !== undefined
   const enableTameBomb = watched.tameBomb !== undefined
   const enableGroundAttack = watched.groundAttack !== undefined
+  const enableCharacterCost = watched.recipe?.characterCost !== undefined
   const enableRechargeable = watched.rechargeable !== undefined
   const canRecharge = enableWeapon || enableSpellEffect
   const enableDapperness = watched.armor?.dapperness !== undefined
@@ -1333,6 +1334,35 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   ))}
                 </select>
               </FormField>
+
+              <div className="checks">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={enableCharacterCost}
+                    onChange={(e) => setValue('recipe.characterCost', e.target.checked ? { type: 'health', amount: 5 } : undefined)}
+                  />
+                  Also costs health/sanity to craft
+                </label>
+              </div>
+              {enableCharacterCost && (
+                <div className="ingredient-row">
+                  <select aria-label="Character cost type" className={inputClass} {...register('recipe.characterCost.type')}>
+                    <option value="health">Health</option>
+                    <option value="sanity">Sanity</option>
+                  </select>
+                  <input
+                    type="number"
+                    step="5"
+                    aria-label="Character cost amount"
+                    className="qty-input"
+                    {...register('recipe.characterCost.amount', { valueAsNumber: true })}
+                  />
+                </div>
+              )}
+              {errors.recipe?.characterCost?.amount?.message && (
+                <p className="field error">{errors.recipe.characterCost.amount.message}</p>
+              )}
 
               <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', marginBottom: 8 }}>
                 Crafting tabs

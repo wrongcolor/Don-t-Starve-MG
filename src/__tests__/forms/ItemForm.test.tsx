@@ -31,6 +31,50 @@ describe('ItemForm', () => {
     expect(saved.edible).toEqual({ foodType: 'MEAT', healthValue: 3, hungerValue: 25, sanityValue: -5 })
   })
 
+  it('enabling the character-cost checkbox reveals health/sanity fields with sane defaults, and submits a custom value', async () => {
+    const onSave = vi.fn()
+    render(<ItemForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_item'), { target: { value: 'solsticeblessingspell' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Solstice Blessing' } })
+    fireEvent.change(screen.getByLabelText('Description (crafting + inspect)'), { target: { value: 'Heals over time' } })
+
+    expect(screen.queryByLabelText('Character cost amount')).toBeNull()
+
+    fireEvent.click(screen.getByText('Also costs health/sanity to craft'))
+
+    expect((screen.getByLabelText('Character cost type') as HTMLSelectElement).value).toBe('health')
+    expect((screen.getByLabelText('Character cost amount') as HTMLInputElement).value).toBe('5')
+
+    fireEvent.change(screen.getByLabelText('Character cost amount'), { target: { value: '20' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.recipe.characterCost).toEqual({ type: 'health', amount: 20 })
+  })
+
+  it('unchecking the character-cost checkbox clears it from the saved item', async () => {
+    const onSave = vi.fn()
+    render(<ItemForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_item'), { target: { value: 'solsticeblessingspell' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Solstice Blessing' } })
+    fireEvent.change(screen.getByLabelText('Description (crafting + inspect)'), { target: { value: 'Heals over time' } })
+
+    fireEvent.click(screen.getByText('Also costs health/sanity to craft'))
+    fireEvent.click(screen.getByText('Also costs health/sanity to craft'))
+
+    expect(screen.queryByLabelText('Character cost amount')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.recipe.characterCost).toBeUndefined()
+  })
+
   it('clears edible data when switching away from Food back to another category', () => {
     render(<ItemForm onSave={vi.fn()} />)
 

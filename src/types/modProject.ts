@@ -143,6 +143,15 @@ export const ingredientSchema = z.object({
   amount: z.number().int().min(1),
 })
 
+// Real DST's Ingredient() maps these to CHARACTER_INGREDIENT.HEALTH/SANITY
+// (Original/scripts/constants.lua) and asserts the amount is a multiple of
+// CHARACTER_INGREDIENT_SEG=5 (Original/scripts/recipe.lua) — e.g. Recipe2's
+// waxwelljournal charging Ingredient(CHARACTER_INGREDIENT.HEALTH, 50).
+export const characterCostSchema = z.object({
+  type: z.enum(['health', 'sanity']),
+  amount: z.number().int().min(5).multipleOf(5),
+})
+
 // Confirmed in Original/stategraphs/stategraphs/SGantlion_angry.lua's
 // SpawnSpikes/SpawnBlocks — reuses the real vanilla sandspike_short/med/tall
 // and sandblock hazard prefabs directly (already-loaded assets, no art
@@ -744,6 +753,7 @@ export const itemDefSchema = z
       ingredients: z.array(ingredientSchema).min(1, 'Add at least 1 ingredient'),
       techLevel: z.enum(TECH_LEVELS),
       filters: z.array(z.enum(RECIPE_FILTERS)).min(1, 'Select at least one tab'),
+      characterCost: characterCostSchema.optional(),
     }),
   })
   .refine((item) => item.category !== 'tool' || item.toolAction !== undefined, {

@@ -6,9 +6,12 @@ import { generateWorldEventBlock, isWorldScopedTrigger, pickRandomOnlinePlayerBl
 import { characterPortraitAssets } from './character'
 
 function itemRecipeBlock(item: ItemDef): string {
-  const ingredients = item.recipe.ingredients
-    .map((i) => `Ingredient(${luaString(i.prefab)}, ${i.amount})`)
-    .join(', ')
+  const itemIngredients = item.recipe.ingredients.map((i) => `Ingredient(${luaString(i.prefab)}, ${i.amount})`)
+  const characterCost = item.recipe.characterCost
+  const ingredients = [
+    ...itemIngredients,
+    ...(characterCost !== undefined ? [`Ingredient(CHARACTER_INGREDIENT.${characterCost.type.toUpperCase()}, ${characterCost.amount})`] : []),
+  ].join(', ')
 
   const icon = itemRecipeIcon(item)
   const configLines = [
