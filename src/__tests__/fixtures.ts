@@ -1,9 +1,9 @@
 import type { CharacterDef, ModProject } from '../types/modProject'
 
-// Not part of sampleProject.characters on purpose (see the comment below) — a
-// playable character always needs its own bigportraits/<id>.xml, which has no
-// vanilla-reuse fallback, so kitchen_sink can't ship one without crashing on
-// load. Generator/character tests that need a character use this instead.
+// Not part of sampleProject.characters on purpose — generator/character tests
+// that need a standalone character use this instead. Vanilla-sourced so
+// characterPortraitAssets/generateCharacterFiles have real bigportrait/avatar
+// data to generate aliases from.
 export const sampleCharacter: CharacterDef = {
   id: 'testchar',
   gender: 'NEUTRAL',
@@ -11,8 +11,9 @@ export const sampleCharacter: CharacterDef = {
   name: 'Test Character',
   description: 'A character for testing',
   quote: 'Testing, testing.',
+  animation: { source: 'vanilla', build: 'wilson' },
   stats: { health: 150, hunger: 150, sanity: 200 },
-  startingInventory: [],
+  startingInventory: ['torch', 'flint'],
   speechOverrides: { ANNOUNCE_COLD: 'It is cold, for science.' },
   perks: ['freeze_immune'],
   damageMultiplier: 0.75,

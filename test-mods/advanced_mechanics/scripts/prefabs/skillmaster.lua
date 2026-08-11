@@ -9,8 +9,6 @@ local assets =
 
 local prefabs = {}
 
-local start_inv = { "torch" }
-
 local function common_postinit(inst)
     inst.MiniMapEntity:SetIcon("skillmaster.tex") -- PLACEHOLDER: ícone do minimapa
 end

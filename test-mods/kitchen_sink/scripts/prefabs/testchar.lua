@@ -7,8 +7,6 @@ local assets =
 
 local prefabs = {}
 
-local start_inv = { "torch", "flint" }
-
 local function common_postinit(inst)
     inst.MiniMapEntity:SetIcon("testchar.tex") -- PLACEHOLDER: ícone do minimapa
     inst.AnimState:SetBuild("wilson") -- reaproveita o visual de "wilson" em vez do build próprio

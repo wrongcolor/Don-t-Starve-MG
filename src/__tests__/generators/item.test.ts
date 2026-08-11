@@ -685,9 +685,13 @@ describe('generateItemFiles', () => {
       spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
     }
     const code = generateItemPrefab(linked)
-    expect(code).toContain('isaimed and "1" or ""')
     expect(code).toContain('if isaimed == "1" then')
-    expect(code).toContain('fx.Transform:SetPosition(isaimed == "1" and pos:Get() or user.Transform:GetWorldPosition())')
+    // Not a `cond and a() or b()` ternary: SetPosition takes 3 return values
+    // (x, y, z) and Lua's and/or truncates a multi-value expression down to
+    // just the first one, so each branch calls SetPosition directly instead
+    // (see linkedContainerSpellbookFunctionBlock's own comment).
+    expect(code).toContain('fx.Transform:SetPosition(pos:Get())')
+    expect(code).toContain('fx.Transform:SetPosition(user.Transform:GetWorldPosition())')
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 

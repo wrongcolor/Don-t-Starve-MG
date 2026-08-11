@@ -7,8 +7,6 @@ local assets =
 
 local prefabs = {}
 
-local start_inv = { "sunstaff", "suncodex" }
-
 local function CustomCombatDamage(inst, target, weapon, multiplier, mount)
     if target:HasTag("shadowcreature") then
         return 1.5

@@ -422,8 +422,6 @@ export function generateCharacterPrefab(character: CharacterDef): string {
   lines.push('')
   lines.push('local prefabs = {}')
   lines.push('')
-  lines.push(`local start_inv = ${luaStringArray(character.startingInventory)}`)
-  lines.push('')
   if (needsCustomCombatDamage(character)) {
     lines.push(...customCombatDamageFunctionBlock(character))
   }

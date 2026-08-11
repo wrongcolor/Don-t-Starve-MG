@@ -9,8 +9,6 @@ local assets =
 
 local prefabs = {}
 
-local start_inv = { "torch", "nightmarefuel" }
-
 local function common_postinit(inst)
     inst.MiniMapEntity:SetIcon("vex.tex") -- PLACEHOLDER: ícone do minimapa
 end
