@@ -384,6 +384,47 @@ function spellbookEquippedActionBlock(): string[] {
   ]
 }
 
+function needsAltOpenContainerAction(project: ModProject): boolean {
+  return project.items.some((item) => item.container?.source === 'own' && item.spellbook !== undefined)
+}
+
+// Confirmed against the real componentactions.lua/actions.lua (docs/dst-
+// knowledge/patterns.md#74): an item that's both a container (holds spell
+// pages) and a spellbook (casts them) can't offer "open" and "cast" through
+// the same click — GetInventoryActions(item, right)[1] in playeractionpicker.lua
+// only ever runs the single HIGHEST-priority action collected for that click,
+// and USESPELLBOOK's priority (2) always beats the real container action
+// RUMMAGE's (-1), so RUMMAGE never wins and the container becomes permanently
+// unopenable. A brand-new OPENCODEX action, gated on TheInput:IsKeyDown(KEY_ALT)
+// and given a priority higher than USESPELLBOOK, only enters the race while
+// Alt is held — plain clicks keep casting as before, Alt+click opens the
+// container instead. Registered once here (component actions/AddAction only
+// work from modmain.lua), shared by every item that needs it.
+function altOpenContainerActionBlock(): string[] {
+  return [
+    'local ACTIONS = GLOBAL.ACTIONS',
+    'local TheInput = GLOBAL.TheInput',
+    'local KEY_ALT = GLOBAL.KEY_ALT',
+    '',
+    'local OPENCODEX_ACTION = AddAction("OPENCODEX", "Open", function(act)',
+    '    local targ = act.invobject or act.target',
+    '    if targ ~= nil and targ.components.container ~= nil then',
+    '        targ.components.container:Open(act.doer)',
+    '        return true',
+    '    end',
+    '    return false',
+    'end)',
+    'OPENCODEX_ACTION.priority = 3',
+    'OPENCODEX_ACTION.instant = true',
+    '',
+    'AddComponentAction("INVENTORY", "container", function(inst, doer, actions, right)',
+    '    if TheInput:IsKeyDown(KEY_ALT) then',
+    '        table.insert(actions, ACTIONS.OPENCODEX)',
+    '    end',
+    'end)',
+  ]
+}
+
 // Adapted from a real published Workshop mod ("Repair Combine", see
 // docs/dst-knowledge/patterns.md#19). Registering a brand-new player action
 // (AddAction/AddComponentAction/AddStategraphActionHandler) only works from
@@ -784,6 +825,12 @@ export function generateModMain(project: ModProject): string {
     sections.push('')
     sections.push('-- Lets a handheld spellbook item open the spell wheel from its own equipped action button')
     sections.push(...spellbookEquippedActionBlock())
+  }
+
+  if (needsAltOpenContainerAction(project)) {
+    sections.push('')
+    sections.push('-- Alt+click opens a container-and-spellbook item instead of casting (patterns.md#74)')
+    sections.push(...altOpenContainerActionBlock())
   }
 
   if (needsPortalAction(project)) {

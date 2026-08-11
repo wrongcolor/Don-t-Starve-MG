@@ -669,10 +669,33 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push(...solarBeamHelperFunctionBlock())
   lines.push(...solarNovaHelperFunctionBlock())
   lines.push(...solarRefractionHelperFunctionBlock())
-  lines.push('local function rebuild_spellbook_items(user)')
+  // Confirmed in the real components/inventory.lua (server) and prefabs/
+  // inventory_classified.lua (client): the replica's own FindItem only
+  // scans itemslots/activeitem/overflow — it never checks equipslots (that's
+  // what the SEPARATE FindItems, plural, is for, and that one isn't even
+  // exposed on the replica at all, server-only). A self-referential
+  // linkedContainer (the caster item pointing at its own id, so equipping
+  // and casting are the same item) would otherwise never find itself the
+  // moment it's actually worn in the hand slot — FindItem falling through
+  // to nil there. GetEquippedItem(EQUIPSLOTS.HANDS) IS replicated to both
+  // sides and covers exactly that gap; harmless no-op fallback for the
+  // ordinary case of a spellbook item pointing at a SEPARATE, unequipped
+  // container item, since FindItem already succeeds there.
+  lines.push('local function FindCodex(user)')
   lines.push('    local codex = user.replica.inventory ~= nil and user.replica.inventory:FindItem(function(item)')
   lines.push(`        return item.prefab == ${luaString(containerItemId)}`)
   lines.push('    end)')
+  lines.push('    if codex == nil and user.replica.inventory ~= nil then')
+  lines.push('        local equipped = user.replica.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)')
+  lines.push(`        if equipped ~= nil and equipped.prefab == ${luaString(containerItemId)} then`)
+  lines.push('            codex = equipped')
+  lines.push('        end')
+  lines.push('    end')
+  lines.push('    return codex')
+  lines.push('end')
+  lines.push('')
+  lines.push('local function rebuild_spellbook_items(user)')
+  lines.push('    local codex = FindCodex(user)')
   lines.push('    if codex == nil or codex.spell_contents == nil then')
   lines.push('        return nil')
   lines.push('    end')

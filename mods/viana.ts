@@ -5,7 +5,7 @@ export const viana: ModProject = {
   ...createEmptyModProject(),
   meta: {
     name: 'Viana, the Sunwitch',
-    description: 'A sun-touched witch who channels her spells through a staff and a book of spells.',
+    description: 'A sun-touched witch who channels her spells through her Sun Codex.',
     author: 'Tester',
     version: '1.0.0',
     allClientsRequireMod: true,
@@ -30,46 +30,27 @@ export const viana: ModProject = {
       },
     },
     {
-      id: 'sunstaff',
-      displayName: 'Sun Staff',
-      description: 'A staff that channels whatever spells are bound in her Sun Codex.',
-      category: 'generic',
-      animation: { source: 'vanilla', build: 'staffs', idleClip: 'yellowstaff' },
-      // Real custom inventory icon (AI-referenced concept art, converted via
-      // scripts/png_to_ktex.py) — the in-world/in-hand look still reuses the
-      // vanilla "staffs" build above, no Spriter animation available for that.
-      hasCustomIcon: true,
-      // isHandheld (item.ts) only treats category 'tool' or a set `weapon`
-      // field as equippable — a bare category:'generic' spellbook item (like
-      // this one, matching Waxwell's Journal's own real mechanic) never gets
-      // the equippable/onequip wiring, reproduced in-game as "sunstaff não
-      // esta equipável". A staff is expected to be held in hand regardless,
-      // so a zero-damage weapon (same trick already used by testfirestaff)
-      // opts it into the existing handheld/swap-build code path — she never
-      // actually swings it (no onattack wired), it's purely for the
-      // equip-to-hand visual + hand slot.
-      weapon: { damage: 0 },
-      spellbook: { source: 'linkedContainer', containerItemId: 'suncodex' },
-      recipe: {
-        ingredients: [
-          { prefab: 'twigs', amount: 2 },
-          { prefab: 'goldnugget', amount: 2 },
-          { prefab: 'nightmarefuel', amount: 2 },
-        ],
-        techLevel: 'MAGIC_TWO',
-        filters: ['MAGIC'],
-      },
-    },
-    {
       id: 'suncodex',
       displayName: 'Sun Codex',
-      description: 'Holds up to 3 spells at once — whatever is bound here is what the Sun Staff can cast.',
+      description: 'Holds up to 3 spells at once and channels whatever is bound inside — hold Alt and click to open it.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'books', idleClip: 'book_light' },
       // Real custom inventory icon (AI-referenced concept art, converted via
       // scripts/png_to_ktex.py) — the in-world/in-hand look still reuses the
       // vanilla "books" build above, no Spriter animation available for that.
       hasCustomIcon: true,
+      // Used to be two items — a Sun Staff (equipped, casts) linked to a
+      // separate Sun Codex (container, holds pages). Merged into one
+      // (docs/dst-knowledge/patterns.md#74): isHandheld (item.ts) only treats
+      // category 'tool' or a set `weapon` field as equippable — a bare
+      // category:'generic' item never gets the equippable/onequip wiring, so
+      // a zero-damage weapon (same trick already used by testfirestaff) opts
+      // it into the handheld/swap-build code path purely for the
+      // equip-to-hand visual + hand slot (she never actually swings it, no
+      // onattack wired). spellbook.containerItemId points at its OWN id —
+      // this same item is both the caster and the container spells sit in.
+      weapon: { damage: 0 },
+      spellbook: { source: 'linkedContainer', containerItemId: 'suncodex' },
       // A 'custom' widget needs its own anim/ui_suncodex.zip (real UI art) —
       // reproduced in-game as a load-time crash ("Could not find an asset
       // matching anim/ui_suncodex.zip"). Reusing an existing vanilla
@@ -91,10 +72,14 @@ export const viana: ModProject = {
         sideWidget: false,
         acceptsTag: 'spell',
       },
+      // Combines both former items' own ingredient costs — this one item now
+      // does the job of both the old Sun Staff and Sun Codex.
       recipe: {
         ingredients: [
+          { prefab: 'twigs', amount: 2 },
+          { prefab: 'goldnugget', amount: 3 },
+          { prefab: 'nightmarefuel', amount: 2 },
           { prefab: 'papyrus', amount: 2 },
-          { prefab: 'goldnugget', amount: 1 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
@@ -103,7 +88,7 @@ export const viana: ModProject = {
     {
       id: 'emberwispspell',
       displayName: 'Ember Wisp Spell',
-      description: 'Bind this in the Sun Codex to let the Sun Staff summon a warm, floating ember of light where she aims.',
+      description: 'Bind this in the Sun Codex to summon a warm, floating ember of light where she aims.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: { label: 'Ember Wisp', summonPrefab: 'emberlight', manaCost: 20, aimed: true },
@@ -119,7 +104,7 @@ export const viana: ModProject = {
     {
       id: 'solsticeblessingspell',
       displayName: 'Solstice Blessing Spell',
-      description: 'Bind this in the Sun Codex to let the Sun Staff mend her wounds with the sun\'s warmth.',
+      description: 'Bind this in the Sun Codex to mend her wounds with the sun\'s warmth.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: { label: 'Solstice Blessing', healthDelta: 15, sanityDelta: 15, manaCost: 30 },
@@ -135,7 +120,7 @@ export const viana: ModProject = {
     {
       id: 'sunfedspell',
       displayName: 'Sunfed Spell',
-      description: 'Bind this in the Sun Codex to let the Sun Staff feed her on sunlight alone.',
+      description: 'Bind this in the Sun Codex to feed her on sunlight alone.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: { label: 'Sunfed', hungerDelta: 25, manaCost: 15 },
@@ -151,7 +136,7 @@ export const viana: ModProject = {
     {
       id: 'sunwispspell',
       displayName: 'Sun Wisp Spell',
-      description: 'Bind this in the Sun Codex to let the Sun Staff call a small fire spirit to where she aims — it stays glowing by her side afterward.',
+      description: 'Bind this in the Sun Codex to call a small fire spirit to where she aims — it stays glowing by her side afterward.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: { label: 'Sun Wisp', summonPrefab: 'sunwisp', manaCost: 35, aimed: true },
@@ -168,7 +153,7 @@ export const viana: ModProject = {
     {
       id: 'solargatespell',
       displayName: 'Solar Gate Spell',
-      description: 'Bind this in the Sun Codex to let the Sun Staff raise a rift of light where she aims — step into it later to open the map and step out anywhere already explored.',
+      description: 'Bind this in the Sun Codex to raise a rift of light where she aims — step into it later to open the map and step out anywhere already explored.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: {
@@ -189,7 +174,7 @@ export const viana: ModProject = {
     {
       id: 'solarbeamspell',
       displayName: 'Solar Beam Spell',
-      description: 'Bind this in the Sun Codex to let the Sun Staff channel a beam of sunlight in front of her, burning anything it sweeps over.',
+      description: 'Bind this in the Sun Codex to channel a beam of sunlight in front of her, burning anything it sweeps over.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: {
@@ -209,7 +194,7 @@ export const viana: ModProject = {
     {
       id: 'refractionspell',
       displayName: 'Refraction Spell',
-      description: 'Bind this in the Sun Codex to let the Sun Staff turn her and any nearby allies into shimmering mirages, immune to harm for a short while.',
+      description: 'Bind this in the Sun Codex to turn her and any nearby allies into shimmering mirages, immune to harm for a short while.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: {
@@ -229,7 +214,7 @@ export const viana: ModProject = {
     {
       id: 'solarnovaspell',
       displayName: 'Solar Nova Spell',
-      description: 'Bind this in the Sun Codex to let the Sun Staff burst a flare of sunlight where she aims, burning and locking in place anything caught in the blast.',
+      description: 'Bind this in the Sun Codex to burst a flare of sunlight where she aims, burning and locking in place anything caught in the blast.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: {
@@ -249,7 +234,7 @@ export const viana: ModProject = {
     {
       id: 'lightpillarspell',
       displayName: 'Light Pillar Spell',
-      description: 'Bind this in the Sun Codex to let the Sun Staff raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close.',
+      description: 'Bind this in the Sun Codex to raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: { label: 'Light Pillar', summonPrefab: 'lightpillar', manaCost: 50, aimed: true },
@@ -332,7 +317,7 @@ export const viana: ModProject = {
       hasCustomPortrait: true,
       stats: { health: 120, hunger: 150, sanity: 220 },
       mana: { max: 100, regenPerSecond: 1, label: 'Solar Energy', badgeTint: [1, 0.75, 0.15, 1] },
-      startingInventory: ['sunstaff', 'suncodex'],
+      startingInventory: ['suncodex'],
       speechOverrides: {},
       perks: ['can_read_books'],
       damageMultiplier: 0.75,

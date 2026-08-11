@@ -11,9 +11,8 @@ caminhos abaixo, substituindo os placeholders:
 
 - **Itens**: `images/inventoryimages/<id>.xml`/`.tex` (ícone de inventário, sempre necessário).
   - `solarlantern`: reaproveita o build "lantern" do jogo base — nenhum `anim/*.zip` próprio é necessário.
-  - `sunstaff`: reaproveita o build "staffs" do jogo base — nenhum `anim/*.zip` próprio é necessário.
-    - ATENÇÃO: é um item empunhável (ferramenta/arma) usando build vanilla — confirme se `swap_staffs` existe no jogo base antes de publicar.
   - `suncodex`: reaproveita o build "books" do jogo base — nenhum `anim/*.zip` próprio é necessário.
+    - ATENÇÃO: é um item empunhável (ferramenta/arma) usando build vanilla — confirme se `swap_books` existe no jogo base antes de publicar.
   - `emberwispspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solsticeblessingspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `sunfedspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.

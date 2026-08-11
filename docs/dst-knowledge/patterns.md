@@ -3676,3 +3676,70 @@ graça, só o ato de conjurá-lo custa.
 realmente aponta de volta pro `sunportal` quando a ação é resolvida a partir
 do clique no mapa, e se `map_works_on_unexplored = false` bloqueia cliques
 em névoa de guerra do jeito esperado. Os dois precisam de teste ao vivo.
+
+## 74. Um item é container E spellbook ao mesmo tempo — `Alt+clique` escolhe qual ação — **implementado**
+
+Motivação: o usuário queria fundir o Sun Staff (empunhável, conjura) com o
+Sun Codex (contêiner, guarda as páginas) num item só, mas apontou um problema
+antes de eu implementar: se os dois usam o mesmo clique, como ela ainda
+consegue guardar página?
+
+**Confirmado, mecanismo real** — o problema é genuíno, não hipotético.
+`components/playeractionpicker.lua`'s `GetInventoryActions` coleta TODAS as
+ações que os componentes do item oferecem (`EntityScript:CollectActions`,
+`componentactions.lua`), ordena por `.priority` (`table.sort` com
+`l.priority > r.priority`, maior primeiro) e só a action `[1]` do resultado é
+de fato executada (`playercontroller.lua`: `GetInventoryActions(item, true)
+[1]`) — tanto no clique esquerdo quanto no direito, já que nem o handler
+`container` nem o `spellbook` (`componentactions.lua` tabela `INVENTORY`)
+checam o parâmetro `right` internamente. `RUMMAGE` (abrir contêiner) tem
+`priority = -1`; `USESPELLBOOK` (abrir a roda) tem `priority = 2`
+(`scripts/actions.lua`) — com os dois componentes no mesmo item,
+`USESPELLBOOK` sempre vence e `RUMMAGE` nunca aparece, em NENHUM clique.
+
+Não existe API limpa pra suprimir só o handler de inventário do `spellbook`
+sem também quebrar o handler `EQUIPPED` próprio (patterns.md#69) — a
+`COMPONENT_ACTIONS` real é `local` em `componentactions.lua`, inacessível de
+fora. Solução: uma AÇÃO NOVA (`OPENCODEX`), com prioridade maior que a do
+`USESPELLBOOK` (`3`), só entra na lista quando `TheInput:IsKeyDown(KEY_ALT)`
+— clique normal continua abrindo a roda como sempre; Alt+clique some com
+`RUMMAGE`/`USESPELLBOOK` da corrida e vence sozinha.
+
+**Um segundo bug real, achado ao revisar o merge antes de implementar:**
+`components/inventory.lua`'s `Inventory:FindItem` (usado por
+`user.replica.inventory:FindItem(...)` em `linkedContainerSpellbookFunctionBlock`,
+patterns.md#61) só varre `itemslots`/`activeitem`/overflow — NUNCA
+`equipslots`. Existe uma `FindItems` (plural) que varre `equipslots` também,
+mas só no componente real (servidor); a réplica cliente
+(`prefabs/inventory_classified.lua`) não tem equivalente plural nenhum. Um
+`spellbook.containerItemId` self-referencial (o mesmo item aponta pra si
+mesmo, caso de um item fundido caster+contêiner) nunca se encontraria via
+`FindItem` no exato momento em que está **equipada na mão** — o cenário
+principal de uso. Corrigido com um fallback pra
+`GetEquippedItem(EQUIPSLOTS.HANDS)` (real, replicado dos dois lados,
+confirmado em `inventory_replica.lua`/`inventory_classified.lua`), inofensivo
+pro caso antigo (staff+codex separados) já que `FindItem` já resolve sozinho
+ali.
+
+**Implementado:**
+- `src/generators/item.ts`: `linkedContainerSpellbookFunctionBlock` ganhou
+  `FindCodex(user)` — tenta `FindItem` primeiro, cai pro
+  `GetEquippedItem(EQUIPSLOTS.HANDS)` se não achar nada.
+- `src/generators/modmain.ts`: `needsAltOpenContainerAction`/
+  `altOpenContainerActionBlock` — a ação `OPENCODEX` (`priority = 3`,
+  `instant = true`) + o `AddComponentAction("INVENTORY", "container", ...)`
+  gated em `TheInput:IsKeyDown(KEY_ALT)`, emitido uma vez quando pelo menos
+  um item é contêiner E spellbook ao mesmo tempo, igual ao padrão de
+  `combineActionBlock`.
+- `mods/viana.ts`: `sunstaff` removido; `suncodex` ganhou `weapon: {damage:
+  0}` (mesmo truque de sempre pra virar empunhável) e
+  `spellbook: {source: 'linkedContainer', containerItemId: 'suncodex'}`
+  (self-referencial). Receita combina o custo dos dois itens antigos.
+  Descrições dos feitiços perderam a menção ao Sun Staff (agora é só "Bind
+  this in the Sun Codex to...").
+
+**O que NÃO foi testado em jogo**: se `Alt+clique` de fato abre o baú em vez
+da roda (a lógica de prioridade foi confirmada lendo o código-fonte real, não
+reproduzida ao vivo), e se `GetEquippedItem(EQUIPSLOTS.HANDS)` realmente
+resolve pro item certo no exato instante em que `RefreshSpellbookItems`
+roda logo após equipar.

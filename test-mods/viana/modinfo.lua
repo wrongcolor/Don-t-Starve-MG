@@ -1,5 +1,5 @@
 name = "Viana, the Sunwitch"
-description = "A sun-touched witch who channels her spells through a staff and a book of spells."
+description = "A sun-touched witch who channels her spells through her Sun Codex."
 author = "Tester"
 version = "1.0.0"
 

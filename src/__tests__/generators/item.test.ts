@@ -935,6 +935,27 @@ describe('generateItemFiles', () => {
     expect(code).toContain('inst:DoPeriodicTask(0.5, RefreshSpellbookItems)')
   })
 
+  // A linkedContainer spellbook whose containerItemId is the item's OWN id
+  // (equipping and casting are the same item, e.g. a merged staff+codex) —
+  // confirmed against the real components/inventory.lua: the replica's
+  // FindItem only scans itemslots/activeitem/overflow, never equipslots, so
+  // it can never find the item while it's actually worn in hand. Falls back
+  // to GetEquippedItem(EQUIPSLOTS.HANDS), which IS replicated to both sides.
+  it('finds a self-referential linkedContainer codex via GetEquippedItem when FindItem (itemslots only) can\'t see it worn in hand', () => {
+    const selfLinked: ItemDef = {
+      ...trinket,
+      id: 'testselflinkedstaff',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testselflinkedstaff' },
+    }
+    const code = generateItemPrefab(selfLinked)
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+    expect(code).toContain('local function FindCodex(user)')
+    expect(code).toContain('user.replica.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)')
+    expect(code).toContain('if equipped ~= nil and equipped.prefab == "testselflinkedstaff" then')
+    expect(code).toContain('local function rebuild_spellbook_items(user)')
+    expect(code).toContain('local codex = FindCodex(user)')
+  })
+
   it('spends the slot item\'s own mana cost (decoded from the netvar payload) when casting a linkedContainer spell', () => {
     const linked: ItemDef = {
       ...trinket,

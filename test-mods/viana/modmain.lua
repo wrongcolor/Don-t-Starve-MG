@@ -4,7 +4,7 @@ local TUNING = GLOBAL.TUNING
 local TECH = GLOBAL.TECH
 local Ingredient = GLOBAL.Ingredient
 
-PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solargatespell", "solarbeamspell", "refractionspell", "solarnovaspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "solarchakram_proj", "viana", "sunorb", "sunwisp", "lightpillar", "sunportal" }
+PrefabFiles = { "solarlantern", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solargatespell", "solarbeamspell", "refractionspell", "solarnovaspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "solarchakram_proj", "viana", "sunorb", "sunwisp", "lightpillar", "sunportal" }
 
 Assets = {
     Asset("ATLAS", "bigportraits/viana.xml"),
@@ -20,40 +20,37 @@ GLOBAL.TUNING.SOLARLANTERN_LIGHT_RADIUS = 4
 STRINGS.NAMES.SOLARLANTERN = "Solar Lantern"
 STRINGS.RECIPE_DESC.SOLARLANTERN = "A lantern that only drinks from the sun — no fuel item will ever refill it, only standing in daylight will."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARLANTERN = "A lantern that only drinks from the sun — no fuel item will ever refill it, only standing in daylight will."
-GLOBAL.TUNING.SUNSTAFF_DAMAGE = 0
-STRINGS.NAMES.SUNSTAFF = "Sun Staff"
-STRINGS.RECIPE_DESC.SUNSTAFF = "A staff that channels whatever spells are bound in her Sun Codex."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNSTAFF = "A staff that channels whatever spells are bound in her Sun Codex."
+GLOBAL.TUNING.SUNCODEX_DAMAGE = 0
 STRINGS.NAMES.SUNCODEX = "Sun Codex"
-STRINGS.RECIPE_DESC.SUNCODEX = "Holds up to 3 spells at once — whatever is bound here is what the Sun Staff can cast."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNCODEX = "Holds up to 3 spells at once — whatever is bound here is what the Sun Staff can cast."
+STRINGS.RECIPE_DESC.SUNCODEX = "Holds up to 3 spells at once and channels whatever is bound inside — hold Alt and click to open it."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNCODEX = "Holds up to 3 spells at once and channels whatever is bound inside — hold Alt and click to open it."
 STRINGS.NAMES.EMBERWISPSPELL = "Ember Wisp Spell"
-STRINGS.RECIPE_DESC.EMBERWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff summon a warm, floating ember of light where she aims."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.EMBERWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff summon a warm, floating ember of light where she aims."
+STRINGS.RECIPE_DESC.EMBERWISPSPELL = "Bind this in the Sun Codex to summon a warm, floating ember of light where she aims."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.EMBERWISPSPELL = "Bind this in the Sun Codex to summon a warm, floating ember of light where she aims."
 STRINGS.NAMES.SOLSTICEBLESSINGSPELL = "Solstice Blessing Spell"
-STRINGS.RECIPE_DESC.SOLSTICEBLESSINGSPELL = "Bind this in the Sun Codex to let the Sun Staff mend her wounds with the sun's warmth."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLSTICEBLESSINGSPELL = "Bind this in the Sun Codex to let the Sun Staff mend her wounds with the sun's warmth."
+STRINGS.RECIPE_DESC.SOLSTICEBLESSINGSPELL = "Bind this in the Sun Codex to mend her wounds with the sun's warmth."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLSTICEBLESSINGSPELL = "Bind this in the Sun Codex to mend her wounds with the sun's warmth."
 STRINGS.NAMES.SUNFEDSPELL = "Sunfed Spell"
-STRINGS.RECIPE_DESC.SUNFEDSPELL = "Bind this in the Sun Codex to let the Sun Staff feed her on sunlight alone."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNFEDSPELL = "Bind this in the Sun Codex to let the Sun Staff feed her on sunlight alone."
+STRINGS.RECIPE_DESC.SUNFEDSPELL = "Bind this in the Sun Codex to feed her on sunlight alone."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNFEDSPELL = "Bind this in the Sun Codex to feed her on sunlight alone."
 STRINGS.NAMES.SUNWISPSPELL = "Sun Wisp Spell"
-STRINGS.RECIPE_DESC.SUNWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff call a small fire spirit to where she aims — it stays glowing by her side afterward."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff call a small fire spirit to where she aims — it stays glowing by her side afterward."
+STRINGS.RECIPE_DESC.SUNWISPSPELL = "Bind this in the Sun Codex to call a small fire spirit to where she aims — it stays glowing by her side afterward."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNWISPSPELL = "Bind this in the Sun Codex to call a small fire spirit to where she aims — it stays glowing by her side afterward."
 STRINGS.NAMES.SOLARGATESPELL = "Solar Gate Spell"
-STRINGS.RECIPE_DESC.SOLARGATESPELL = "Bind this in the Sun Codex to let the Sun Staff raise a rift of light where she aims — step into it later to open the map and step out anywhere already explored."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARGATESPELL = "Bind this in the Sun Codex to let the Sun Staff raise a rift of light where she aims — step into it later to open the map and step out anywhere already explored."
+STRINGS.RECIPE_DESC.SOLARGATESPELL = "Bind this in the Sun Codex to raise a rift of light where she aims — step into it later to open the map and step out anywhere already explored."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARGATESPELL = "Bind this in the Sun Codex to raise a rift of light where she aims — step into it later to open the map and step out anywhere already explored."
 STRINGS.NAMES.SOLARBEAMSPELL = "Solar Beam Spell"
-STRINGS.RECIPE_DESC.SOLARBEAMSPELL = "Bind this in the Sun Codex to let the Sun Staff channel a beam of sunlight in front of her, burning anything it sweeps over."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARBEAMSPELL = "Bind this in the Sun Codex to let the Sun Staff channel a beam of sunlight in front of her, burning anything it sweeps over."
+STRINGS.RECIPE_DESC.SOLARBEAMSPELL = "Bind this in the Sun Codex to channel a beam of sunlight in front of her, burning anything it sweeps over."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARBEAMSPELL = "Bind this in the Sun Codex to channel a beam of sunlight in front of her, burning anything it sweeps over."
 STRINGS.NAMES.REFRACTIONSPELL = "Refraction Spell"
-STRINGS.RECIPE_DESC.REFRACTIONSPELL = "Bind this in the Sun Codex to let the Sun Staff turn her and any nearby allies into shimmering mirages, immune to harm for a short while."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.REFRACTIONSPELL = "Bind this in the Sun Codex to let the Sun Staff turn her and any nearby allies into shimmering mirages, immune to harm for a short while."
+STRINGS.RECIPE_DESC.REFRACTIONSPELL = "Bind this in the Sun Codex to turn her and any nearby allies into shimmering mirages, immune to harm for a short while."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.REFRACTIONSPELL = "Bind this in the Sun Codex to turn her and any nearby allies into shimmering mirages, immune to harm for a short while."
 STRINGS.NAMES.SOLARNOVASPELL = "Solar Nova Spell"
-STRINGS.RECIPE_DESC.SOLARNOVASPELL = "Bind this in the Sun Codex to let the Sun Staff burst a flare of sunlight where she aims, burning and locking in place anything caught in the blast."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARNOVASPELL = "Bind this in the Sun Codex to let the Sun Staff burst a flare of sunlight where she aims, burning and locking in place anything caught in the blast."
+STRINGS.RECIPE_DESC.SOLARNOVASPELL = "Bind this in the Sun Codex to burst a flare of sunlight where she aims, burning and locking in place anything caught in the blast."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARNOVASPELL = "Bind this in the Sun Codex to burst a flare of sunlight where she aims, burning and locking in place anything caught in the blast."
 STRINGS.NAMES.LIGHTPILLARSPELL = "Light Pillar Spell"
-STRINGS.RECIPE_DESC.LIGHTPILLARSPELL = "Bind this in the Sun Codex to let the Sun Staff raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.LIGHTPILLARSPELL = "Bind this in the Sun Codex to let the Sun Staff raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close."
+STRINGS.RECIPE_DESC.LIGHTPILLARSPELL = "Bind this in the Sun Codex to raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.LIGHTPILLARSPELL = "Bind this in the Sun Codex to raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close."
 GLOBAL.TUNING.SUNTOTEM_MAX_DURABILITY = 150
 GLOBAL.TUNING.SUNTOTEM_DRAIN_RATE = 0.1
 GLOBAL.TUNING.SUNTOTEM_RECHARGE_RATE = 0.3
@@ -80,11 +77,7 @@ STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARCHAKRAM = "Throw it and it bites five t
 AddRecipe2("solarlantern", { Ingredient("twigs", 2), Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 1) }, TECH.MAGIC_TWO, {
         image = "lantern.tex",
     }, { "MAGIC" })
-AddRecipe2("sunstaff", { Ingredient("twigs", 2), Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
-        atlas = "images/inventoryimages/sunstaff.xml",
-        image = "sunstaff.tex",
-    }, { "MAGIC" })
-AddRecipe2("suncodex", { Ingredient("papyrus", 2), Ingredient("goldnugget", 1) }, TECH.MAGIC_TWO, {
+AddRecipe2("suncodex", { Ingredient("twigs", 2), Ingredient("goldnugget", 3), Ingredient("nightmarefuel", 2), Ingredient("papyrus", 2) }, TECH.MAGIC_TWO, {
         atlas = "images/inventoryimages/suncodex.xml",
         image = "suncodex.tex",
     }, { "MAGIC" })
@@ -126,7 +119,6 @@ AddRecipe2("solarchakram", { Ingredient("goldnugget", 2), Ingredient("nightmaref
     }, { "MAGIC" })
 
 -- Items: register custom inventory icon atlases (simutil.lua GetInventoryItemAtlas)
-GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/sunstaff.xml", "sunstaff.tex")
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/suncodex.xml", "suncodex.tex")
 
 -- Solar battery charge action (shared by every solar battery item)
@@ -165,6 +157,28 @@ AddComponentAction("EQUIPPED", "spellbook", function(inst, doer, target, actions
         elseif inst.components.spellbook:CanBeUsedBy(doer) then
             table.insert(actions, ACTIONS.USESPELLBOOK)
         end
+    end
+end)
+
+-- Alt+click opens a container-and-spellbook item instead of casting (patterns.md#74)
+local ACTIONS = GLOBAL.ACTIONS
+local TheInput = GLOBAL.TheInput
+local KEY_ALT = GLOBAL.KEY_ALT
+
+local OPENCODEX_ACTION = AddAction("OPENCODEX", "Open", function(act)
+    local targ = act.invobject or act.target
+    if targ ~= nil and targ.components.container ~= nil then
+        targ.components.container:Open(act.doer)
+        return true
+    end
+    return false
+end)
+OPENCODEX_ACTION.priority = 3
+OPENCODEX_ACTION.instant = true
+
+AddComponentAction("INVENTORY", "container", function(inst, doer, actions, right)
+    if TheInput:IsKeyDown(KEY_ALT) then
+        table.insert(actions, ACTIONS.OPENCODEX)
     end
 end)
 

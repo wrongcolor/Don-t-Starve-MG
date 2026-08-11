@@ -405,6 +405,38 @@ describe('generateModMain', () => {
     expect(generateModMain(noSpellbook)).not.toContain('"spellbook"')
   })
 
+  // Confirmed real APIs (docs/dst-knowledge/patterns.md#74): an item that's
+  // both a container and a spellbook caster can't offer "open" and "cast"
+  // through the same click — the real action picker only ever runs the
+  // single highest-priority collected action, and USESPELLBOOK's priority
+  // (2) always beats the real container action RUMMAGE's (-1). Alt+click
+  // wins that race instead via a brand-new, higher-priority OPENCODEX action.
+  it('wires an Alt+click OPENCODEX action once when at least one item is both a container and a spellbook', () => {
+    const withCodex = {
+      ...sampleProject,
+      items: [
+        {
+          ...sampleProject.items[0],
+          id: 'testcodexstaff',
+          container: { source: 'own' as const, widget: { source: 'vanilla' as const, reusePrefab: 'treasurechest' }, sideWidget: false },
+          spellbook: { source: 'linkedContainer' as const, containerItemId: 'testcodexstaff' },
+        },
+        ...sampleProject.items.slice(1),
+      ],
+    }
+    const codexCode = generateModMain(withCodex)
+    expect(codexCode).toContain('local OPENCODEX_ACTION = AddAction("OPENCODEX", "Open", function(act)')
+    expect(codexCode).toContain('targ.components.container:Open(act.doer)')
+    expect(codexCode).toContain('OPENCODEX_ACTION.priority = 3')
+    expect(codexCode).toContain('AddComponentAction("INVENTORY", "container", function(inst, doer, actions, right)')
+    expect(codexCode).toContain('if TheInput:IsKeyDown(KEY_ALT) then')
+    expect(codexCode.split('AddAction("OPENCODEX"').length - 1).toBe(1)
+  })
+
+  it('does not wire the OPENCODEX action when no item is both a container and a spellbook', () => {
+    expect(code).not.toContain('OPENCODEX')
+  })
+
   // Confirmed real APIs (docs/dst-knowledge/patterns.md#73): mirrors the
   // real Vault Orb pair — STARTSPELLPORTAL is a normal right-click action
   // (needs AddComponentAction("SCENE", ...), since the portal is a placed
