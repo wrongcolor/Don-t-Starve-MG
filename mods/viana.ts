@@ -220,7 +220,7 @@ export const viana: ModProject = {
       spellDef: {
         label: 'Solar Nova',
         manaCost: 45,
-        nova: { damage: 40, radius: 5, stunSeconds: 3 },
+        nova: { damage: 40, radius: 6, stunSeconds: 3 },
       },
       recipe: {
         ingredients: [
