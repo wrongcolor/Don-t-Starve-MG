@@ -707,6 +707,25 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
       if (spell.beam !== undefined) {
         lines.push(`            inst.components.aoetargeting:SetRange(${spell.beam.range})`)
       }
+      // Confirmed real prefabs (prefabs/reticuleaoe.lua): every real aimed
+      // spell explicitly sets its own reticuleprefab/pingprefab in onselect
+      // (waxwelljournal.lua's own SPELLS table never leaves it implicit) —
+      // reticule state is mutated in place on the shared aoetargeting
+      // component, so switching from a radius spell to a summon-point one in
+      // the same wheel would otherwise leak the previous ring shape.
+      // "reticuleaoe"/"reticuleaoeping" is the generic, no-radius-suffix AOE
+      // ring pair real vanilla itself falls back to when a spell has no
+      // dedicated size variant — there's no way to scale a ring to an
+      // arbitrary configured radius, only pick between a handful of
+      // fixed-size baked animations, so this is an approximate "this is an
+      // area effect" cue, not a to-scale preview.
+      if (spell.nova !== undefined || spell.cage !== undefined) {
+        lines.push('            inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"')
+        lines.push('            inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"')
+      } else {
+        lines.push('            inst.components.aoetargeting.reticule.reticuleprefab = "reticule"')
+        lines.push('            inst.components.aoetargeting.reticule.pingprefab = nil')
+      }
       // Confirmed against the real prefabs/ghostcommand_defs.lua: onselect
       // runs on BOTH client and server (it's what the wheel widget calls
       // straight from a mouse click — see spellbook.lua's own "client and
@@ -892,6 +911,18 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('                    inst.components.spellbook:SetSpellFn(nil)')
   lines.push('                    if beamrange ~= "" then')
   lines.push('                        inst.components.aoetargeting:SetRange(tonumber(beamrange))')
+  lines.push('                    end')
+  // See the static-spellbook onselect's own comment for why this is always
+  // set explicitly, never left implicit — reticule state is shared/mutated
+  // in place on the item's aoetargeting component across every spell in the
+  // wheel. "reticuleaoe"/"reticuleaoeping" is the generic AOE ring pair,
+  // an approximate area cue (not to-scale to novaradius/cageradius).
+  lines.push('                    if novadamage ~= "" or cageprefab ~= "" then')
+  lines.push('                        inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"')
+  lines.push('                        inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"')
+  lines.push('                    else')
+  lines.push('                        inst.components.aoetargeting.reticule.reticuleprefab = "reticule"')
+  lines.push('                        inst.components.aoetargeting.reticule.pingprefab = nil')
   lines.push('                    end')
   // See the static-spellbook onselect's own comment: aoespell is server-only,
   // but onselect runs on both sides (confirmed via ghostcommand_defs.lua),

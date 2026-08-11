@@ -250,6 +250,13 @@ local function rebuild_spellbook_items(user)
                     if beamrange ~= "" then
                         inst.components.aoetargeting:SetRange(tonumber(beamrange))
                     end
+                    if novadamage ~= "" or cageprefab ~= "" then
+                        inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"
+                        inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"
+                    else
+                        inst.components.aoetargeting.reticule.reticuleprefab = "reticule"
+                        inst.components.aoetargeting.reticule.pingprefab = nil
+                    end
                     if TheWorld.ismastersim then
                         inst.components.aoespell:SetSpellFn(cast)
                     end

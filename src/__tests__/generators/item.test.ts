@@ -1012,6 +1012,60 @@ describe('generateItemFiles', () => {
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
+  // Confirmed real prefabs (prefabs/reticuleaoe.lua): reticuleaoe/
+  // reticuleaoeping have no numbered size variant baked in (unlike
+  // reticuleaoe_1_6/reticuleaoe_1d2_12), so they're the generic
+  // approximate-area cue real vanilla itself falls back to — there's no
+  // config field to scale a ring to an arbitrary radius. Only nova/cage
+  // (the two effects with a real blast/effect radius) get it; a plain aimed
+  // summon or a beam keeps the default point reticule, and it must be set
+  // explicitly every time (not just added for nova/cage) since the wheel
+  // shares one aoetargeting component across every spell — otherwise
+  // picking Nova then switching to a summon-point spell would leave the
+  // ring showing from the previous selection.
+  it('shows an AOE ring reticule for a static nova/cage spell, but the plain point reticule for an aimed summon', () => {
+    const code = generateItemPrefab({
+      ...trinket,
+      id: 'testreticulestaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          { label: 'Nova', nova: { damage: 40, radius: 5, stunSeconds: 3 } },
+          { label: 'Cage', cage: { pillarPrefab: 'lightpillar', radius: 6, pillarCount: 8, rootedSeconds: 8 } },
+          { label: 'Summon', summonPrefab: 'firefly', aimed: true },
+        ],
+      },
+    })
+    const novaEntry = code.slice(code.indexOf('label = "Nova"'), code.indexOf('label = "Cage"'))
+    expect(novaEntry).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"')
+    expect(novaEntry).toContain('inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"')
+
+    const cageEntry = code.slice(code.indexOf('label = "Cage"'), code.indexOf('label = "Summon"'))
+    expect(cageEntry).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"')
+    expect(cageEntry).toContain('inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"')
+
+    const summonEntry = code.slice(code.indexOf('label = "Summon"'))
+    expect(summonEntry).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticule"')
+    expect(summonEntry).toContain('inst.components.aoetargeting.reticule.pingprefab = nil')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('picks the AOE ring reticule at runtime for a linkedContainer spell based on the decoded nova/cage fields', () => {
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkedreticulestaff',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const code = generateItemPrefab(linked)
+    expect(code).toContain('if novadamage ~= "" or cageprefab ~= "" then')
+    expect(code).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"')
+    expect(code).toContain('inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"')
+    expect(code).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticule"')
+    expect(code).toContain('inst.components.aoetargeting.reticule.pingprefab = nil')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
   it('rejects an item with both spellbook and spellEffect set', () => {
     const both: ItemDef = {
       ...trinket,
