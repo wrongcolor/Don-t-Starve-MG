@@ -893,6 +893,10 @@ describe('generateItemFiles', () => {
     const code = generateItemPrefab(flashbangStaff)
     expect(code).toContain('local function DoSpellFlashbang(user, flashbang)')
     expect(code).toContain('local victims = TheSim:FindEntities(x, y, z, flashbang.radius, nil, { "INLIMBO", "player" })')
+    expect(code).toContain(
+      'local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user',
+    )
+    expect(code).toContain('if victim.components.freezable ~= nil and not isowncompanion then')
     expect(code).toContain('victim.components.freezable:Freeze(flashbang.stun)')
     expect(code).toContain('DoSpellFlashbang(user, { radius = 8, stun = 3 })')
 

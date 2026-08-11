@@ -3767,6 +3767,15 @@ mesma `Freezable:Freeze(freezetime)` — mas com DOIS ajustes:
 Centrado nela mesma (`user.Transform:GetWorldPosition()`, sem `pos`) —
 mesmo padrão do `refraction` (patterns.md#72), não do `nova`.
 
+**Ajuste posterior**: o usuário perguntou se dava pra poupar os próprios
+companions da Viana (Sun Orb/Sun Wisp) do stun. Confirmado real:
+`CreatureDef.companion` usa o mesmo componente `follower` real de todo
+seguidor vanilla (Chester, Abigail — `needsFollower` em `creature.ts`), e
+`components.follower:GetLeader()` é a forma direta de checar de quem é o
+companion. `DoSpellFlashbang` agora pula qualquer vítima cujo
+`follower:GetLeader() == user` — poupa só os companions DELA (quem lançou o
+feitiço), não os de qualquer outro jogador por perto.
+
 **Implementado:**
 - `spellbookSpellSchema.flashbang` (`src/types/modProject.ts`) —
   `{ radius, stunSeconds }`, mesmo shape de `nova` menos o `damage`.
@@ -3792,7 +3801,11 @@ mesmo padrão do `refraction` (patterns.md#72), não do `nova`.
   feitiço da Viana).
 
 **O que NÃO foi testado em jogo**: se o raio/duração escolhidos (8/4s) têm
-uma sensação boa em combate real, e se atordoar os próprios companions da
-Viana (Sun Orb/Sun Wisp/portal) — a busca não os exclui de propósito, já que
-o pedido foi "toda criatura" — é o comportamento desejado ou um efeito
-colateral indesejado.
+uma sensação boa em combate real, e se `follower:GetLeader() == user`
+realmente resolve pro caster certo quando o feitiço vem do modo
+`linkedContainer` (onde `user` é quem a `rebuild_spellbook_items`/`FindCodex`
+resolveu como dono do item, patterns.md#74) e não só no modo `static`.
+Nenhum dos companions atuais da Viana (Sun Orb/Sun Wisp) tem
+`freezable: true` hoje, então nem chegam a entrar no `if` — o portal
+(`sunportal`) também não, e não é `companion` (é `mapPortal`), então essa
+exclusão não o afeta nem seria a ferramenta certa pra isso.

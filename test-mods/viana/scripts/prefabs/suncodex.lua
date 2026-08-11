@@ -110,7 +110,8 @@ local function DoSpellFlashbang(user, flashbang)
     local x, y, z = user.Transform:GetWorldPosition()
     local victims = TheSim:FindEntities(x, y, z, flashbang.radius, nil, { "INLIMBO", "player" })
     for _, victim in ipairs(victims) do
-        if victim.components.freezable ~= nil then
+        local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user
+        if victim.components.freezable ~= nil and not isowncompanion then
             victim.components.freezable:Freeze(flashbang.stun)
         end
     end

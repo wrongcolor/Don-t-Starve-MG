@@ -525,13 +525,19 @@ function solarRefractionHelperFunctionBlock(): string[] {
 // a wide net (no oneOfTags at all, unlike nova's {"hostile"} requirement),
 // catching every creature in range regardless of hostile/neutral/passive
 // status. Pure stun via Freezable:Freeze, no damage/health check needed.
+// The caster's own companion (CreatureDef.companion, see needsFollower in
+// creature.ts) uses the same real "follower" component every vanilla
+// follower (Chester, Abigail) does — components.follower:GetLeader() is the
+// direct, real way to check whose companion an entity is, so her own
+// summons are spared from her own blast without excluding anyone else's.
 function flashbangHelperFunctionBlock(): string[] {
   return [
     'local function DoSpellFlashbang(user, flashbang)',
     '    local x, y, z = user.Transform:GetWorldPosition()',
     '    local victims = TheSim:FindEntities(x, y, z, flashbang.radius, nil, { "INLIMBO", "player" })',
     '    for _, victim in ipairs(victims) do',
-    '        if victim.components.freezable ~= nil then',
+    '        local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user',
+    '        if victim.components.freezable ~= nil and not isowncompanion then',
     '            victim.components.freezable:Freeze(flashbang.stun)',
     '        end',
     '    end',
