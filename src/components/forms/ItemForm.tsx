@@ -60,6 +60,7 @@ interface SpellFieldsRowProps {
   beamEnabled: boolean
   novaEnabled: boolean
   refractionEnabled: boolean
+  flashbangEnabled: boolean
 }
 
 function SpellFieldsRow({
@@ -70,6 +71,7 @@ function SpellFieldsRow({
   beamEnabled,
   novaEnabled,
   refractionEnabled,
+  flashbangEnabled,
 }: SpellFieldsRowProps) {
   return (
     <>
@@ -260,6 +262,40 @@ function SpellFieldsRow({
             />
           </>
         )}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input
+            type="checkbox"
+            checked={flashbangEnabled}
+            onChange={(e) =>
+              setValue(`${namePrefix}.flashbang` as const, e.target.checked ? { radius: 8, stunSeconds: 3 } : undefined, {
+                shouldDirty: true,
+              })
+            }
+          />
+          Stuns every creature nearby (not players, no damage, no aiming needed)
+        </label>
+        {flashbangEnabled && (
+          <>
+            <input
+              type="number"
+              step="1"
+              min="1"
+              className="qty-input"
+              placeholder="Radius"
+              title="How far from the caster the flash reaches"
+              {...register(`${namePrefix}.flashbang.radius` as const, { valueAsNumber: true })}
+            />
+            <input
+              type="number"
+              step="0.5"
+              min="0.5"
+              className="qty-input"
+              placeholder="Stun sec"
+              title="How many seconds every non-player creature caught in it is frozen in place for"
+              {...register(`${namePrefix}.flashbang.stunSeconds` as const, { valueAsNumber: true })}
+            />
+          </>
+        )}
       </div>
     </>
   )
@@ -273,6 +309,7 @@ interface SpellbookEditorProps {
   watchedBeamFlags: boolean[]
   watchedNovaFlags: boolean[]
   watchedRefractionFlags: boolean[]
+  watchedFlashbangFlags: boolean[]
 }
 
 // Owns the spells field array itself, mounted only while the spellbook is
@@ -293,6 +330,7 @@ function SpellbookEditor({
   watchedBeamFlags,
   watchedNovaFlags,
   watchedRefractionFlags,
+  watchedFlashbangFlags,
 }: SpellbookEditorProps) {
   const spells = useFieldArray({ control, name: 'spellbook.spells' as never })
 
@@ -308,6 +346,7 @@ function SpellbookEditor({
             beamEnabled={watchedBeamFlags[index] ?? false}
             novaEnabled={watchedNovaFlags[index] ?? false}
             refractionEnabled={watchedRefractionFlags[index] ?? false}
+            flashbangEnabled={watchedFlashbangFlags[index] ?? false}
           />
           <button type="button" className={btnDanger} onClick={() => spells.remove(index)}>
             Remove
@@ -974,6 +1013,9 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       watchedRefractionFlags={(watched.spellbook?.source === 'static' ? watched.spellbook.spells : []).map(
                         (s) => s.refraction !== undefined,
                       )}
+                      watchedFlashbangFlags={(watched.spellbook?.source === 'static' ? watched.spellbook.spells : []).map(
+                        (s) => s.flashbang !== undefined,
+                      )}
                     />
                   ) : (
                     <FormField
@@ -1579,6 +1621,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   beamEnabled={watched.spellDef?.beam !== undefined}
                   novaEnabled={watched.spellDef?.nova !== undefined}
                   refractionEnabled={watched.spellDef?.refraction !== undefined}
+                  flashbangEnabled={watched.spellDef?.flashbang !== undefined}
                 />
               </div>
             )}

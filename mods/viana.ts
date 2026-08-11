@@ -232,6 +232,26 @@ export const viana: ModProject = {
       },
     },
     {
+      id: 'flashbangspell',
+      displayName: 'Flashbang Spell',
+      description: 'Bind this in the Sun Codex to release a blinding flash around her, stunning every creature nearby — players are unaffected.',
+      category: 'generic',
+      animation: { source: 'vanilla', build: 'papyrus' },
+      spellDef: {
+        label: 'Flashbang',
+        manaCost: 40,
+        flashbang: { radius: 8, stunSeconds: 4 },
+      },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 2 },
+          { prefab: 'nightmarefuel', amount: 3 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+      },
+    },
+    {
       id: 'lightpillarspell',
       displayName: 'Light Pillar Spell',
       description: 'Bind this in the Sun Codex to raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close.',

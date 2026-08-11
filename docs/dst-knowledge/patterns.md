@@ -3743,3 +3743,56 @@ da roda (a lógica de prioridade foi confirmada lendo o código-fonte real, não
 reproduzida ao vivo), e se `GetEquippedItem(EQUIPSLOTS.HANDS)` realmente
 resolve pro item certo no exato instante em que `RefreshSpellbookItems`
 roda logo após equipar.
+
+## 75. Um feitiço SEM mira que atordoa TODA criatura próxima (menos jogadores) — `flashbang` — **implementado**
+
+Motivação: novo feitiço da Viana, Flashbang — pedido original foi "todas as
+criaturas (não jogadores) ficam atordoadas após a utilização desse feitiço".
+Perguntei se tinha mira (tipo Solar Nova) ou centrado nela mesma (tipo
+Refraction) — o usuário escolheu centrado nela mesma.
+
+**Confirmado, mecanismo real**: quase idêntico ao `nova` (patterns.md#71) —
+mesma `Freezable:Freeze(freezetime)` — mas com DOIS ajustes:
+- `nova` exige a tag `"hostile"` (`TheSim:FindEntities(..., radius,
+  {"hostile"})`); o pedido era "TODA criatura", não só hostil. Trocado pro
+  padrão de 5 argumentos já confirmado em `solarBeamHelperFunctionBlock`
+  (`TheSim:FindEntities(x, y, z, radius, mustTags, cantTags, oneOfTags)`) —
+  `mustTags = nil` (não exige tag nenhuma) e `cantTags = {"INLIMBO",
+  "player"}` (exclui só jogador/limbo), sem `oneOfTags` — pega qualquer
+  criatura no raio, hostil, neutra ou passiva.
+- Sem dano (`nova` sempre causa dano + atordoa; o pedido só menciona
+  atordoar) — `DoSpellFlashbang` só chama `Freeze`, não mexe em
+  `components.health`.
+
+Centrado nela mesma (`user.Transform:GetWorldPosition()`, sem `pos`) —
+mesmo padrão do `refraction` (patterns.md#72), não do `nova`.
+
+**Implementado:**
+- `spellbookSpellSchema.flashbang` (`src/types/modProject.ts`) —
+  `{ radius, stunSeconds }`, mesmo shape de `nova` menos o `damage`.
+  Adicionado ao refine "a spell needs to do something".
+- `src/generators/item.ts`: `spellFlashbangLuaTable` +
+  `flashbangHelperFunctionBlock` (`DoSpellFlashbang`) — usados tanto no modo
+  `static` (`staticSpellbookFunctionBlock`, helper condicional igual
+  beam/nova/refraction) quanto no `linkedContainer`
+  (`linkedContainerSpellbookFunctionBlock`, helper incondicional, igual os
+  outros três). `spellDefComponentBlock` grava `inst.spell_flashbang` na
+  página. `containerComponentBlock`'s `UpdateSpellContents` ganhou mais 2
+  campos codificados no payload (`flashbangradius`/`flashbangstun`, campos
+  18/19 — os primeiros 17 já documentados em patterns.md#61/#69/#71/#72
+  continuam nos mesmos índices).
+- UI (`ItemForm.tsx`): checkbox "Stuns every creature nearby (not players, no
+  damage, no aiming needed)" + campos de raio/segundos, no mesmo
+  `SpellFieldsRow` compartilhado entre a lista `static` e o `spellDef` único
+  — precisou passar `flashbangEnabled`/`watchedFlashbangFlags` por todo o
+  encadeamento de props (`SpellFieldsRow` → `SpellbookEditor` → os dois
+  pontos de uso).
+- `mods/viana.ts`: o feitiço Flashbang (`spellDef.flashbang: { radius: 8,
+  stunSeconds: 4 }`, sem `aimed`, reaproveita o build "papyrus" como todo
+  feitiço da Viana).
+
+**O que NÃO foi testado em jogo**: se o raio/duração escolhidos (8/4s) têm
+uma sensação boa em combate real, e se atordoar os próprios companions da
+Viana (Sun Orb/Sun Wisp/portal) — a busca não os exclui de propósito, já que
+o pedido foi "toda criatura" — é o comportamento desejado ou um efeito
+colateral indesejado.

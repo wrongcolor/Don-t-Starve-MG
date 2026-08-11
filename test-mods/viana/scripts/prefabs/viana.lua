@@ -106,7 +106,7 @@ local function common_postinit(inst)
 end
 
 local function master_postinit(inst)
-    inst.starting_inventory = { "sunstaff", "suncodex" }
+    inst.starting_inventory = { "suncodex" }
 
     inst.components.health:SetMaxHealth(TUNING.VIANA_HEALTH)
     inst.components.hunger:SetMax(TUNING.VIANA_HUNGER)

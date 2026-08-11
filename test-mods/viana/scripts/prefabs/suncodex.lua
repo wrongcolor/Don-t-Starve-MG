@@ -106,6 +106,16 @@ local function DoSpellRefraction(user, refraction)
     end
 end
 
+local function DoSpellFlashbang(user, flashbang)
+    local x, y, z = user.Transform:GetWorldPosition()
+    local victims = TheSim:FindEntities(x, y, z, flashbang.radius, nil, { "INLIMBO", "player" })
+    for _, victim in ipairs(victims) do
+        if victim.components.freezable ~= nil then
+            victim.components.freezable:Freeze(flashbang.stun)
+        end
+    end
+end
+
 local function FindCodex(user)
     local codex = user.replica.inventory ~= nil and user.replica.inventory:FindItem(function(item)
         return item.prefab == "suncodex"
@@ -133,10 +143,12 @@ local function rebuild_spellbook_items(user)
         end
         local label, manacost, healthdelta, sanitydelta, hungerdelta, summonprefab,
             isaimed, beamdamage, beamtickinterval, beamrange, beamduration, beamtelegraph,
-            novadamage, novaradius, novastun, refractionradius, refractionduration =
+            novadamage, novaradius, novastun, refractionradius, refractionduration,
+            flashbangradius, flashbangstun =
             fields[1], fields[2], fields[3], fields[4], fields[5], fields[6],
             fields[7], fields[8], fields[9], fields[10], fields[11], fields[12],
-            fields[13], fields[14], fields[15], fields[16], fields[17]
+            fields[13], fields[14], fields[15], fields[16], fields[17],
+            fields[18], fields[19]
         table.insert(items, {
             label = label,
             checkenabled = function(owner) return manacost == "" or owner.mana_current == nil or owner.mana_current:value() >= tonumber(manacost) end,
@@ -183,6 +195,9 @@ local function rebuild_spellbook_items(user)
                     end
                     if refractionradius ~= "" then
                         DoSpellRefraction(user, { radius = tonumber(refractionradius), duration = tonumber(refractionduration) })
+                    end
+                    if flashbangradius ~= "" then
+                        DoSpellFlashbang(user, { radius = tonumber(flashbangradius), stun = tonumber(flashbangstun) })
                     end
                     if inst.components.finiteuses ~= nil then
                         inst.components.finiteuses:Use(1)
@@ -284,6 +299,7 @@ local function fn()
                 local beam = slotitem.spell_beam
                 local nova = slotitem.spell_nova
                 local refraction = slotitem.spell_refraction
+                local flashbang = slotitem.spell_flashbang
                 table.insert(parts, table.concat({
                     slotitem.spell_label,
                     tostring(slotitem.spell_manacost or ""),
@@ -302,6 +318,8 @@ local function fn()
                     nova ~= nil and tostring(nova.stun) or "",
                     refraction ~= nil and tostring(refraction.radius) or "",
                     refraction ~= nil and tostring(refraction.duration) or "",
+                    flashbang ~= nil and tostring(flashbang.radius) or "",
+                    flashbang ~= nil and tostring(flashbang.stun) or "",
                 }, "\31"))
             end
         end

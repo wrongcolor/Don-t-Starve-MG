@@ -385,6 +385,10 @@ function spellRefractionLuaTable(refraction: NonNullable<SpellbookSpell['refract
   return `{ radius = ${refraction.radius}, duration = ${refraction.immuneSeconds} }`
 }
 
+function spellFlashbangLuaTable(flashbang: NonNullable<SpellbookSpell['flashbang']>): string {
+  return `{ radius = ${flashbang.radius}, stun = ${flashbang.stunSeconds} }`
+}
+
 // Confirmed against the real game scripts (components/aoespell.lua,
 // components/aoetargeting.lua, prefabs/abigail_flower.lua +
 // prefabs/ghostcommand_defs.lua — see docs/dst-knowledge/patterns.md#69):
@@ -515,6 +519,27 @@ function solarRefractionHelperFunctionBlock(): string[] {
   ]
 }
 
+// Confirmed real APIs: TheSim:FindEntities(..., radius, nil, {"INLIMBO",
+// "player"}) — the same "exclude, don't require" cantTags scan
+// solarBeamHelperFunctionBlock already uses for its own damage tick — casts
+// a wide net (no oneOfTags at all, unlike nova's {"hostile"} requirement),
+// catching every creature in range regardless of hostile/neutral/passive
+// status. Pure stun via Freezable:Freeze, no damage/health check needed.
+function flashbangHelperFunctionBlock(): string[] {
+  return [
+    'local function DoSpellFlashbang(user, flashbang)',
+    '    local x, y, z = user.Transform:GetWorldPosition()',
+    '    local victims = TheSim:FindEntities(x, y, z, flashbang.radius, nil, { "INLIMBO", "player" })',
+    '    for _, victim in ipairs(victims) do',
+    '        if victim.components.freezable ~= nil then',
+    '            victim.components.freezable:Freeze(flashbang.stun)',
+    '        end',
+    '    end',
+    'end',
+    '',
+  ]
+}
+
 function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   const lines: string[] = []
   const hasAimedSpell = spells.some(isAimedSpell)
@@ -529,6 +554,9 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   }
   if (spells.some((spell) => spell.refraction !== undefined)) {
     lines.push(...solarRefractionHelperFunctionBlock())
+  }
+  if (spells.some((spell) => spell.flashbang !== undefined)) {
+    lines.push(...flashbangHelperFunctionBlock())
   }
 
   spells.forEach((spell, index) => {
@@ -563,6 +591,9 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
     }
     if (spell.refraction !== undefined) {
       lines.push(`    DoSpellRefraction(user, ${spellRefractionLuaTable(spell.refraction)})`)
+    }
+    if (spell.flashbang !== undefined) {
+      lines.push(`    DoSpellFlashbang(user, ${spellFlashbangLuaTable(spell.flashbang)})`)
     }
     lines.push('    if inst.components.finiteuses ~= nil then')
     lines.push('        inst.components.finiteuses:Use(1)')
@@ -669,6 +700,7 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push(...solarBeamHelperFunctionBlock())
   lines.push(...solarNovaHelperFunctionBlock())
   lines.push(...solarRefractionHelperFunctionBlock())
+  lines.push(...flashbangHelperFunctionBlock())
   // Confirmed in the real components/inventory.lua (server) and prefabs/
   // inventory_classified.lua (client): the replica's own FindItem only
   // scans itemslots/activeitem/overflow — it never checks equipslots (that's
@@ -708,10 +740,12 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('        end')
   lines.push('        local label, manacost, healthdelta, sanitydelta, hungerdelta, summonprefab,')
   lines.push('            isaimed, beamdamage, beamtickinterval, beamrange, beamduration, beamtelegraph,')
-  lines.push('            novadamage, novaradius, novastun, refractionradius, refractionduration =')
+  lines.push('            novadamage, novaradius, novastun, refractionradius, refractionduration,')
+  lines.push('            flashbangradius, flashbangstun =')
   lines.push('            fields[1], fields[2], fields[3], fields[4], fields[5], fields[6],')
   lines.push('            fields[7], fields[8], fields[9], fields[10], fields[11], fields[12],')
-  lines.push('            fields[13], fields[14], fields[15], fields[16], fields[17]')
+  lines.push('            fields[13], fields[14], fields[15], fields[16], fields[17],')
+  lines.push('            fields[18], fields[19]')
   lines.push('        table.insert(items, {')
   lines.push('            label = label,')
   // Same real widgets/wheel.lua checkenabled convention, and the same
@@ -770,6 +804,9 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('                    end')
   lines.push('                    if refractionradius ~= "" then')
   lines.push('                        DoSpellRefraction(user, { radius = tonumber(refractionradius), duration = tonumber(refractionduration) })')
+  lines.push('                    end')
+  lines.push('                    if flashbangradius ~= "" then')
+  lines.push('                        DoSpellFlashbang(user, { radius = tonumber(flashbangradius), stun = tonumber(flashbangstun) })')
   lines.push('                    end')
   lines.push('                    if inst.components.finiteuses ~= nil then')
   lines.push('                        inst.components.finiteuses:Use(1)')
@@ -921,6 +958,9 @@ function spellDefComponentBlock(item: ItemDef): string[] {
   }
   if (spell.refraction !== undefined) {
     lines.push(`    inst.spell_refraction = ${spellRefractionLuaTable(spell.refraction)}`)
+  }
+  if (spell.flashbang !== undefined) {
+    lines.push(`    inst.spell_flashbang = ${spellFlashbangLuaTable(spell.flashbang)}`)
   }
   if (spell.aimed) {
     lines.push('    inst.spell_aimed = true')
@@ -1210,6 +1250,7 @@ function containerComponentBlock(item: ItemDef): string[] {
       '                local beam = slotitem.spell_beam',
       '                local nova = slotitem.spell_nova',
       '                local refraction = slotitem.spell_refraction',
+      '                local flashbang = slotitem.spell_flashbang',
       '                table.insert(parts, table.concat({',
       '                    slotitem.spell_label,',
       '                    tostring(slotitem.spell_manacost or ""),',
@@ -1228,6 +1269,8 @@ function containerComponentBlock(item: ItemDef): string[] {
       '                    nova ~= nil and tostring(nova.stun) or "",',
       '                    refraction ~= nil and tostring(refraction.radius) or "",',
       '                    refraction ~= nil and tostring(refraction.duration) or "",',
+      '                    flashbang ~= nil and tostring(flashbang.radius) or "",',
+      '                    flashbang ~= nil and tostring(flashbang.stun) or "",',
       '                }, "\\31"))',
       '            end',
       '        end',

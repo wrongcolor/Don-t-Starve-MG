@@ -4,7 +4,7 @@ local TUNING = GLOBAL.TUNING
 local TECH = GLOBAL.TECH
 local Ingredient = GLOBAL.Ingredient
 
-PrefabFiles = { "solarlantern", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solargatespell", "solarbeamspell", "refractionspell", "solarnovaspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "solarchakram_proj", "viana", "sunorb", "sunwisp", "lightpillar", "sunportal" }
+PrefabFiles = { "solarlantern", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solargatespell", "solarbeamspell", "refractionspell", "solarnovaspell", "flashbangspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "solarchakram_proj", "viana", "sunorb", "sunwisp", "lightpillar", "sunportal" }
 
 Assets = {
     Asset("ATLAS", "bigportraits/viana.xml"),
@@ -48,6 +48,9 @@ STRINGS.CHARACTERS.GENERIC.DESCRIBE.REFRACTIONSPELL = "Bind this in the Sun Code
 STRINGS.NAMES.SOLARNOVASPELL = "Solar Nova Spell"
 STRINGS.RECIPE_DESC.SOLARNOVASPELL = "Bind this in the Sun Codex to burst a flare of sunlight where she aims, burning and locking in place anything caught in the blast."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARNOVASPELL = "Bind this in the Sun Codex to burst a flare of sunlight where she aims, burning and locking in place anything caught in the blast."
+STRINGS.NAMES.FLASHBANGSPELL = "Flashbang Spell"
+STRINGS.RECIPE_DESC.FLASHBANGSPELL = "Bind this in the Sun Codex to release a blinding flash around her, stunning every creature nearby — players are unaffected."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.FLASHBANGSPELL = "Bind this in the Sun Codex to release a blinding flash around her, stunning every creature nearby — players are unaffected."
 STRINGS.NAMES.LIGHTPILLARSPELL = "Light Pillar Spell"
 STRINGS.RECIPE_DESC.LIGHTPILLARSPELL = "Bind this in the Sun Codex to raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.LIGHTPILLARSPELL = "Bind this in the Sun Codex to raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close."
@@ -103,6 +106,9 @@ AddRecipe2("refractionspell", { Ingredient("goldnugget", 2), Ingredient("nightma
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("solarnovaspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
+        image = "papyrus.tex",
+    }, { "MAGIC" })
+AddRecipe2("flashbangspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("lightpillarspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {

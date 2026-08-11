@@ -873,6 +873,72 @@ describe('generateItemFiles', () => {
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
+  // TheSim:FindEntities(..., radius, nil, {"INLIMBO", "player"}) casts a wide
+  // net (no oneOfTags requirement, unlike nova's {"hostile"}) — every
+  // creature in range gets caught regardless of hostile/neutral/passive
+  // status, players excluded. Pure stun via Freezable:Freeze, no damage.
+  // Never aimed, unlike beam/nova — it centers on the caster herself.
+  it('wires a static spell\'s flashbang as an unaimed self-centered stun that catches every non-player creature nearby', () => {
+    const flashbangStaff: ItemDef = {
+      ...trinket,
+      id: 'testflashbangstaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          { label: 'Flashbang', flashbang: { radius: 8, stunSeconds: 3 } },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(flashbangStaff)
+    expect(code).toContain('local function DoSpellFlashbang(user, flashbang)')
+    expect(code).toContain('local victims = TheSim:FindEntities(x, y, z, flashbang.radius, nil, { "INLIMBO", "player" })')
+    expect(code).toContain('victim.components.freezable:Freeze(flashbang.stun)')
+    expect(code).toContain('DoSpellFlashbang(user, { radius = 8, stun = 3 })')
+
+    // Unaimed: no aoetargeting/aoespell components, no ForceFacePoint, and
+    // the wheel entry stays on the instant CastSpellBookFromInv path.
+    expect(code).not.toContain('aoetargeting')
+    expect(code).not.toContain('aoespell')
+    expect(code).not.toContain('ForceFacePoint')
+    const flashbangEntryStart = code.indexOf('label = "Flashbang"')
+    const sparkEntryStart = code.indexOf('label = "Free Spark"')
+    const flashbangEntry = code.slice(flashbangEntryStart, sparkEntryStart)
+    expect(flashbangEntry).toContain('inst.components.spellbook:SetSpellFn(spellbook_cast_1)')
+    expect(flashbangEntry).toContain('inventory:CastSpellBookFromInv(inst)')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('omits the flashbang helper function from a static spellbook when no spell in it uses flashbang', () => {
+    const code = generateItemPrefab({
+      ...trinket,
+      id: 'testnoflashbangstaff',
+      spellbook: { source: 'static', spells: [{ label: 'A', summonPrefab: 'x' }, { label: 'B', summonPrefab: 'y' }] },
+    })
+    expect(code).not.toContain('DoSpellFlashbang')
+  })
+
+  it('sets inst.spell_flashbang on a spellDef item with a flashbang, and a linkedContainer staff casts it', () => {
+    const flashbangSpell: ItemDef = {
+      ...trinket,
+      id: 'testflashbangspell',
+      spellDef: { label: 'Flashbang', flashbang: { radius: 8, stunSeconds: 3 } },
+    }
+    expect(generateItemPrefab(flashbangSpell)).toContain('inst.spell_flashbang = { radius = 8, stun = 3 }')
+
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkedflashbangstaff',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const code = generateItemPrefab(linked)
+    expect(code).toContain('local function DoSpellFlashbang(user, flashbang)')
+    expect(code).toContain('if flashbangradius ~= "" then')
+    expect(code).toContain('DoSpellFlashbang(user, { radius = tonumber(flashbangradius), stun = tonumber(flashbangstun) })')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
   it('rejects an item with both spellbook and spellEffect set', () => {
     const both: ItemDef = {
       ...trinket,
@@ -1076,6 +1142,9 @@ describe('generateItemFiles', () => {
     expect(code).toContain('for slot = 1, inst.components.container.numslots do')
     expect(code).toContain('local slotitem = inst.components.container.slots[slot]')
     expect(code).toContain('if slotitem ~= nil and slotitem.spell_label ~= nil then')
+    expect(code).toContain('local flashbang = slotitem.spell_flashbang')
+    expect(code).toContain('flashbang ~= nil and tostring(flashbang.radius) or ""')
+    expect(code).toContain('flashbang ~= nil and tostring(flashbang.stun) or ""')
     expect(code).toContain('inst.spell_contents:set(table.concat(parts, "\\30"))')
     expect(code).toContain('inst:ListenForEvent("itemget", UpdateSpellContents)')
     expect(code).toContain('inst:ListenForEvent("itemlose", UpdateSpellContents)')

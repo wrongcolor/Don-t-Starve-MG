@@ -277,6 +277,19 @@ export const spellbookSpellSchema = z
         immuneSeconds: z.number().min(1).max(60),
       })
       .optional(),
+    // Confirmed real API: TheSim:FindEntities(..., radius, nil, {"INLIMBO",
+    // "player"}) is the same "exclude, don't require" cantTags scan
+    // solarBeamHelperFunctionBlock already uses for its own damage tick, just
+    // with no oneOfTags restriction at all — every non-player creature in
+    // range gets caught, not just "hostile"-tagged ones like nova above.
+    // Pure stun, no damage. Centered on the caster's own position, never
+    // aimed — same as refraction above.
+    flashbang: z
+      .object({
+        radius: z.number().min(1).max(20),
+        stunSeconds: z.number().min(0.5).max(30),
+      })
+      .optional(),
     // Confirmed in prefabs/abigail_flower.lua + ghostcommand_defs.lua (see
     // docs/dst-knowledge/patterns.md#69): lets a spell that summons something
     // spawn at a mouse-aimed point (via aoetargeting+aoespell) instead of
@@ -294,7 +307,8 @@ export const spellbookSpellSchema = z
       spell.hungerDelta !== undefined ||
       spell.beam !== undefined ||
       spell.nova !== undefined ||
-      spell.refraction !== undefined,
+      spell.refraction !== undefined ||
+      spell.flashbang !== undefined,
     {
       message: 'A spell needs to do something — set a prefab to summon and/or a health/sanity/hunger effect',
       path: ['summonPrefab'],
