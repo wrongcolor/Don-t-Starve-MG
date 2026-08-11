@@ -104,7 +104,7 @@ describe('StructureForm', () => {
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
     const saved = onSave.mock.calls[0][0]
-    expect(saved.interior).toEqual({ size: 'large' })
+    expect(saved.interior).toEqual({ size: 'large', decorations: [] })
   })
 
   it('enabling the dungeon checkbox reveals min/max room fields, and submits a maze with a bonus loot prefab', async () => {
@@ -134,7 +134,31 @@ describe('StructureForm', () => {
     const saved = onSave.mock.calls[0][0]
     expect(saved.interior).toEqual({
       size: 'tiny',
+      decorations: [],
       maze: { roomCount: { min: 3, max: 6 }, bonusLootPrefab: 'goldnugget' },
     })
+  })
+
+  it('adding a decoration row submits the prefab/offsets/chance inside interior.decorations', async () => {
+    const onSave = vi.fn()
+    render(<StructureForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_structure'), { target: { value: 'cozyhut' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Cozy Hut' } })
+    fireEvent.change(screen.getByLabelText('Description (inspect)'), { target: { value: 'Enter it' } })
+
+    fireEvent.click(screen.getByText('Walking through its door leads to a separate interior room'))
+    fireEvent.click(screen.getByText('+ Add decoration'))
+
+    fireEvent.change(screen.getByPlaceholderText('deco_roomglow'), { target: { value: 'deco_roomglow' } })
+    fireEvent.change(screen.getByTitle('X offset'), { target: { value: '-3' } })
+    fireEvent.change(screen.getByTitle('Z offset'), { target: { value: '2' } })
+    fireEvent.change(screen.getByTitle('Chance (blank = always)'), { target: { value: '0.5' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add structure' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.interior.decorations).toEqual([{ prefab: 'deco_roomglow', xOffset: -3, zOffset: 2, chance: 0.5 }])
   })
 })

@@ -18,7 +18,7 @@ export const hideawayHut: ModProject = {
       description: 'Looks small on the outside. Bigger on the inside.',
       animation: { source: 'vanilla', build: 'pig_house' },
       loot: [{ prefab: 'boards', chance: 0.5 }],
-      interior: { size: 'tiny' },
+      interior: { size: 'tiny', decorations: [{ prefab: 'deco_roomglow', xOffset: 0, zOffset: 0 }] },
       recipe: {
         ingredients: [
           { prefab: 'boards', amount: 4 },

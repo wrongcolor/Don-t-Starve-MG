@@ -1,4 +1,4 @@
-import type { StructureDef, RoomSize, InteriorMaze } from '../types/modProject'
+import type { StructureDef, RoomSize, InteriorMaze, InteriorDecoration } from '../types/modProject'
 import { luaString, sanitizeLuaComment, toUpperSnake } from './luaUtils'
 import { containerCustomWidgetBuild, linkedDimensionAttachFunctionBlock } from './item'
 
@@ -125,6 +125,18 @@ const ROOM_SIZE_TUNING: Record<RoomSize, string> = {
   large: 'LARGE',
 }
 
+// Confirmed in scripts/prefabs/interior_prop_defs.lua (PROP_DEFS.
+// playerhouse_city/PROP_DEFS.vampirebatcave) — every addprops entry is just
+// { name = <prefab>, x_offset, z_offset, chance }. `chance` (0-1, "sometimes
+// skip this one") is the real field name, confirmed across dozens of real
+// entries. Rotation/flip and the source mod's own more elaborate placement
+// math aren't modeled — a fixed offset per decoration is the curated subset.
+function decorationLuaFields(decoration: InteriorDecoration): string {
+  const fields = [`name = ${luaString(decoration.prefab)}`, `x_offset = ${decoration.xOffset}`, `z_offset = ${decoration.zOffset}`]
+  if (decoration.chance !== undefined) fields.push(`chance = ${decoration.chance}`)
+  return fields.join(', ')
+}
+
 // Confirmed directly in a real published Workshop mod ("Above the Clouds",
 // docs/dst-knowledge/patterns.md's interior section) — read
 // scripts/components/interiorspawner.lua, scripts/prefabs/playerhouse_city.lua
@@ -136,7 +148,7 @@ const ROOM_SIZE_TUNING: Record<RoomSize, string> = {
 // across save/load so CreateRoom only ever runs once per structure instance
 // — deferred one tick (DoTaskInTime(0, ...)) so a same-tick OnLoad has
 // already restored interiorID before this checks it.
-function singleRoomEnsureInteriorBlock(size: string): string[] {
+function singleRoomEnsureInteriorBlock(size: string, decorations: InteriorDecoration[]): string[] {
   return [
     'local function EnsureInterior(inst)',
     '    if inst.interiorID ~= nil then',
@@ -180,6 +192,7 @@ function singleRoomEnsureInteriorBlock(size: string): string[] {
     '                target_door_id = exterior_door_def.my_door_id,',
     '                is_exit = true,',
     '            },',
+    ...decorations.map((decoration) => `            { ${decorationLuaFields(decoration)} },`),
     '        },',
     '        exits = {},',
     '    })',
@@ -200,7 +213,7 @@ function singleRoomEnsureInteriorBlock(size: string): string[] {
 // rest of the real mod's reward/flavor system (secret rooms, vine-locked
 // doors, alternate palette, second exit, per-room decoration) is Pig-Ruins
 // specific and deliberately not modeled (see patterns.md).
-function mazeEnsureInteriorBlock(size: string, maze: InteriorMaze): string[] {
+function mazeEnsureInteriorBlock(size: string, maze: InteriorMaze, decorations: InteriorDecoration[]): string[] {
   const lines = [
     'local function EnsureInterior(inst)',
     '    if inst.interiorID ~= nil then',
@@ -327,6 +340,9 @@ function mazeEnsureInteriorBlock(size: string, maze: InteriorMaze): string[] {
       '        end',
     )
   }
+  for (const decoration of decorations) {
+    lines.push(`        table.insert(addprops, { ${decorationLuaFields(decoration)} })`)
+  }
   lines.push(
     '',
     '        interior_spawner:CreateRoom({',
@@ -356,6 +372,7 @@ function mazeEnsureInteriorBlock(size: string, maze: InteriorMaze): string[] {
 function interiorFunctionBlock(structure: StructureDef): string[] {
   const size = ROOM_SIZE_TUNING[structure.interior?.size ?? 'tiny']
   const maze = structure.interior?.maze
+  const decorations = structure.interior?.decorations ?? []
   return [
     'local function OnSave(inst, data)',
     '    data.interiorID = inst.interiorID',
@@ -367,7 +384,7 @@ function interiorFunctionBlock(structure: StructureDef): string[] {
     '    end',
     'end',
     '',
-    ...(maze ? mazeEnsureInteriorBlock(size, maze) : singleRoomEnsureInteriorBlock(size)),
+    ...(maze ? mazeEnsureInteriorBlock(size, maze, decorations) : singleRoomEnsureInteriorBlock(size, decorations)),
   ]
 }
 

@@ -768,6 +768,23 @@ export const interiorMazeSchema = z
     path: ['roomCount', 'max'],
   })
 
+// Confirmed in the same mod's scripts/prefabs/interior_prop_defs.lua (2734
+// lines, PROP_DEFS.playerhouse_city/PROP_DEFS.vampirebatcave) — every real
+// room's furniture/decoration is just entries in CreateRoom's own `addprops`
+// array: { name = <prefab>, x_offset, z_offset, chance }. `chance` is the
+// real field name for "sometimes skip this one" (confirmed across dozens of
+// PROP_DEFS entries, e.g. `{name = "flint", ..., chance = 0.5}`) — omitted
+// here means it always spawns, same as the real mod's own convention.
+// Rotation/flip and the room's own real, more elaborate placement math
+// (GetPosToCenter, per-room-type variety) aren't modeled — a fixed offset
+// per decoration is the curated, simplified subset.
+export const interiorDecorationSchema = z.object({
+  prefab: z.string().min(1, 'Enter the prefab to place (e.g. deco_roomglow)'),
+  xOffset: z.number(),
+  zOffset: z.number(),
+  chance: z.number().min(0.01).max(1).optional(),
+})
+
 export const structureDefSchema = z.object({
   id: luaIdentifier,
   displayName: z.string().min(1, 'Required'),
@@ -861,8 +878,18 @@ export const structureDefSchema = z.object({
   // curated rather than exposing unconfirmed texture paths. `maze` turns the
   // single room into a randomly-generated multi-room dungeon instead — see
   // interiorMazeSchema above. Every room in the maze still uses this same
-  // `size` (one preset, same simplification the single-room case already made).
-  interior: z.object({ size: z.enum(ROOM_SIZES), maze: interiorMazeSchema.optional() }).optional(),
+  // `size` (one preset, same simplification the single-room case already
+  // made). `decorations` are pre-placed props (see interiorDecorationSchema
+  // above) — applied to the single room, or to EVERY room when `maze` is
+  // set (the real mod varies decoration per room type/randomly; we
+  // simplify to "the same kit repeats in each room").
+  interior: z
+    .object({
+      size: z.enum(ROOM_SIZES),
+      maze: interiorMazeSchema.optional(),
+      decorations: z.array(interiorDecorationSchema),
+    })
+    .optional(),
   recipe: z.object({
     ingredients: z.array(ingredientSchema).min(1, 'Add at least 1 ingredient'),
     techLevel: z.enum(TECH_LEVELS),
@@ -1324,6 +1351,7 @@ export type ModMeta = z.infer<typeof modMetaSchema>
 export type Ingredient = z.infer<typeof ingredientSchema>
 export type GroundAttackConfig = z.infer<typeof groundAttackSchema>
 export type InteriorMaze = z.infer<typeof interiorMazeSchema>
+export type InteriorDecoration = z.infer<typeof interiorDecorationSchema>
 export type ItemDef = z.infer<typeof itemDefSchema>
 export type StructureDef = z.infer<typeof structureDefSchema>
 export type CharacterDef = z.infer<typeof characterDefSchema>

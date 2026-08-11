@@ -3388,6 +3388,59 @@ sessão — mesma limitação já registrada pro `interior` de sala única
 (patterns.md#64): só o Lua gerado foi conferido (`luaparse` + leitura
 manual comparando com o algoritmo real).
 
+## 68. Decorações pré-colocadas dentro do `interior` (addprops) — **implementado**
+
+Motivação: o usuário perguntou como o mod real pré-coloca objetos dentro de
+uma sala (móveis, tochas, etc.) e pediu pra generalizar isso em cima do
+`interior` já existente (patterns.md#64/#67).
+
+**Confirmado, mecanismo real** (`scripts/prefabs/interior_prop_defs.lua`,
+2734 linhas — `PROP_DEFS.playerhouse_city`, `PROP_DEFS.vampirebatcave`):
+todo objeto pré-colocado numa sala é só mais uma entrada no array `addprops`
+que já passamos pro `CreateRoom` (o mesmo array onde a porta externa já
+mora, desde patterns.md#64):
+
+```lua
+{ name = "deco_roomglow", x_offset = 0, z_offset = 0 },
+{ name = "flint", x_offset = ..., z_offset = ..., chance = 0.5 },
+```
+
+`chance` (0-1, "às vezes não spawna essa entrada") é o nome de campo real,
+confirmado em dezenas de entradas reais do mod. Rotação/flip e a matemática
+de posicionamento mais elaborada do mod real (`GetPosToCenter`, variação
+por tipo de sala) não foram modelados — um offset fixo por decoração é o
+subconjunto simplificado.
+
+**Implementado:**
+- `interiorDecorationSchema` (`src/types/modProject.ts`) —
+  `{ prefab, xOffset, zOffset, chance? }`. Novo array `decorations` em
+  `StructureDef.interior` (não opcional, default `[]` — mesma convenção de
+  `loot`).
+- `src/generators/structure.ts`: `decorationLuaFields()` (novo, compartilhado)
+  gera os campos Lua de uma decoração; usado dos dois jeitos que o resto do
+  código já usa pra `addprops`: como entrada literal na tabela estática da
+  sala única (`singleRoomEnsureInteriorBlock`), e como
+  `table.insert(addprops, {...})` dentro do loop por sala da masmorra
+  (`mazeEnsureInteriorBlock`) — nesse segundo caso, as MESMAS decorações se
+  repetem em toda sala gerada (o mod real varia decoração por sala/tipo
+  sorteado; simplificamos pra "o mesmo kit se repete em cada sala").
+- UI (`StructureForm.tsx`): lista de decorações dentro do bloco de
+  `interior` já existente (linhas com prefab + `PrefabPickerButton` +
+  x/z offset + chance opcional + remover), mesmo padrão de lista já usado
+  em `container.acceptsPrefabs`.
+- `mods/hideawayHut.ts` ganhou uma decoração de exemplo (`deco_roomglow`).
+
+**Bug real encontrado e corrigido durante o teste end-to-end:** o campo de
+"chance" tinha `step={0.05}` a partir de `min={0.01}` — um valor como `0.5`
+não é múltiplo exato desse step, então a validação nativa HTML5 do
+`<input type="number">` bloqueia o `submit` do formulário SILENCIOSAMENTE
+(o evento nem chega no React/zodResolver) sempre que o usuário digitasse um
+valor "fora do step". Trocado pra `step="any"`, já que uma chance é
+qualquer decimal entre 0.01 e 1, não um múltiplo de 0.05. Isso não tinha
+sido pego antes porque nenhum teste anterior no projeto de fato submetia
+um valor num campo de lista controlado (`acceptsPrefabs` também usa esse
+padrão em `ItemForm.tsx`, mas nunca tinha um teste de submit completo).
+
 ## 69. Um feitiço da roda do `spellbook` pode ter mira de verdade — `aoetargeting`/`aoespell` — **implementado**
 
 Motivação: o Solar Beam (patterns.md#62) tinha ficado com direção fixa (pra

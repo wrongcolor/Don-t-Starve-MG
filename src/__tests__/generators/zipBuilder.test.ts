@@ -22,7 +22,7 @@ describe('buildModFiles', () => {
   it('declares a mod_dependencies on "Above the Clouds" end-to-end when a structure has an interior', () => {
     const withInterior = {
       ...sampleProject,
-      structures: [{ ...sampleProject.structures[0], interior: { size: 'tiny' as const } }],
+      structures: [{ ...sampleProject.structures[0], interior: { size: 'tiny' as const, decorations: [] } }],
     }
     const modinfo = buildModFiles(withInterior)['modinfo.lua']
     expect(modinfo).toContain('workshop = "workshop-3322803908"')
@@ -33,7 +33,7 @@ describe('buildModFiles', () => {
 
     const withInterior = {
       ...sampleProject,
-      structures: [{ ...sampleProject.structures[0], interior: { size: 'tiny' as const } }],
+      structures: [{ ...sampleProject.structures[0], interior: { size: 'tiny' as const, decorations: [] } }],
     }
     const readme = buildModFiles(withInterior)['README.md']
     expect(readme).toContain('Dependência obrigatória')

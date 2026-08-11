@@ -37,7 +37,7 @@ describe('generateModInfo', () => {
   it('declares a dependency on "Above the Clouds" when a structure has an interior', () => {
     const withInterior = {
       ...sampleProject,
-      structures: [{ ...sampleProject.structures[0], interior: { size: 'tiny' as const } }],
+      structures: [{ ...sampleProject.structures[0], interior: { size: 'tiny' as const, decorations: [] } }],
     }
     const withInteriorCode = generateModInfo(withInterior)
     expect(withInteriorCode).toContain('mod_dependencies =')
@@ -66,7 +66,7 @@ describe('generateModInfo', () => {
   it('lists both dependencies when a structure has an interior and a creature reuses an Island Adventures build', () => {
     const withBoth = {
       ...sampleProject,
-      structures: [{ ...sampleProject.structures[0], interior: { size: 'tiny' as const } }],
+      structures: [{ ...sampleProject.structures[0], interior: { size: 'tiny' as const, decorations: [] } }],
       creatures: [
         {
           ...sampleProject.creatures[0],

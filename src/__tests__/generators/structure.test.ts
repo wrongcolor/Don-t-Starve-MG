@@ -182,7 +182,7 @@ describe('generateStructureFiles', () => {
   // patterns.md's interior section). interiorID must persist across save/load
   // so CreateRoom only ever runs once per structure instance.
   it('wires a fresh interior room (door component, EnsureInterior, OnSave/OnLoad, deferred creation)', () => {
-    const hut: StructureDef = { ...structure, id: 'testhut', interior: { size: 'tiny' } }
+    const hut: StructureDef = { ...structure, id: 'testhut', interior: { size: 'tiny', decorations: [] } }
     const code = generateStructurePrefab(hut)
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
 
@@ -199,7 +199,7 @@ describe('generateStructureFiles', () => {
   })
 
   it('reuses the persisted interiorID instead of building a second room when one already exists', () => {
-    const hut: StructureDef = { ...structure, id: 'testhut2', interior: { size: 'large' } }
+    const hut: StructureDef = { ...structure, id: 'testhut2', interior: { size: 'large', decorations: [] } }
     const code = generateStructurePrefab(hut)
 
     const reuseIdx = code.indexOf('if inst.interiorID ~= nil then')
@@ -213,7 +213,7 @@ describe('generateStructureFiles', () => {
   })
 
   it('maps each room size to its own real TUNING constants', () => {
-    const medium: StructureDef = { ...structure, id: 'testhutmedium', interior: { size: 'medium' } }
+    const medium: StructureDef = { ...structure, id: 'testhutmedium', interior: { size: 'medium', decorations: [] } }
     const code = generateStructurePrefab(medium)
     expect(code).toContain('TUNING.ROOM_MEDIUM_WIDTH')
     expect(code).toContain('TUNING.ROOM_MEDIUM_DEPTH')
@@ -226,7 +226,7 @@ describe('generateStructureFiles', () => {
     const dungeon: StructureDef = {
       ...structure,
       id: 'testdungeon',
-      interior: { size: 'medium', maze: { roomCount: { min: 4, max: 8 } } },
+      interior: { size: 'medium', decorations: [], maze: { roomCount: { min: 4, max: 8 } } },
     }
     const code = generateStructurePrefab(dungeon)
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
@@ -247,7 +247,7 @@ describe('generateStructureFiles', () => {
     const dungeon: StructureDef = {
       ...structure,
       id: 'testdungeonnoloot',
-      interior: { size: 'tiny', maze: { roomCount: { min: 3, max: 5 } } },
+      interior: { size: 'tiny', decorations: [], maze: { roomCount: { min: 3, max: 5 } } },
     }
     const code = generateStructurePrefab(dungeon)
     expect(code).not.toContain('dead_ends')
@@ -258,7 +258,7 @@ describe('generateStructureFiles', () => {
     const dungeon: StructureDef = {
       ...structure,
       id: 'testdungeonloot',
-      interior: { size: 'tiny', maze: { roomCount: { min: 3, max: 5 }, bonusLootPrefab: 'goldnugget' } },
+      interior: { size: 'tiny', decorations: [], maze: { roomCount: { min: 3, max: 5 }, bonusLootPrefab: 'goldnugget' } },
     }
     const code = generateStructurePrefab(dungeon)
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
@@ -266,6 +266,53 @@ describe('generateStructureFiles', () => {
     expect(code).toContain('local dead_ends = {}')
     expect(code).toContain('dead_ends[math.random(#dead_ends)].bonusloot = true')
     expect(code).toContain('table.insert(addprops, { name = "goldnugget", x_offset = 0, z_offset = 0 })')
+  })
+
+  // Confirmed in scripts/prefabs/interior_prop_defs.lua (PROP_DEFS.
+  // playerhouse_city/vampirebatcave) — addprops entries are just
+  // { name, x_offset, z_offset, chance }, see patterns.md#67.
+  it('adds pre-placed decorations to the single room addprops table, alongside the exterior door', () => {
+    const hut: StructureDef = {
+      ...structure,
+      id: 'testcozyhut',
+      interior: {
+        size: 'tiny',
+        decorations: [
+          { prefab: 'deco_roomglow', xOffset: 0, zOffset: 0 },
+          { prefab: 'charcoal', xOffset: -3, zOffset: 2, chance: 0.5 },
+        ],
+      },
+    }
+    const code = generateStructurePrefab(hut)
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+
+    expect(code).toContain('{ name = "deco_roomglow", x_offset = 0, z_offset = 0 },')
+    expect(code).toContain('{ name = "charcoal", x_offset = -3, z_offset = 2, chance = 0.5 },')
+    expect(code).toContain('name = "prop_door"')
+  })
+
+  it('does not add any decoration entries when interior.decorations is empty', () => {
+    const hut: StructureDef = { ...structure, id: 'testbarehut', interior: { size: 'tiny', decorations: [] } }
+    const code = generateStructurePrefab(hut)
+    expect(code).not.toContain('deco_roomglow')
+  })
+
+  it('repeats the same decorations in every room of a maze, via table.insert(addprops, ...)', () => {
+    const dungeon: StructureDef = {
+      ...structure,
+      id: 'testdungeondeco',
+      interior: {
+        size: 'medium',
+        decorations: [{ prefab: 'deco_roomglow', xOffset: 0, zOffset: 0, chance: 0.8 }],
+        maze: { roomCount: { min: 3, max: 5 } },
+      },
+    }
+    const code = generateStructurePrefab(dungeon)
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+
+    expect(code).toContain('table.insert(addprops, { name = "deco_roomglow", x_offset = 0, z_offset = 0, chance = 0.8 })')
+    // One decoration insert line, executed once per room in the loop — not one per room upfront.
+    expect(code.split('table.insert(addprops, { name = "deco_roomglow"').length - 1).toBe(1)
   })
 
   it('does not touch OnSave/OnLoad/door for a structure with no interior', () => {

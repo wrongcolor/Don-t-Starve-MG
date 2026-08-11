@@ -65,6 +65,7 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
   const enableInterior = watched.interior !== undefined
   const enableMaze = watched.interior?.maze !== undefined
   const enableBonusLoot = watched.interior?.maze?.bonusLootPrefab !== undefined
+  const interiorDecorations = watched.interior?.decorations ?? []
 
   const onSubmit = (data: StructureDef) => onSave(data)
 
@@ -514,7 +515,7 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
                 <input
                   type="checkbox"
                   checked={enableInterior}
-                  onChange={(e) => setValue('interior', e.target.checked ? { size: 'tiny' } : undefined)}
+                  onChange={(e) => setValue('interior', e.target.checked ? { size: 'tiny', decorations: [] } : undefined)}
                 />
                 Walking through its door leads to a separate interior room
                 <InfoTip text="Real mechanism from the published mod 'Above the Clouds' (interiorspawner) — the generated mod will declare a dependency on it (mod_dependencies), so players need it installed too." />
@@ -596,6 +597,79 @@ export function StructureForm({ initialStructure, onSave, onCancel }: StructureF
                     )}
                   </>
                 )}
+
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', margin: '12px 0 8px' }}>
+                  Pre-placed decorations {enableMaze ? '(repeated in every room)' : ''}
+                </span>
+                {interiorDecorations.map((decoration, index) => {
+                  const updateAt = (patch: Partial<(typeof interiorDecorations)[number]>) => {
+                    const next = [...interiorDecorations]
+                    next[index] = { ...next[index], ...patch }
+                    setValue('interior.decorations' as const, next, { shouldDirty: true })
+                  }
+                  return (
+                    <div key={index} className="ingredient-row">
+                      <input
+                        className={inputClass}
+                        placeholder="deco_roomglow"
+                        value={decoration.prefab}
+                        onChange={(e) => updateAt({ prefab: e.target.value })}
+                      />
+                      <PrefabPickerButton onSelect={(id) => updateAt({ prefab: id })} />
+                      <input
+                        type="number"
+                        className={inputClass}
+                        title="X offset"
+                        value={decoration.xOffset}
+                        onChange={(e) => updateAt({ xOffset: e.target.valueAsNumber })}
+                      />
+                      <input
+                        type="number"
+                        className={inputClass}
+                        title="Z offset"
+                        value={decoration.zOffset}
+                        onChange={(e) => updateAt({ zOffset: e.target.valueAsNumber })}
+                      />
+                      <input
+                        type="number"
+                        min={0.01}
+                        max={1}
+                        step="any"
+                        className={inputClass}
+                        title="Chance (blank = always)"
+                        placeholder="1"
+                        value={decoration.chance ?? ''}
+                        onChange={(e) => updateAt({ chance: e.target.value === '' ? undefined : e.target.valueAsNumber })}
+                      />
+                      <button
+                        type="button"
+                        className={btnDanger}
+                        onClick={() =>
+                          setValue(
+                            'interior.decorations' as const,
+                            interiorDecorations.filter((_, i) => i !== index),
+                            { shouldDirty: true },
+                          )
+                        }
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )
+                })}
+                <button
+                  type="button"
+                  className="add-ingredient"
+                  onClick={() =>
+                    setValue(
+                      'interior.decorations' as const,
+                      [...interiorDecorations, { prefab: '', xOffset: 0, zOffset: 0 }],
+                      { shouldDirty: true },
+                    )
+                  }
+                >
+                  + Add decoration
+                </button>
               </>
             )}
           </Fieldset>

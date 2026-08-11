@@ -62,6 +62,7 @@ local function EnsureInterior(inst)
                 target_door_id = exterior_door_def.my_door_id,
                 is_exit = true,
             },
+            { name = "deco_roomglow", x_offset = 0, z_offset = 0 },
         },
         exits = {},
     })
