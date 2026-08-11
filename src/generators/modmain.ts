@@ -449,6 +449,69 @@ function solarBatteryActionBlock(): string[] {
   ]
 }
 
+function needsPortalAction(project: ModProject): boolean {
+  return project.creatures.some((creature) => creature.mapPortal === true)
+}
+
+// Confirmed against the real game scripts (components/vaultorbteleporter.lua,
+// ACTIONS.VAULTORBTELEPORT_MAP/STARTVAULTORBTELEPORT in scripts/actions.lua,
+// prefabs/bufferedmapaction.lua — see docs/dst-knowledge/patterns.md#73):
+// two actions, mirroring the real Vault Orb pair exactly. STARTSPELLPORTAL
+// is a normal right-click action (wired via AddComponentAction("SCENE", ...)
+// below, since the portal is a placed creature, not a carried item) that
+// just calls StartMapAction — spawning the base game's own
+// "bufferedmapaction" prefab is what makes PlayerController:PullUpMap open
+// the map automatically, no UI code needed on our side. SPELLPORTAL_MAP is
+// map_only = true, so it's only ever offered by the map screen itself once
+// that bufferedmapaction is pending — it needs no componentaction/
+// stategraph wiring of its own, unlike STARTSPELLPORTAL. Both use
+// .instant = true (confirmed real field, same technique the hand-written
+// dual_mount prototype used) to skip needing a stategraph state entirely.
+// Registering a brand-new player action only works from modmain.lua, not
+// from a prefab script — so, like combineActionBlock/solarBatteryActionBlock
+// above, this is emitted once here, shared by every portal creature.
+function portalActionBlock(): string[] {
+  return [
+    'local ACTIONS = GLOBAL.ACTIONS',
+    '',
+    'local START_SPELLPORTAL_ACTION = AddAction("STARTSPELLPORTAL", "Open Map", function(act)',
+    '    if act.target ~= nil and act.target.components.spellportalteleporter ~= nil then',
+    '        return act.target.components.spellportalteleporter:StartMapAction(act.doer)',
+    '    end',
+    '    return false',
+    'end)',
+    'START_SPELLPORTAL_ACTION.rmb = true',
+    'START_SPELLPORTAL_ACTION.instant = true',
+    '',
+    'local SPELLPORTAL_MAP_ACTION = AddAction("SPELLPORTAL_MAP", "Teleport", function(act)',
+    '    local act_pos = act:GetActionPoint()',
+    '    if act_pos == nil then',
+    '        return false',
+    '    end',
+    '',
+    '    local x, y, z = act_pos:Get()',
+    '    local target = act.target or act.invobject',
+    '    if target == nil or target.components.spellportalteleporter == nil then',
+    '        return false',
+    '    end',
+    '',
+    '    return target.components.spellportalteleporter:Activate(act.doer, x, z)',
+    'end)',
+    'SPELLPORTAL_MAP_ACTION.rmb = true',
+    'SPELLPORTAL_MAP_ACTION.instant = true',
+    'SPELLPORTAL_MAP_ACTION.map_only = true',
+    'SPELLPORTAL_MAP_ACTION.map_works_on_unexplored = false',
+    'SPELLPORTAL_MAP_ACTION.closes_map = true',
+    'SPELLPORTAL_MAP_ACTION.customarrivecheck = function() return true end',
+    '',
+    'AddComponentAction("SCENE", "spellportalteleporter", function(inst, doer, actions, right)',
+    '    if right then',
+    '        table.insert(actions, ACTIONS.STARTSPELLPORTAL)',
+    '    end',
+    'end)',
+  ]
+}
+
 function characterStringsAndRegistrationBlock(character: CharacterDef): string[] {
   const upper = toUpperSnake(character.id)
   return [
@@ -721,6 +784,12 @@ export function generateModMain(project: ModProject): string {
     sections.push('')
     sections.push('-- Lets a handheld spellbook item open the spell wheel from its own equipped action button')
     sections.push(...spellbookEquippedActionBlock())
+  }
+
+  if (needsPortalAction(project)) {
+    sections.push('')
+    sections.push('-- Spell portal open-map + map-teleport actions (shared by every portal creature)')
+    sections.push(...portalActionBlock())
   }
 
   if (needsContainerParams(project)) {

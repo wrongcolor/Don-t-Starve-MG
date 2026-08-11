@@ -191,6 +191,16 @@ describe('generateBrain', () => {
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
+  // A map portal (see creatureDefSchema.mapPortal) is stationary for the
+  // same reason as a sentry — it just doesn't fight either, so there's no
+  // ChaseAndAttack node to skip in the first place (behavior is 'passive').
+  it('skips Wander entirely when mapPortal is set', () => {
+    const portal: CreatureDef = { ...hostileMob, behavior: 'passive', mapPortal: true }
+    const code = generateBrain(portal)
+    expect(code).not.toContain('Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
   it('always wanders leashed to a home position, if the creature has one, instead of unleashed', () => {
     const code = generateBrain(hostileMob)
     expect(code).toContain('local MAX_WANDER_DIST = 20')

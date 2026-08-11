@@ -4,7 +4,7 @@ local TUNING = GLOBAL.TUNING
 local TECH = GLOBAL.TECH
 local Ingredient = GLOBAL.Ingredient
 
-PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solarbeamspell", "refractionspell", "solarnovaspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "solarchakram_proj", "viana", "sunorb", "sunwisp", "lightpillar" }
+PrefabFiles = { "solarlantern", "sunstaff", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solargatespell", "solarbeamspell", "refractionspell", "solarnovaspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "solarchakram_proj", "viana", "sunorb", "sunwisp", "lightpillar", "sunportal" }
 
 Assets = {
     Asset("ATLAS", "bigportraits/viana.xml"),
@@ -39,6 +39,9 @@ STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNFEDSPELL = "Bind this in the Sun Codex to
 STRINGS.NAMES.SUNWISPSPELL = "Sun Wisp Spell"
 STRINGS.RECIPE_DESC.SUNWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff call a small fire spirit to where she aims — it stays glowing by her side afterward."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNWISPSPELL = "Bind this in the Sun Codex to let the Sun Staff call a small fire spirit to where she aims — it stays glowing by her side afterward."
+STRINGS.NAMES.SOLARGATESPELL = "Solar Gate Spell"
+STRINGS.RECIPE_DESC.SOLARGATESPELL = "Bind this in the Sun Codex to let the Sun Staff raise a rift of light where she aims — step into it later to open the map and step out anywhere already explored."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARGATESPELL = "Bind this in the Sun Codex to let the Sun Staff raise a rift of light where she aims — step into it later to open the map and step out anywhere already explored."
 STRINGS.NAMES.SOLARBEAMSPELL = "Solar Beam Spell"
 STRINGS.RECIPE_DESC.SOLARBEAMSPELL = "Bind this in the Sun Codex to let the Sun Staff channel a beam of sunlight in front of her, burning anything it sweeps over."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARBEAMSPELL = "Bind this in the Sun Codex to let the Sun Staff channel a beam of sunlight in front of her, burning anything it sweeps over."
@@ -95,6 +98,9 @@ AddRecipe2("sunfedspell", { Ingredient("twigs", 1), Ingredient("goldnugget", 1) 
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("sunwispspell", { Ingredient("twigs", 1), Ingredient("goldnugget", 1), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
+        image = "papyrus.tex",
+    }, { "MAGIC" })
+AddRecipe2("solargatespell", { Ingredient("goldnugget", 3), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("solarbeamspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
@@ -162,6 +168,45 @@ AddComponentAction("EQUIPPED", "spellbook", function(inst, doer, target, actions
     end
 end)
 
+-- Spell portal open-map + map-teleport actions (shared by every portal creature)
+local ACTIONS = GLOBAL.ACTIONS
+
+local START_SPELLPORTAL_ACTION = AddAction("STARTSPELLPORTAL", "Open Map", function(act)
+    if act.target ~= nil and act.target.components.spellportalteleporter ~= nil then
+        return act.target.components.spellportalteleporter:StartMapAction(act.doer)
+    end
+    return false
+end)
+START_SPELLPORTAL_ACTION.rmb = true
+START_SPELLPORTAL_ACTION.instant = true
+
+local SPELLPORTAL_MAP_ACTION = AddAction("SPELLPORTAL_MAP", "Teleport", function(act)
+    local act_pos = act:GetActionPoint()
+    if act_pos == nil then
+        return false
+    end
+
+    local x, y, z = act_pos:Get()
+    local target = act.target or act.invobject
+    if target == nil or target.components.spellportalteleporter == nil then
+        return false
+    end
+
+    return target.components.spellportalteleporter:Activate(act.doer, x, z)
+end)
+SPELLPORTAL_MAP_ACTION.rmb = true
+SPELLPORTAL_MAP_ACTION.instant = true
+SPELLPORTAL_MAP_ACTION.map_only = true
+SPELLPORTAL_MAP_ACTION.map_works_on_unexplored = false
+SPELLPORTAL_MAP_ACTION.closes_map = true
+SPELLPORTAL_MAP_ACTION.customarrivecheck = function() return true end
+
+AddComponentAction("SCENE", "spellportalteleporter", function(inst, doer, actions, right)
+    if right then
+        table.insert(actions, ACTIONS.STARTSPELLPORTAL)
+    end
+end)
+
 -- Container widgets
 local containers = require("containers")
 local params = containers.params
@@ -216,6 +261,12 @@ GLOBAL.TUNING.LIGHTPILLAR_LIGHT_COLOUR_G = 0.8627450980392157
 GLOBAL.TUNING.LIGHTPILLAR_LIGHT_COLOUR_B = 0.5882352941176471
 STRINGS.NAMES.LIGHTPILLAR = "Light Pillar"
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.LIGHTPILLAR = "A column of solidified sunlight, rooted to the spot where it was raised — it burns anything that strays too close."
+GLOBAL.TUNING.SUNPORTAL_HEALTH = 100
+GLOBAL.TUNING.SUNPORTAL_DAMAGE = 0
+GLOBAL.TUNING.SUNPORTAL_ATTACK_PERIOD = 2
+GLOBAL.TUNING.SUNPORTAL_WALKSPEED = 0.1
+STRINGS.NAMES.SUNPORTAL = "Solar Gate"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNPORTAL = "A rift of light, rooted to the spot where it was raised. Right-click it to open the map and step through to anywhere already explored."
 
 -- Characters: tuning + strings + registration
 GLOBAL.TUNING.VIANA_HEALTH = 120

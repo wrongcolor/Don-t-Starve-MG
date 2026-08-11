@@ -411,6 +411,42 @@ describe('generateCreatureFiles', () => {
     expect(code).not.toContain('SentryTick')
   })
 
+  // Confirmed real APIs (docs/dst-knowledge/patterns.md#73): mirrors the
+  // real Vault Orb teleport (components/vaultorbteleporter.lua +
+  // ACTIONS.VAULTORBTELEPORT_MAP), minus its "must click near a discovered
+  // marker" restriction. StartMapAction spawns the base game's own
+  // "bufferedmapaction" prefab, which is what makes PlayerController:
+  // PullUpMap open the map automatically for whoever right-clicked it.
+  it('wires a map portal creature with the spellportalteleporter component and its prefab dependency', () => {
+    const portalCreature: CreatureDef = { ...creature, behavior: 'passive', mapPortal: true }
+    const code = generateCreaturePrefab(portalCreature)
+    expect(code).toContain('local prefabs = { "bufferedmapaction" }')
+    expect(code).toContain('inst:AddComponent("spellportalteleporter")')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('does not wire a map portal or its prefab dependency when mapPortal is not set', () => {
+    const code = generateCreaturePrefab(creature)
+    expect(code).toContain('local prefabs = {}')
+    expect(code).not.toContain('spellportalteleporter')
+    expect(code).not.toContain('bufferedmapaction')
+  })
+
+  it('generates the spellportalteleporter component file only for a creature that needs it', () => {
+    const portalCreature: CreatureDef = { ...creature, id: 'testportalcreature', behavior: 'passive', mapPortal: true }
+    const files = generateCreatureFiles(portalCreature)
+    expect(files['scripts/components/spellportalteleporter.lua']).toBeDefined()
+    expect(files['scripts/components/spellportalteleporter.lua']).toContain('function SpellPortalTeleporter:StartMapAction(doer)')
+    expect(files['scripts/components/spellportalteleporter.lua']).toContain(
+      'self.bufferedmapaction:SetupMapAction(ACTIONS.SPELLPORTAL_MAP, self.inst, doer)',
+    )
+    expect(files['scripts/components/spellportalteleporter.lua']).toContain('function SpellPortalTeleporter:Activate(doer, x, z)')
+    expect(files['scripts/components/spellportalteleporter.lua']).toContain('doer.Physics:Teleport(x, 0, z)')
+    expect(files['scripts/components/spellportalteleporter.lua']).not.toContain('manacost')
+
+    expect(generateCreatureFiles(creature)['scripts/components/spellportalteleporter.lua']).toBeUndefined()
+  })
+
   it('wires a real Light component when light is set, but not otherwise (patterns.md#65)', () => {
     expect(generateCreaturePrefab(creature)).not.toContain('AddLight')
     expect(generateCreaturePrefab(creature)).not.toContain('inst.Light')

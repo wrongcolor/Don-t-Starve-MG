@@ -200,7 +200,10 @@ export function generateBrain(creature: CreatureDef): string {
     'end',
   ]
   const behaviorNodes: string[] = []
-  const stationary = creature.sentry !== undefined
+  // A map portal (docs/dst-knowledge/patterns.md#73) is stationary for the
+  // same reason a sentry is — it just doesn't fight, it opens the map when
+  // right-clicked instead.
+  const stationary = creature.sentry !== undefined || creature.mapPortal === true
 
   if (creature.panicCauses.length > 0) {
     requires.push('require "behaviours/panic"')

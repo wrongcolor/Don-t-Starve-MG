@@ -77,6 +77,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   const enableGroundAttack = watched.groundAttack !== undefined
   const enableSquadAlert = watched.squadAlert !== undefined
   const enableSentry = watched.sentry !== undefined
+  const enableMapPortal = watched.mapPortal !== undefined
   const canFight = watched.behavior !== 'passive'
   const panicCauses = watched.panicCauses ?? []
   const enableCompanion = watched.companion !== undefined
@@ -516,12 +517,18 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                 <input
                   type="checkbox"
                   checked={enableSentry}
-                  disabled={!canFight || enableCompanion}
+                  disabled={!canFight || enableCompanion || enableMapPortal}
                   onChange={(e) => setValue('sentry', e.target.checked ? { radius: 6 } : undefined)}
                 />
                 Stationary sentry (never wanders or chases — periodically zaps any hostile creature within radius,
                 like the Eye Turret)
-                {!canFight ? ' — requires neutral or hostile behavior' : enableCompanion ? ' — turn off "follows the player" first' : ''}
+                {!canFight
+                  ? ' — requires neutral or hostile behavior'
+                  : enableCompanion
+                    ? ' — turn off "follows the player" first'
+                    : enableMapPortal
+                      ? ' — turn off the map portal first'
+                      : ''}
               </label>
             </div>
             {enableSentry && (
@@ -531,6 +538,20 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                 </FormField>
               </div>
             )}
+
+            <div className="checks" style={{ marginTop: 12 }}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableMapPortal}
+                  disabled={enableCompanion || enableSentry}
+                  onChange={(e) => setValue('mapPortal', e.target.checked ? true : undefined)}
+                />
+                Map portal (stationary — right-clicking it opens the world map, and clicking a point teleports whoever
+                clicked it there, like the Vault Orb)
+                {enableCompanion ? ' — turn off "follows the player" first' : enableSentry ? ' — turn off the stationary sentry first' : ''}
+              </label>
+            </div>
           </Fieldset>
 
           <Fieldset legend="Companion (optional)" step={8}>
@@ -545,11 +566,17 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                 <input
                   type="checkbox"
                   checked={enableCompanion}
-                  disabled={!canBeFriendly || enableSentry}
+                  disabled={!canBeFriendly || enableSentry || enableMapPortal}
                   onChange={(e) => setValue('companion', e.target.checked ? { followDistance: 5, tasks: [] } : undefined)}
                 />
                 Follows the player
-                {!canBeFriendly ? ' — turn off hostile behavior first' : enableSentry ? ' — turn off the stationary sentry first' : ''}
+                {!canBeFriendly
+                  ? ' — turn off hostile behavior first'
+                  : enableSentry
+                    ? ' — turn off the stationary sentry first'
+                    : enableMapPortal
+                      ? ' — turn off the map portal first'
+                      : ''}
               </label>
             </div>
             {enableCompanion && (

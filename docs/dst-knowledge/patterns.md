@@ -3552,3 +3552,74 @@ está, então nunca passa pelo caminho `aoetargeting`/`aoespell`.
   (`spellitem.spell_refraction`), do mesmo jeito que `beam`/`nova`.
 - UI (`ItemForm.tsx`): checkbox "Shields herself and nearby players" + campos
   de raio/segundos de imunidade, no mesmo bloco de `SpellFieldsRow`.
+
+## 73. Feitiço mira → spawna um portal → clicar nele abre o MAPA e teleporta — `AddAction` + `bufferedmapaction` — **implementado**
+
+Motivação: novo feitiço da Viana, Solar Gate — pergunta original foi "se eu
+criar um portal manualmente, dá pra clicar nele, abrir o mapa, e teleportar
+pra onde eu clicar?". Confirmado que sim, com um protótipo à mão separado
+(`test-mods/sun_portal`, descartado depois). A primeira implementação
+tentou fazer o feitiço abrir o mapa DIRETO ao ser selecionado na roda —
+**errado**: o usuário corrigiu que o fluxo certo é mira → spawna o portal no
+ponto mirado → só ao clicar NELE (o objeto já no mundo) que o mapa abre.
+
+**Confirmado, mecanismo real**: o ÚNICO precedente no jogo pra "clica em algo
+→ abre o mapa → clica num ponto → teleporta" é o Orbe do Cofre Refinado
+(Turn of Tides): `components/vaultorbteleporter.lua` + `ACTIONS.
+VAULTORBTELEPORT_MAP`/`STARTVAULTORBTELEPORT` (`scripts/actions.lua`) +
+`prefabs/bufferedmapaction.lua` + `PlayerController:PullUpMap`
+(`components/playercontroller.lua`). A diferença do Orbe: ele só aceita
+clique perto de um marcador já descoberto
+(`vaultorbteleportdestinationtrackericon`) — aqui, qualquer clique num ponto
+já revelado do mapa funciona (`customarrivecheck` sempre `true`).
+
+O feitiço em si (`summonPrefab: 'sunportal', aimed: true`) não precisou de
+NADA novo — é exatamente o mesmo mecanismo já usado pro Ember Wisp/Sun Wisp
+(patterns.md#69): mira com retícula, spawna o prefab no ponto clicado. A
+parte nova inteira mora no objeto spawnado (`sunportal`, uma criatura
+estacionária, mesma técnica de `stationary` já usada por `sentry`,
+patterns.md#70) e em DOIS `AddAction` novos, espelhando o par real do Orbe:
+- `STARTSPELLPORTAL` — ação normal de clique direito (precisa de
+  `AddComponentAction("SCENE", "spellportalteleporter", ...)`, já que o
+  portal é uma criatura parada no mundo, não um item carregado) — chama
+  `StartMapAction`, que spawna o `bufferedmapaction` (prefab REAL do jogo
+  base) e é só isso que já faz `PlayerController:PullUpMap` abrir o mapa
+  sozinho.
+- `SPELLPORTAL_MAP` — `map_only = true`, só é oferecida pela própria tela do
+  mapa quando um `bufferedmapaction` pendente existe, então não precisa de
+  `AddComponentAction`/`AddStategraphActionHandler` nenhum. Lê a posição do
+  clique via `act:GetActionPoint()` e chama `Activate`, que teleporta.
+
+As duas usam `.instant = true` (técnica já confirmada no protótipo
+`dual_mount`) — dispensa registrar estado de stategraph. Como a mana já foi
+gasta quando o feitiço SUMONOU o portal (igual Ember Wisp/Sun Wisp), o
+`Activate` final não cobra nada — usar o portal depois de plantado é de
+graça, só o ato de conjurá-lo custa.
+
+**Implementado:**
+- `creatureDefSchema.mapPortal` (`src/types/modProject.ts`) — booleano
+  simples. Estende `stationary` em `brain.ts` (mesmo `!wander` que `sentry`
+  já usa) e é mutuamente exclusivo com `companion`/`sentry`.
+- `src/generators/creature.ts`: `needsMapActionCreature` decide se a
+  criatura precisa do componente; `generateSpellPortalTeleporterComponent`
+  gera um **componente novo** (`scripts/components/
+  spellportalteleporter.lua`, arquivo próprio) com `StartMapAction`
+  (spawna `bufferedmapaction`) e `Activate` (teleporta, sem checar mana).
+  `local prefabs = { "bufferedmapaction" }` é adicionado condicionalmente.
+- `src/generators/modmain.ts`: `needsPortalAction`/`portalActionBlock` — os
+  dois `AddAction` + o `AddComponentAction("SCENE", ...)` compartilhados,
+  emitidos uma vez quando pelo menos uma criatura do projeto tem
+  `mapPortal`, igual ao padrão de `combineActionBlock`.
+- `mods/viana.ts`: o feitiço Solar Gate (`spellDef.summonPrefab: 'sunportal',
+  aimed: true`, sem nenhum campo novo no schema de feitiço) + a criatura
+  `sunportal` (`behavior: 'passive'`, `mapPortal: true`, build vanilla
+  `teleporter_worm`/`teleporter_worm_build`, reaproveitando o visual do
+  Buraco de Minhoca).
+- UI (`CreatureForm.tsx`): checkbox "Map portal" na mesma seção de
+  ground attack/squad alert/sentry.
+
+**O que NÃO foi testado em jogo** (mesma ressalva do protótipo
+`sun_portal`): se `act.target` dentro de `ACTIONS.SPELLPORTAL_MAP.fn`
+realmente aponta de volta pro `sunportal` quando a ação é resolvida a partir
+do clique no mapa, e se `map_works_on_unexplored = false` bloqueia cliques
+em névoa de guerra do jeito esperado. Os dois precisam de teste ao vivo.

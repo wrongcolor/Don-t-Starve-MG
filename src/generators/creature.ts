@@ -173,6 +173,82 @@ function sentryFunctionBlock(creature: CreatureDef): string[] {
   ]
 }
 
+export function needsMapActionCreature(creature: CreatureDef): boolean {
+  return creature.mapPortal === true
+}
+
+// Confirmed against the real game scripts (components/vaultorbteleporter.lua,
+// ACTIONS.VAULTORBTELEPORT_MAP/STARTVAULTORBTELEPORT in scripts/actions.lua,
+// prefabs/bufferedmapaction.lua, PlayerController:PullUpMap — see
+// docs/dst-knowledge/patterns.md#73): StartMapAction spawns the base game's
+// own "bufferedmapaction" prefab and hands it to the target (this creature
+// itself), which is what makes PullUpMap open the map automatically for
+// that player — no UI code needed on our side. Activate then runs once the
+// player actually clicks a point (see portalActionBlock in modmain.ts). No
+// mana check here — unlike a spell that casts instantly, this creature was
+// already paid for when the aimed spell that summoned it (see
+// spellbookSpellSchema.aimed/summonPrefab) was cast.
+function generateSpellPortalTeleporterComponent(): string {
+  return [
+    'local SpellPortalTeleporter = Class(function(self, inst)',
+    '    self.inst = inst',
+    '    self.bufferedmapaction = nil',
+    '    self._onbufferedmapactionremoved = function()',
+    '        self.bufferedmapaction = nil',
+    '    end',
+    'end)',
+    '',
+    'function SpellPortalTeleporter:OnRemoveFromEntity()',
+    '    self:CancelMapAction()',
+    'end',
+    '',
+    'function SpellPortalTeleporter:OnRemoveEntity()',
+    '    self:CancelMapAction()',
+    'end',
+    '',
+    'function SpellPortalTeleporter:StartMapAction(doer)',
+    '    if self.bufferedmapaction ~= nil then',
+    '        return false',
+    '    end',
+    '',
+    '    self.bufferedmapaction = SpawnPrefab("bufferedmapaction")',
+    '    self.inst:ListenForEvent("onremove", self._onbufferedmapactionremoved, self.bufferedmapaction)',
+    '    self.bufferedmapaction:SetupMapAction(ACTIONS.SPELLPORTAL_MAP, self.inst, doer)',
+    '    return true',
+    'end',
+    '',
+    'function SpellPortalTeleporter:CancelMapAction()',
+    '    if self.bufferedmapaction ~= nil then',
+    '        self.bufferedmapaction:Remove()',
+    '        self.bufferedmapaction = nil',
+    '    end',
+    'end',
+    '',
+    'function SpellPortalTeleporter:Activate(doer, x, z)',
+    '    self:CancelMapAction()',
+    '',
+    '    if doer.Physics ~= nil then',
+    '        doer.Physics:Teleport(x, 0, z)',
+    '    else',
+    '        doer.Transform:SetPosition(x, 0, z)',
+    '    end',
+    '',
+    '    if doer.SoundEmitter ~= nil then',
+    '        doer.SoundEmitter:PlaySound("dontstarve/common/teleportworm/swallow")',
+    '    end',
+    '',
+    '    if doer.SnapCamera ~= nil then',
+    '        doer:SnapCamera()',
+    '    end',
+    '',
+    '    return true',
+    'end',
+    '',
+    'return SpellPortalTeleporter',
+    '',
+  ].join('\n')
+}
+
 function squadAlertFunctionBlock(creature: CreatureDef): string[] {
   const upper = toUpperSnake(creature.id)
   return [
@@ -249,7 +325,9 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   }
   lines.push('}')
   lines.push('')
-  lines.push('local prefabs = {}')
+  // "bufferedmapaction" is the base game's own prefab, spawned by
+  // spellportalteleporter's StartMapAction — see needsMapActionCreature.
+  lines.push(needsMapActionCreature(creature) ? 'local prefabs = { "bufferedmapaction" }' : 'local prefabs = {}')
   lines.push('')
   if (creature.groundAttack !== undefined) {
     lines.push(...groundAttackFunctionBlock(creature.id, creature.groundAttack))
@@ -339,6 +417,9 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   }
   if (creature.sentry !== undefined) {
     lines.push(`    inst:DoPeriodicTask(${SENTRY_TICK_PERIOD}, SentryTick)`)
+  }
+  if (needsMapActionCreature(creature)) {
+    lines.push('', '    inst:AddComponent("spellportalteleporter")')
   }
   lines.push(...lootBlock(creature))
 
@@ -443,6 +524,9 @@ export function generateCreatureFiles(creature: CreatureDef): Record<string, str
   }
   if (needsHerd(creature)) {
     files[`scripts/prefabs/${creature.id}herd.lua`] = generateHerdPrefab(creature)
+  }
+  if (needsMapActionCreature(creature)) {
+    files['scripts/components/spellportalteleporter.lua'] = generateSpellPortalTeleporterComponent()
   }
   return files
 }

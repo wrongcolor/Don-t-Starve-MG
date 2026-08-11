@@ -405,6 +405,37 @@ describe('generateModMain', () => {
     expect(generateModMain(noSpellbook)).not.toContain('"spellbook"')
   })
 
+  // Confirmed real APIs (docs/dst-knowledge/patterns.md#73): mirrors the
+  // real Vault Orb pair — STARTSPELLPORTAL is a normal right-click action
+  // (needs AddComponentAction("SCENE", ...), since the portal is a placed
+  // creature, not a carried item), while SPELLPORTAL_MAP is map_only = true
+  // and only ever offered by the map screen itself once a bufferedmapaction
+  // is pending, so it needs no componentaction/AddStategraphActionHandler
+  // of its own.
+  it('wires both portal actions once when at least one creature has mapPortal', () => {
+    const withPortal = {
+      ...projectWithCharacter,
+      creatures: projectWithCharacter.creatures.map((creature, i) =>
+        i === 0 ? { ...creature, behavior: 'passive' as const, mapPortal: true } : creature,
+      ),
+    }
+    const portalCode = generateModMain(withPortal)
+    expect(portalCode).toContain('AddAction("STARTSPELLPORTAL", "Open Map", function(act)')
+    expect(portalCode).toContain('return act.target.components.spellportalteleporter:StartMapAction(act.doer)')
+    expect(portalCode).toContain('AddAction("SPELLPORTAL_MAP", "Teleport", function(act)')
+    expect(portalCode).toContain('return target.components.spellportalteleporter:Activate(act.doer, x, z)')
+    expect(portalCode).toContain('SPELLPORTAL_MAP_ACTION.map_only = true')
+    expect(portalCode).toContain('SPELLPORTAL_MAP_ACTION.closes_map = true')
+    expect(portalCode).toContain('AddComponentAction("SCENE", "spellportalteleporter", function(inst, doer, actions, right)')
+    expect(portalCode.split('AddAction("SPELLPORTAL_MAP"').length - 1).toBe(1)
+    expect(portalCode.split('AddAction("STARTSPELLPORTAL"').length - 1).toBe(1)
+  })
+
+  it('does not wire the portal actions when no creature has mapPortal', () => {
+    expect(code).not.toContain('SPELLPORTAL_MAP')
+    expect(code).not.toContain('STARTSPELLPORTAL')
+  })
+
   it('does not require the containers module when no item is a container (patterns.md#20)', () => {
     expect(code).not.toContain('require("containers")')
   })

@@ -166,6 +166,27 @@ export const viana: ModProject = {
       },
     },
     {
+      id: 'solargatespell',
+      displayName: 'Solar Gate Spell',
+      description: 'Bind this in the Sun Codex to let the Sun Staff raise a rift of light where she aims — step into it later to open the map and step out anywhere already explored.',
+      category: 'generic',
+      animation: { source: 'vanilla', build: 'papyrus' },
+      spellDef: {
+        label: 'Solar Gate',
+        manaCost: 50,
+        summonPrefab: 'sunportal',
+        aimed: true,
+      },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 3 },
+          { prefab: 'nightmarefuel', amount: 3 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+      },
+    },
+    {
       id: 'solarbeamspell',
       displayName: 'Solar Beam Spell',
       description: 'Bind this in the Sun Codex to let the Sun Staff channel a beam of sunlight in front of her, burning anything it sweeps over.',
@@ -386,6 +407,24 @@ export const viana: ModProject = {
       panicCauses: [],
       sentry: { radius: 6 },
       light: { radius: 8, intensity: 0.8, falloff: 0.8, colour: { r: 255, g: 220, b: 150 } },
+    },
+    {
+      id: 'sunportal',
+      displayName: 'Solar Gate',
+      description: 'A rift of light, rooted to the spot where it was raised. Right-click it to open the map and step through to anywhere already explored.',
+      animation: {
+        source: 'vanilla',
+        bank: 'teleporter_worm',
+        build: 'teleporter_worm_build',
+        clips: { idle: 'idle_loop', walk: 'idle_loop', atk: 'idle_loop', hit: 'idle_loop', death: 'idle_loop' },
+      },
+      stats: { health: 100, damage: 0, attackPeriod: 2, walkSpeed: 0.1 },
+      loot: [],
+      behavior: 'passive',
+      tags: [],
+      panicCauses: [],
+      mapPortal: true,
+      invincible: true,
     },
   ],
 }

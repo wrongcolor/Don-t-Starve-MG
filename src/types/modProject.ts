@@ -1213,6 +1213,17 @@ export const creatureDefSchema = z
         radius: z.number().min(1).max(20),
       })
       .optional(),
+    // Confirmed real mechanism (docs/dst-knowledge/patterns.md#73): a
+    // stationary interactable that opens the world map when right-clicked
+    // and teleports whoever clicked it to wherever they click next — the
+    // same bufferedmapaction + PlayerController:PullUpMap flow the real
+    // Vault Orb teleport uses, minus its "must click near a discovered
+    // marker" restriction. Never wanders or fights, same "stationary" idea
+    // as sentry above but without any combat — see needsMapActionCreature
+    // in creature.ts. Needs its own custom global actions (AddAction, only
+    // legal from modmain.lua — see needsPortalAction/portalActionBlock in
+    // modmain.ts) plus a dedicated component (spellportalteleporter).
+    mapPortal: z.boolean().optional(),
     // Confirmed real native API (prefabs/stafflight.lua, the same file the
     // emberlight/stafflight prefabs already reused for spellDef.summonPrefab):
     // entity:AddLight() + Light:SetRadius/SetFalloff/SetIntensity/SetColour/
@@ -1250,6 +1261,14 @@ export const creatureDefSchema = z
   .refine((creature) => creature.sentry === undefined || creature.companion === undefined, {
     message: "A sentry stays put — turn off \"follows the player\" first",
     path: ['sentry'],
+  })
+  .refine((creature) => creature.mapPortal === undefined || creature.companion === undefined, {
+    message: "A map portal stays put — turn off \"follows the player\" first",
+    path: ['mapPortal'],
+  })
+  .refine((creature) => creature.mapPortal === undefined || creature.sentry === undefined, {
+    message: 'A map portal and a sentry both make the creature stationary, for different reasons — turn one off first',
+    path: ['mapPortal'],
   })
   .refine((creature) => !creature.panicCauses.includes('onFire') || creature.flammable === true, {
     message: 'The "catches fire" panic cause requires the creature to be flammable — enable that trait first',
