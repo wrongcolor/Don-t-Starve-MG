@@ -4002,3 +4002,100 @@ suficiente pra fugir de fato (sensação de jogo, não dá pra confirmar por
 leitura de código), e se o marcador `SpawnPrefab("reticule")` plantado no
 CHÃO (não relativo ao caster, diferente do telegraph do beam) fica visível
 e no lugar certo durante toda a espera.
+
+Atualização: usuário pediu pra aumentar o tempo de conjuração pra 10
+segundos (`mods/viana.ts:283`) — como o campo já era configurável (item
+acima), foi só uma mudança de valor, sem tocar em generator/schema.
+
+## 79. Um feitiço "chove equipamento" que estraga sozinho — `gearDrop` + `damagetypebonus` + item sem durabilidade real — **implementado**
+
+Motivação: novo feitiço da Viana, Solar Glories — numa área pequena ao
+redor do caster, spawna três itens diferentes (uma espada nova, uma
+armadura nova, e o Solar Chakram já existente). A espada e a armadura
+precisavam ser criadas do zero, com três exigências específicas: (1) sem
+durabilidade "de uso" — só um tempo até "estragar" e sumir do inventário,
+(2) a espada dá 80 de dano, o dobro em criaturas sombrias, (3) a armadura
+absorve 90% do dano, ambas estragando em ~4 minutos.
+
+**Mecanismo 1 — espalhar N prefabs diferentes ao redor do caster**: não
+havia precedente de "spawna vários prefabs DIFERENTES ao mesmo tempo,
+espalhados" no codebase — só spawns de UM prefab por vez. O padrão de
+posicionamento em si já existia (`FindWalkableOffset(pos, angle, radius,
+tries, ...)`, usado em `worldEvent.ts`/`groundAttack.ts`/`structure.ts`
+pra achar um ponto andável perto de uma origem). Reaproveitado num loop
+sobre a lista de prefabs do feitiço, um ângulo aleatório e um raio
+compartilhado por chamada, sem exigir mira (`gearDrop` não é
+`isAimedSpell` — é sempre centrado no próprio caster, como `flashbang` e
+`refraction`).
+
+**Mecanismo 2 — bônus de dano contra uma tag específica**: confirmado via
+`Original/` que dano-a-mais-contra-um-tipo-de-inimigo é um componente real,
+`components/damagetypebonus.lua`, usado por armas vanilla como o Moon
+Glass Axe, o Glass Cutter, o Houndstooth Blowpipe e o Lunar Plant Pickaxe
+— `AddComponent("damagetypebonus")` + `:AddBonus(tag, inst, multiplier)`,
+onde `multiplier` é literal (1 = sem bônus, 2 = dano dobrado). A tag usada
+pra "criatura sombria" (`"shadowcreature"`) não foi inventada — é a mesma
+que o próprio codebase já usa em `character.shadowAffinity`
+(`character.ts`), confirmada também em `shadowcreature.lua`
+(`AddTag("shadowcreature")`); ficou mais consistente reaproveitar a
+convenção já estabelecida no projeto do que criar uma tag nova
+equivalente.
+
+**Mecanismo 3 — "sem durabilidade", só um prazo de validade**: não
+precisou de mecanismo novo nenhum — `components.perishable`
+(`SetPerishTime`, `StartPerishing`, `SetOnPerishFn(inst.Remove)`) já
+existia no gerador de itens de sessões anteriores, e já remove o item do
+inventário sozinho quando o prazo acaba. `armor` real, porém, SEMPRE
+exige um valor de `condition` (não existe modo "sem durabilidade" na API
+de verdade) — resolvido setando um valor absurdamente alto (99999) pra
+que a condição nunca seja, na prática, o fator limitante; quem realmente
+derruba o item é o `perishable` correndo em paralelo.
+
+**Implementado:**
+- `spellbookSpellSchema.gearDrop` (`src/types/modProject.ts`) —
+  `{ prefabs: string[] (1 a 6), radius }`. Nunca mirado.
+- `item.weapon.bonusVsTag` (`src/types/modProject.ts`) —
+  `{ tag, multiplier: 1-10 }`, opcional, independente de `bonusVsTag` ser
+  ou não usado em outro lugar do item.
+- `src/generators/item.ts`: `spellGearDropLuaTable` +
+  `gearDropHelperFunctionBlock` (`DoSpellGearDrop`, usa
+  `FindWalkableOffset` + `luaStringArray` pra emitir a lista de prefabs);
+  `weaponComponentBlock` ganhou a emissão condicional de
+  `AddComponent("damagetypebonus")` quando `bonusVsTag` está setado.
+  Payload do `linkedContainer` ganhou mais 2 campos
+  (`geardropprefabs`/`geardropradius`, índices 27-28) — a lista de prefabs
+  é o único campo array do payload inteiro, resolvido com um delimitador
+  de TERCEIRO nível (vírgula) dentro do campo, já que ids de prefab nunca
+  têm vírgula (`table.concat(...,",")` pra codificar, `:gmatch("[^,]+")`
+  pra decodificar).
+- `src/generators/modmain.ts`: `itemTuningBlock` emite
+  `TUNING.<ITEM>_DAMAGE_VS_TAG_BONUS` quando `bonusVsTag` está setado.
+- UI (`ItemForm.tsx`): checkbox "Spawns a scattered set of different
+  prefabs around the caster" + input de lista (texto separado por
+  vírgula, convertido pra array via `setValueAs`) e raio, no mesmo
+  `SpellFieldsRow` compartilhado; seção separada de arma ganhou checkbox
+  "Deals bonus damage against a specific tag" + campos de tag/multiplicador.
+- `mods/viana.ts`: `solargloriesspell` (`gearDrop: { prefabs: [
+  'solarblade', 'solararmor', 'solarchakram' ], radius: 2 }`, mana 60);
+  `solarblade` (build vanilla `nightmaresword`, `weapon: { damage: 80,
+  bonusVsTag: { tag: 'shadowcreature', multiplier: 2 } }`,
+  `perishable: { perishTimeDays: 0.5 }`); `solararmor` (build vanilla
+  `armor_marble`, `armor: { condition: 99999, absorption: 0.9 }`,
+  `perishable: { perishTimeDays: 0.5 }`). `perishTimeDays: 0.5` = 4
+  minutos reais, confirmado via `Original/scripts/tuning.lua`
+  (`TUNING.TOTAL_DAY_TIME = seg_time * 16 = 480` segundos; `0.5 * 480 =
+  240s = 4min`).
+- Builds vanilla reaproveitadas escolhidas com o usuário: espada =
+  "Espada da Noite" (`nightmaresword`), armadura = "Armadura de Mármore"
+  (`armor_marble`) — perguntado antes de implementar, seguindo o padrão
+  já estabelecido de sempre confirmar visual/build antes de criar item
+  novo.
+
+**O que NÃO foi testado em jogo**: se o novo campo de texto separado por
+vírgula (`gearDrop.prefabs`) funciona corretamente na UI real do
+navegador — verificado só indiretamente via Lua gerado e testes
+unitários, não houve sessão de navegador ao vivo pra essa parte
+específica. Também não testado: se o raio 2 do `gearDrop` realmente
+espalha os 3 itens sem sobrepor visualmente, e se `swap_nightmaresword`
+existe de fato como símbolo de build no jogo base (aviso já deixado como
+comentário no Lua gerado, `solarblade.lua:4`).

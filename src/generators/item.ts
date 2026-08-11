@@ -1,5 +1,5 @@
 import type { ItemDef, Container, SpellbookSpell } from '../types/modProject'
-import { luaString, sanitizeLuaComment, toUpperSnake } from './luaUtils'
+import { luaString, luaStringArray, sanitizeLuaComment, toUpperSnake } from './luaUtils'
 import { groundAttackFunctionBlock } from './groundAttack'
 
 // Shared by both Item and Structure containers — takes the container config
@@ -417,6 +417,10 @@ function spellDesintegrateLuaTable(desintegrate: NonNullable<SpellbookSpell['des
   return `{ radius = ${desintegrate.radius}, damage = ${desintegrate.damage}, casttime = ${desintegrate.castTimeSeconds} }`
 }
 
+function spellGearDropLuaTable(gearDrop: NonNullable<SpellbookSpell['gearDrop']>): string {
+  return `{ prefabs = ${luaStringArray(gearDrop.prefabs)}, radius = ${gearDrop.radius} }`
+}
+
 // Confirmed against the real game scripts (components/aoespell.lua,
 // components/aoetargeting.lua, prefabs/abigail_flower.lua +
 // prefabs/ghostcommand_defs.lua — see docs/dst-knowledge/patterns.md#69):
@@ -665,6 +669,34 @@ function desintegrateHelperFunctionBlock(): string[] {
   ]
 }
 
+// Confirmed real API (prefabs/beefaloherd.lua/components/piratespawner.lua —
+// the same "scatter within a range" idiom worldEvent.ts's own spawnFunctionBlock
+// already uses): FindWalkableOffset(pos, angle, radius, tries, ...) picks a
+// random valid ground point, called once PER prefab so each of the dropped
+// items/creatures lands at its own spot instead of stacking on one point.
+// Falls back to the caster's exact position if no valid offset is found
+// (e.g. she's boxed in) rather than silently skipping the drop. Never
+// aimed — always centered on herself, like refraction/flashbang/cage.
+function gearDropHelperFunctionBlock(): string[] {
+  return [
+    'local function DoSpellGearDrop(user, geardrop)',
+    '    local x, y, z = user.Transform:GetWorldPosition()',
+    '    for _, prefab in ipairs(geardrop.prefabs) do',
+    '        local spawned = SpawnPrefab(prefab)',
+    '        if spawned ~= nil then',
+    '            local offset = FindWalkableOffset(Vector3(x, y, z), math.random() * TWOPI, geardrop.radius, 8, true, false)',
+    '            if offset ~= nil then',
+    '                spawned.Transform:SetPosition(x + offset.x, y + offset.y, z + offset.z)',
+    '            else',
+    '                spawned.Transform:SetPosition(x, y, z)',
+    '            end',
+    '        end',
+    '    end',
+    'end',
+    '',
+  ]
+}
+
 function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   const lines: string[] = []
   const hasAimedSpell = spells.some(isAimedSpell)
@@ -688,6 +720,9 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   }
   if (spells.some((spell) => spell.desintegrate !== undefined)) {
     lines.push(...desintegrateHelperFunctionBlock())
+  }
+  if (spells.some((spell) => spell.gearDrop !== undefined)) {
+    lines.push(...gearDropHelperFunctionBlock())
   }
 
   spells.forEach((spell, index) => {
@@ -731,6 +766,9 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
     }
     if (spell.desintegrate !== undefined) {
       lines.push(`    DoSpellDesintegrate(user, pos, ${spellDesintegrateLuaTable(spell.desintegrate)})`)
+    }
+    if (spell.gearDrop !== undefined) {
+      lines.push(`    DoSpellGearDrop(user, ${spellGearDropLuaTable(spell.gearDrop)})`)
     }
     lines.push('    if inst.components.finiteuses ~= nil then')
     lines.push('        inst.components.finiteuses:Use(1)')
@@ -867,6 +905,7 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push(...flashbangHelperFunctionBlock())
   lines.push(...cageHelperFunctionBlock())
   lines.push(...desintegrateHelperFunctionBlock())
+  lines.push(...gearDropHelperFunctionBlock())
   // Confirmed in the real components/inventory.lua (server) and prefabs/
   // inventory_classified.lua (client): the replica's own FindItem only
   // scans itemslots/activeitem/overflow — it never checks equipslots (that's
@@ -908,12 +947,14 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('            isaimed, beamdamage, beamtickinterval, beamrange, beamduration, beamtelegraph,')
   lines.push('            novadamage, novaradius, novastun, refractionradius, refractionduration,')
   lines.push('            flashbangradius, flashbangstun, cageprefab, cageradius, cagecount, cagerooted,')
-  lines.push('            desintegrateradius, desintegratedamage, desintegratecasttime =')
+  lines.push('            desintegrateradius, desintegratedamage, desintegratecasttime,')
+  lines.push('            geardropprefabs, geardropradius =')
   lines.push('            fields[1], fields[2], fields[3], fields[4], fields[5], fields[6],')
   lines.push('            fields[7], fields[8], fields[9], fields[10], fields[11], fields[12],')
   lines.push('            fields[13], fields[14], fields[15], fields[16], fields[17],')
   lines.push('            fields[18], fields[19], fields[20], fields[21], fields[22], fields[23],')
-  lines.push('            fields[24], fields[25], fields[26]')
+  lines.push('            fields[24], fields[25], fields[26],')
+  lines.push('            fields[27], fields[28]')
   lines.push('        table.insert(items, {')
   lines.push('            label = label,')
   // Same real widgets/wheel.lua checkenabled convention, and the same
@@ -983,6 +1024,13 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push(
     '                        DoSpellDesintegrate(user, pos, { radius = tonumber(desintegrateradius), damage = tonumber(desintegratedamage), casttime = tonumber(desintegratecasttime) })',
   )
+  lines.push('                    end')
+  lines.push('                    if geardropprefabs ~= "" then')
+  lines.push('                        local dropprefabs = {}')
+  lines.push('                        for dropprefab in geardropprefabs:gmatch("[^,]+") do')
+  lines.push('                            table.insert(dropprefabs, dropprefab)')
+  lines.push('                        end')
+  lines.push('                        DoSpellGearDrop(user, { prefabs = dropprefabs, radius = tonumber(geardropradius) })')
   lines.push('                    end')
   lines.push('                    if inst.components.finiteuses ~= nil then')
   lines.push('                        inst.components.finiteuses:Use(1)')
@@ -1172,6 +1220,9 @@ function spellDefComponentBlock(item: ItemDef): string[] {
   if (spell.desintegrate !== undefined) {
     lines.push(`    inst.spell_desintegrate = ${spellDesintegrateLuaTable(spell.desintegrate)}`)
   }
+  if (spell.gearDrop !== undefined) {
+    lines.push(`    inst.spell_geardrop = ${spellGearDropLuaTable(spell.gearDrop)}`)
+  }
   if (spell.aimed) {
     lines.push('    inst.spell_aimed = true')
   }
@@ -1229,6 +1280,12 @@ function weaponComponentBlock(item: ItemDef): string[] {
   }
   if (needsOnAttack(item)) {
     lines.push('    inst.components.weapon:SetOnAttack(onattack)')
+  }
+  if (weapon.bonusVsTag !== undefined) {
+    lines.push('    inst:AddComponent("damagetypebonus")')
+    lines.push(
+      `    inst.components.damagetypebonus:AddBonus(${luaString(weapon.bonusVsTag.tag)}, inst, TUNING.${upper}_DAMAGE_VS_TAG_BONUS)`,
+    )
   }
   return lines
 }
@@ -1463,6 +1520,7 @@ function containerComponentBlock(item: ItemDef): string[] {
       '                local flashbang = slotitem.spell_flashbang',
       '                local cage = slotitem.spell_cage',
       '                local desintegrate = slotitem.spell_desintegrate',
+      '                local geardrop = slotitem.spell_geardrop',
       '                table.insert(parts, table.concat({',
       '                    slotitem.spell_label,',
       '                    tostring(slotitem.spell_manacost or ""),',
@@ -1490,6 +1548,8 @@ function containerComponentBlock(item: ItemDef): string[] {
       '                    desintegrate ~= nil and tostring(desintegrate.radius) or "",',
       '                    desintegrate ~= nil and tostring(desintegrate.damage) or "",',
       '                    desintegrate ~= nil and tostring(desintegrate.casttime) or "",',
+      '                    geardrop ~= nil and table.concat(geardrop.prefabs, ",") or "",',
+      '                    geardrop ~= nil and tostring(geardrop.radius) or "",',
       '                }, "\\31"))',
       '            end',
       '        end',

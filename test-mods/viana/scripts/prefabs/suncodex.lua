@@ -176,6 +176,21 @@ local function DoSpellDesintegrate(user, pos, desintegrate)
     end)
 end
 
+local function DoSpellGearDrop(user, geardrop)
+    local x, y, z = user.Transform:GetWorldPosition()
+    for _, prefab in ipairs(geardrop.prefabs) do
+        local spawned = SpawnPrefab(prefab)
+        if spawned ~= nil then
+            local offset = FindWalkableOffset(Vector3(x, y, z), math.random() * TWOPI, geardrop.radius, 8, true, false)
+            if offset ~= nil then
+                spawned.Transform:SetPosition(x + offset.x, y + offset.y, z + offset.z)
+            else
+                spawned.Transform:SetPosition(x, y, z)
+            end
+        end
+    end
+end
+
 local function FindCodex(user)
     local codex = user.replica.inventory ~= nil and user.replica.inventory:FindItem(function(item)
         return item.prefab == "suncodex"
@@ -205,12 +220,14 @@ local function rebuild_spellbook_items(user)
             isaimed, beamdamage, beamtickinterval, beamrange, beamduration, beamtelegraph,
             novadamage, novaradius, novastun, refractionradius, refractionduration,
             flashbangradius, flashbangstun, cageprefab, cageradius, cagecount, cagerooted,
-            desintegrateradius, desintegratedamage, desintegratecasttime =
+            desintegrateradius, desintegratedamage, desintegratecasttime,
+            geardropprefabs, geardropradius =
             fields[1], fields[2], fields[3], fields[4], fields[5], fields[6],
             fields[7], fields[8], fields[9], fields[10], fields[11], fields[12],
             fields[13], fields[14], fields[15], fields[16], fields[17],
             fields[18], fields[19], fields[20], fields[21], fields[22], fields[23],
-            fields[24], fields[25], fields[26]
+            fields[24], fields[25], fields[26],
+            fields[27], fields[28]
         table.insert(items, {
             label = label,
             checkenabled = function(owner) return manacost == "" or owner.mana_current == nil or owner.mana_current:value() >= tonumber(manacost) end,
@@ -266,6 +283,13 @@ local function rebuild_spellbook_items(user)
                     end
                     if desintegrateradius ~= "" then
                         DoSpellDesintegrate(user, pos, { radius = tonumber(desintegrateradius), damage = tonumber(desintegratedamage), casttime = tonumber(desintegratecasttime) })
+                    end
+                    if geardropprefabs ~= "" then
+                        local dropprefabs = {}
+                        for dropprefab in geardropprefabs:gmatch("[^,]+") do
+                            table.insert(dropprefabs, dropprefab)
+                        end
+                        DoSpellGearDrop(user, { prefabs = dropprefabs, radius = tonumber(geardropradius) })
                     end
                     if inst.components.finiteuses ~= nil then
                         inst.components.finiteuses:Use(1)
@@ -386,6 +410,7 @@ local function fn()
                 local flashbang = slotitem.spell_flashbang
                 local cage = slotitem.spell_cage
                 local desintegrate = slotitem.spell_desintegrate
+                local geardrop = slotitem.spell_geardrop
                 table.insert(parts, table.concat({
                     slotitem.spell_label,
                     tostring(slotitem.spell_manacost or ""),
@@ -413,6 +438,8 @@ local function fn()
                     desintegrate ~= nil and tostring(desintegrate.radius) or "",
                     desintegrate ~= nil and tostring(desintegrate.damage) or "",
                     desintegrate ~= nil and tostring(desintegrate.casttime) or "",
+                    geardrop ~= nil and table.concat(geardrop.prefabs, ",") or "",
+                    geardrop ~= nil and tostring(geardrop.radius) or "",
                 }, "\31"))
             end
         end

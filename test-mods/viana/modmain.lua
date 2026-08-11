@@ -4,7 +4,7 @@ local TUNING = GLOBAL.TUNING
 local TECH = GLOBAL.TECH
 local Ingredient = GLOBAL.Ingredient
 
-PrefabFiles = { "solarlantern", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solargatespell", "solarbeamspell", "refractionspell", "solarnovaspell", "flashbangspell", "solarcagespell", "desintegrationspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "solarchakram_proj", "viana", "sunorb", "sunwisp", "lightpillar", "sunportal" }
+PrefabFiles = { "solarlantern", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solargatespell", "solarbeamspell", "refractionspell", "solarnovaspell", "flashbangspell", "solarcagespell", "desintegrationspell", "solargloriesspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "solarchakram_proj", "solarblade", "solararmor", "viana", "sunorb", "sunwisp", "lightpillar", "sunportal" }
 
 Assets = {
     Asset("ATLAS", "bigportraits/viana.xml"),
@@ -57,6 +57,9 @@ STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARCAGESPELL = "Bind this in the Sun Codex
 STRINGS.NAMES.DESINTEGRATIONSPELL = "Desintegration Spell"
 STRINGS.RECIPE_DESC.DESINTEGRATIONSPELL = "Bind this in the Sun Codex to mark an area with a searing light — after a long, visible wind-up, anything still caught inside is obliterated."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.DESINTEGRATIONSPELL = "Bind this in the Sun Codex to mark an area with a searing light — after a long, visible wind-up, anything still caught inside is obliterated."
+STRINGS.NAMES.SOLARGLORIESSPELL = "Solar Glories Spell"
+STRINGS.RECIPE_DESC.SOLARGLORIESSPELL = "Bind this in the Sun Codex to call down a blade, armor, and her chakram from the sun itself, scattered in the light around her."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARGLORIESSPELL = "Bind this in the Sun Codex to call down a blade, armor, and her chakram from the sun itself, scattered in the light around her."
 STRINGS.NAMES.LIGHTPILLARSPELL = "Light Pillar Spell"
 STRINGS.RECIPE_DESC.LIGHTPILLARSPELL = "Bind this in the Sun Codex to raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.LIGHTPILLARSPELL = "Bind this in the Sun Codex to raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close."
@@ -81,6 +84,18 @@ GLOBAL.TUNING.SOLARCHAKRAM_PROJ_SEARCH_RADIUS = 8
 STRINGS.NAMES.SOLARCHAKRAM = "Solar Chakram"
 STRINGS.RECIPE_DESC.SOLARCHAKRAM = "Throw it and it bites five times over: on every hit it seeks out the next enemy nearby and leaps to it, up to 5 in a row, before spinning back into her hand."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARCHAKRAM = "Throw it and it bites five times over: on every hit it seeks out the next enemy nearby and leaps to it, up to 5 in a row, before spinning back into her hand."
+GLOBAL.TUNING.SOLARBLADE_DAMAGE = 80
+GLOBAL.TUNING.SOLARBLADE_DAMAGE_VS_TAG_BONUS = 2
+GLOBAL.TUNING.SOLARBLADE_PERISH_TIME = TUNING.TOTAL_DAY_TIME * 0.5
+STRINGS.NAMES.SOLARBLADE = "Solar Blade"
+STRINGS.RECIPE_DESC.SOLARBLADE = "A blade of solidified sunlight — cuts twice as deep into creatures of shadow. Fades back into light after a while, so make it count."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARBLADE = "A blade of solidified sunlight — cuts twice as deep into creatures of shadow. Fades back into light after a while, so make it count."
+GLOBAL.TUNING.SOLARARMOR_CONDITION = 99999
+GLOBAL.TUNING.SOLARARMOR_ABSORPTION = 0.9
+GLOBAL.TUNING.SOLARARMOR_PERISH_TIME = TUNING.TOTAL_DAY_TIME * 0.5
+STRINGS.NAMES.SOLARARMOR = "Solar Armor"
+STRINGS.RECIPE_DESC.SOLARARMOR = "Plate woven from solidified sunlight — blocks 90% of incoming harm. Fades back into light after a while, so make it count."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARARMOR = "Plate woven from solidified sunlight — blocks 90% of incoming harm. Fades back into light after a while, so make it count."
 
 -- Items: recipes
 AddRecipe2("solarlantern", { Ingredient("twigs", 2), Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 1) }, TECH.MAGIC_TWO, {
@@ -123,6 +138,9 @@ AddRecipe2("solarcagespell", { Ingredient("goldnugget", 3), Ingredient("nightmar
 AddRecipe2("desintegrationspell", { Ingredient("goldnugget", 4), Ingredient("nightmarefuel", 4) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
+AddRecipe2("solargloriesspell", { Ingredient("goldnugget", 3), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
+        image = "papyrus.tex",
+    }, { "MAGIC" })
 AddRecipe2("lightpillarspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
@@ -135,6 +153,12 @@ AddRecipe2("solarprism", { Ingredient("goldnugget", 3), Ingredient("nightmarefue
 AddRecipe2("solarchakram", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
         image = "boomerang.tex",
     }, { "MAGIC" })
+AddRecipe2("solarblade", { Ingredient("goldnugget", 3), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
+        image = "nightmaresword.tex",
+    }, { "WEAPONS" })
+AddRecipe2("solararmor", { Ingredient("goldnugget", 3), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
+        image = "armor_marble.tex",
+    }, { "ARMOUR" })
 
 -- Items: register custom inventory icon atlases (simutil.lua GetInventoryItemAtlas)
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/suncodex.xml", "suncodex.tex")

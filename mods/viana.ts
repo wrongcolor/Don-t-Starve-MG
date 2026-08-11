@@ -292,6 +292,26 @@ export const viana: ModProject = {
       },
     },
     {
+      id: 'solargloriesspell',
+      displayName: 'Solar Glories Spell',
+      description: 'Bind this in the Sun Codex to call down a blade, armor, and her chakram from the sun itself, scattered in the light around her.',
+      category: 'generic',
+      animation: { source: 'vanilla', build: 'papyrus' },
+      spellDef: {
+        label: 'Solar Glories',
+        manaCost: 60,
+        gearDrop: { prefabs: ['solarblade', 'solararmor', 'solarchakram'], radius: 2 },
+      },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 3 },
+          { prefab: 'nightmarefuel', amount: 3 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+      },
+    },
+    {
       id: 'lightpillarspell',
       displayName: 'Light Pillar Spell',
       description: 'Bind this in the Sun Codex to raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close.',
@@ -357,6 +377,47 @@ export const viana: ModProject = {
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
+      },
+    },
+    {
+      id: 'solarblade',
+      displayName: 'Solar Blade',
+      description: "A blade of solidified sunlight — cuts twice as deep into creatures of shadow. Fades back into light after a while, so make it count.",
+      category: 'weapon',
+      animation: { source: 'vanilla', build: 'nightmaresword' },
+      weapon: { damage: 80, bonusVsTag: { tag: 'shadowcreature', multiplier: 2 } },
+      // No finiteuses — this doesn't wear down from use, it just fades away
+      // on its own after perishTimeDays regardless of how much it's swung.
+      perishable: { perishTimeDays: 0.5 },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 3 },
+          { prefab: 'nightmarefuel', amount: 3 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['WEAPONS'],
+      },
+    },
+    {
+      id: 'solararmor',
+      displayName: 'Solar Armor',
+      description: 'Plate woven from solidified sunlight — blocks 90% of incoming harm. Fades back into light after a while, so make it count.',
+      category: 'armor',
+      animation: { source: 'vanilla', build: 'armor_marble' },
+      // condition is set absurdly high on purpose — this armor isn't meant to
+      // wear down from combat at all, only to fade away once perishTimeDays
+      // is up. Real components.armor always needs SOME condition value (see
+      // its own schema comment), so this is the "never realistically breaks
+      // from hits" workaround rather than a true durability-less mode.
+      armor: { condition: 99999, absorption: 0.9 },
+      perishable: { perishTimeDays: 0.5 },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 3 },
+          { prefab: 'nightmarefuel', amount: 3 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['ARMOUR'],
       },
     },
   ],

@@ -24,11 +24,15 @@ caminhos abaixo, substituindo os placeholders:
   - `flashbangspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solarcagespell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `desintegrationspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
+  - `solargloriesspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `lightpillarspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `suntotem`: reaproveita o build "moonrock_idol" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solarprism`: reaproveita o build "gems" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solarchakram`: reaproveita o build "boomerang" do jogo base — nenhum `anim/*.zip` próprio é necessário.
     - ATENÇÃO: é um item empunhável (ferramenta/arma) usando build vanilla — confirme se `swap_boomerang` existe no jogo base antes de publicar.
+  - `solarblade`: reaproveita o build "nightmaresword" do jogo base — nenhum `anim/*.zip` próprio é necessário.
+    - ATENÇÃO: é um item empunhável (ferramenta/arma) usando build vanilla — confirme se `swap_nightmaresword` existe no jogo base antes de publicar.
+  - `solararmor`: reaproveita o build "armor_marble" do jogo base — nenhum `anim/*.zip` próprio é necessário.
 - **Personagens**: builds em `anim/`, ícone de seleção e ícone de minimapa.
   - `viana`: reaproveita o build "wendy" do jogo base como placeholder visual — nenhum `anim/*.zip` próprio é necessário, mas a aparência final ainda será a desse personagem vanilla até você trocar por um build real.
 - **Criaturas**: por padrão reaproveitam o build "pigman" do jogo base — só precisam de `anim/<id>.zip` próprio se a animação for explicitamente marcada como personalizada.

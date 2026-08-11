@@ -30,6 +30,25 @@ describe('generateItemFiles', () => {
     expect(code).toContain('inst:AddComponent("finiteuses")')
   })
 
+  // Confirmed real component (components/damagetypebonus.lua), the same one
+  // several real weapons use for this exact shape of effect — Moon Glass
+  // Axe/Glass Cutter/Houndstooth Blowpipe/Lunar Plant Pickaxe all call
+  // AddComponent("damagetypebonus") + :AddBonus(tag, inst, multiplier) on
+  // THEMSELVES (the weapon, not the wielder). 1 = no bonus, 2 = double
+  // damage — matches the real convention (TUNING.MOONGLASSAXE.
+  // DAMAGE_VS_SHADOW_BONUS = 1.25 there means +25%).
+  it('wires a weapon\'s bonusVsTag as its own damagetypebonus component', () => {
+    const bonusSword: ItemDef = { ...sword, weapon: { ...sword.weapon!, bonusVsTag: { tag: 'shadowcreature', multiplier: 2 } } }
+    const code = generateItemPrefab(bonusSword)
+    expect(code).toContain('inst:AddComponent("damagetypebonus")')
+    expect(code).toContain('inst.components.damagetypebonus:AddBonus("shadowcreature", inst, TUNING.TESTSWORD_DAMAGE_VS_TAG_BONUS)')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('does not wire damagetypebonus when bonusVsTag is not set', () => {
+    expect(generateItemPrefab(sword)).not.toContain('damagetypebonus')
+  })
+
   it('defaults to a custom build named after the item id when no animation is chosen', () => {
     const customBuildSword: ItemDef = { ...sword, animation: undefined }
     const code = generateItemPrefab(customBuildSword)
@@ -1157,6 +1176,75 @@ describe('generateItemFiles', () => {
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
+  // Confirmed real API (prefabs/beefaloherd.lua/components/piratespawner.lua
+  // — the same "scatter within a range" idiom worldEvent.ts's own
+  // spawnFunctionBlock already uses): FindWalkableOffset per prefab, so
+  // each dropped item lands at its own spot instead of stacking. Never
+  // aimed, unlike beam/nova/cage/desintegrate — it centers on the caster.
+  it('wires a static spell\'s gearDrop as an unaimed scatter of several different prefabs around the caster', () => {
+    const gearDropStaff: ItemDef = {
+      ...trinket,
+      id: 'testgeardropstaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          { label: 'Solar Glories', gearDrop: { prefabs: ['solarblade', 'solararmor', 'solarchakram'], radius: 2 } },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(gearDropStaff)
+    expect(code).toContain('local function DoSpellGearDrop(user, geardrop)')
+    expect(code).toContain('for _, prefab in ipairs(geardrop.prefabs) do')
+    expect(code).toContain('local offset = FindWalkableOffset(Vector3(x, y, z), math.random() * TWOPI, geardrop.radius, 8, true, false)')
+    expect(code).toContain('DoSpellGearDrop(user, { prefabs = { "solarblade", "solararmor", "solarchakram" }, radius = 2 })')
+
+    // Unaimed: no aoetargeting/aoespell components, no ForceFacePoint, and
+    // the wheel entry stays on the instant CastSpellBookFromInv path.
+    expect(code).not.toContain('aoetargeting')
+    expect(code).not.toContain('aoespell')
+    expect(code).not.toContain('ForceFacePoint')
+    const geardropEntryStart = code.indexOf('label = "Solar Glories"')
+    const sparkEntryStart = code.indexOf('label = "Free Spark"')
+    const geardropEntry = code.slice(geardropEntryStart, sparkEntryStart)
+    expect(geardropEntry).toContain('inst.components.spellbook:SetSpellFn(spellbook_cast_1)')
+    expect(geardropEntry).toContain('inventory:CastSpellBookFromInv(inst)')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('omits the gearDrop helper function from a static spellbook when no spell in it uses gearDrop', () => {
+    const code = generateItemPrefab({
+      ...trinket,
+      id: 'testnogeardropstaff',
+      spellbook: { source: 'static', spells: [{ label: 'A', summonPrefab: 'x' }, { label: 'B', summonPrefab: 'y' }] },
+    })
+    expect(code).not.toContain('DoSpellGearDrop')
+  })
+
+  it('sets inst.spell_geardrop on a spellDef item with a gearDrop, and a linkedContainer staff casts it (splitting the comma-joined prefab list)', () => {
+    const gearDropSpell: ItemDef = {
+      ...trinket,
+      id: 'testgeardropspell',
+      spellDef: { label: 'Solar Glories', gearDrop: { prefabs: ['solarblade', 'solararmor', 'solarchakram'], radius: 2 } },
+    }
+    expect(generateItemPrefab(gearDropSpell)).toContain(
+      'inst.spell_geardrop = { prefabs = { "solarblade", "solararmor", "solarchakram" }, radius = 2 }',
+    )
+
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkedgeardropstaff',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const code = generateItemPrefab(linked)
+    expect(code).toContain('local function DoSpellGearDrop(user, geardrop)')
+    expect(code).toContain('if geardropprefabs ~= "" then')
+    expect(code).toContain('for dropprefab in geardropprefabs:gmatch("[^,]+") do')
+    expect(code).toContain('DoSpellGearDrop(user, { prefabs = dropprefabs, radius = tonumber(geardropradius) })')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
   it('rejects an item with both spellbook and spellEffect set', () => {
     const both: ItemDef = {
       ...trinket,
@@ -1372,6 +1460,9 @@ describe('generateItemFiles', () => {
     expect(code).toContain('desintegrate ~= nil and tostring(desintegrate.radius) or ""')
     expect(code).toContain('desintegrate ~= nil and tostring(desintegrate.damage) or ""')
     expect(code).toContain('desintegrate ~= nil and tostring(desintegrate.casttime) or ""')
+    expect(code).toContain('local geardrop = slotitem.spell_geardrop')
+    expect(code).toContain('geardrop ~= nil and table.concat(geardrop.prefabs, ",") or ""')
+    expect(code).toContain('geardrop ~= nil and tostring(geardrop.radius) or ""')
     expect(code).toContain('inst.spell_contents:set(table.concat(parts, "\\30"))')
     expect(code).toContain('inst:ListenForEvent("itemget", UpdateSpellContents)')
     expect(code).toContain('inst:ListenForEvent("itemlose", UpdateSpellContents)')

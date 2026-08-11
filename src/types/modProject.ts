@@ -331,6 +331,20 @@ export const spellbookSpellSchema = z
         castTimeSeconds: z.number().min(1).max(30),
       })
       .optional(),
+    // Confirmed real API (beefaloherd.lua/piratespawner.lua — the same
+    // FindWalkableOffset(pos, angle, radius, tries, ...) "scatter within a
+    // range" idiom already used by StructureDef.daySpawner/WorldEventDef's
+    // own codegen, worldEvent.ts): spawns each prefab in the list at its
+    // own random point within radius of the caster (not aimed — always
+    // centered on herself, like refraction/flashbang/cage above). Lets a
+    // single spell hand out several different items/creatures at once
+    // instead of just one repeated summonPrefab.
+    gearDrop: z
+      .object({
+        prefabs: z.array(z.string().min(1)).min(1, 'Add at least one prefab to drop').max(6),
+        radius: z.number().min(0.5).max(10),
+      })
+      .optional(),
     // Confirmed in prefabs/abigail_flower.lua + ghostcommand_defs.lua (see
     // docs/dst-knowledge/patterns.md#69): lets a spell that summons something
     // spawn at a mouse-aimed point (via aoetargeting+aoespell) instead of
@@ -351,7 +365,8 @@ export const spellbookSpellSchema = z
       spell.refraction !== undefined ||
       spell.flashbang !== undefined ||
       spell.cage !== undefined ||
-      spell.desintegrate !== undefined,
+      spell.desintegrate !== undefined ||
+      spell.gearDrop !== undefined,
     {
       message: 'A spell needs to do something — set a prefab to summon and/or a health/sanity/hunger effect',
       path: ['summonPrefab'],
@@ -525,6 +540,24 @@ export const itemDefSchema = z
             .transform((v) => (v ? v : undefined))
             .optional(),
         }).optional(),
+        // Confirmed real component (components/damagetypebonus.lua), used by
+        // several real weapons for exactly this shape of effect — the Moon
+        // Glass Axe/Glass Cutter/Houndstooth Blowpipe/Lunar Plant Pickaxe all
+        // call `inst:AddComponent("damagetypebonus")` then
+        // `:AddBonus(tag, inst, multiplier)` on THEMSELVES (the weapon item,
+        // not the wielder). components/weapon.lua's own GetDamage multiplies
+        // by `damagetypebonus:GetBonus(target)` — 1 = no bonus, 2 = double
+        // damage, matching TUNING.MOONGLASSAXE.DAMAGE_VS_SHADOW_BONUS's real
+        // convention (1.25 there = +25%). "shadowcreature" is the same tag
+        // this tool's own CharacterDef.shadowAffinity already checks
+        // (character.ts) — real shadow-creature prefabs (nightmarecreature.lua,
+        // shadowcreature.lua) always carry it.
+        bonusVsTag: z
+          .object({
+            tag: z.string().min(1, 'Enter the tag to bonus against (e.g. shadowcreature)'),
+            multiplier: z.number().min(1).max(10),
+          })
+          .optional(),
       })
       .refine((w) => w.meleeRange === undefined || w.ranged === undefined, {
         message: 'Melee range only applies to a melee weapon — turn off ranged mode first',

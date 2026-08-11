@@ -132,6 +132,9 @@ function itemTuningBlock(item: ItemDef): string[] {
     } else if (item.weapon.meleeRange !== undefined) {
       lines.push(`GLOBAL.TUNING.${upper}_MELEE_RANGE = ${item.weapon.meleeRange}`)
     }
+    if (item.weapon.bonusVsTag !== undefined) {
+      lines.push(`GLOBAL.TUNING.${upper}_DAMAGE_VS_TAG_BONUS = ${item.weapon.bonusVsTag.multiplier}`)
+    }
   }
   if (item.finiteuses) lines.push(`GLOBAL.TUNING.${upper}_USES = ${item.finiteuses.maxUses}`)
   if (item.armor) {

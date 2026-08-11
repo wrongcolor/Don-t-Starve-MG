@@ -63,6 +63,7 @@ interface SpellFieldsRowProps {
   flashbangEnabled: boolean
   cageEnabled: boolean
   desintegrateEnabled: boolean
+  gearDropEnabled: boolean
 }
 
 function SpellFieldsRow({
@@ -76,6 +77,7 @@ function SpellFieldsRow({
   flashbangEnabled,
   cageEnabled,
   desintegrateEnabled,
+  gearDropEnabled,
 }: SpellFieldsRowProps) {
   return (
     <>
@@ -399,6 +401,44 @@ function SpellFieldsRow({
             />
           </>
         )}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input
+            type="checkbox"
+            checked={gearDropEnabled}
+            onChange={(e) =>
+              setValue(`${namePrefix}.gearDrop` as const, e.target.checked ? { prefabs: [''], radius: 2 } : undefined, {
+                shouldDirty: true,
+              })
+            }
+          />
+          Drops a set of prefabs scattered around herself (not aimed)
+        </label>
+        {gearDropEnabled && (
+          <>
+            <input
+              className={inputClass}
+              placeholder="Prefabs, comma separated (e.g. solarblade, solararmor, solarchakram)"
+              {...register(`${namePrefix}.gearDrop.prefabs` as const, {
+                setValueAs: (v: unknown) =>
+                  typeof v === 'string'
+                    ? v
+                        .split(',')
+                        .map((s) => s.trim())
+                        .filter((s) => s.length > 0)
+                    : v,
+              })}
+            />
+            <input
+              type="number"
+              step="0.5"
+              min="0.5"
+              className="qty-input"
+              placeholder="Radius"
+              title="How far from herself each dropped prefab can land"
+              {...register(`${namePrefix}.gearDrop.radius` as const, { valueAsNumber: true })}
+            />
+          </>
+        )}
       </div>
     </>
   )
@@ -415,6 +455,7 @@ interface SpellbookEditorProps {
   watchedFlashbangFlags: boolean[]
   watchedCageFlags: boolean[]
   watchedDesintegrateFlags: boolean[]
+  watchedGearDropFlags: boolean[]
 }
 
 // Owns the spells field array itself, mounted only while the spellbook is
@@ -438,6 +479,7 @@ function SpellbookEditor({
   watchedFlashbangFlags,
   watchedCageFlags,
   watchedDesintegrateFlags,
+  watchedGearDropFlags,
 }: SpellbookEditorProps) {
   const spells = useFieldArray({ control, name: 'spellbook.spells' as never })
 
@@ -456,6 +498,7 @@ function SpellbookEditor({
             flashbangEnabled={watchedFlashbangFlags[index] ?? false}
             cageEnabled={watchedCageFlags[index] ?? false}
             desintegrateEnabled={watchedDesintegrateFlags[index] ?? false}
+            gearDropEnabled={watchedGearDropFlags[index] ?? false}
           />
           <button type="button" className={btnDanger} onClick={() => spells.remove(index)}>
             Remove
@@ -522,6 +565,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const enableMeleeRange = watched.weapon?.meleeRange !== undefined
   const enableChainReturn = watched.weapon?.chainReturn !== undefined
   const enableSanityCost = watched.weapon?.sanityCostOnUse !== undefined
+  const enableBonusVsTag = watched.weapon?.bonusVsTag !== undefined
   const enableWalkSpeedMult = watched.equipWalkSpeedMult !== undefined
   const enableSpellEffect = watched.spellEffect !== undefined
   const enableTameBomb = watched.tameBomb !== undefined
@@ -957,6 +1001,37 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       <input type="number" step="0.1" className={inputClass} {...register('weapon.sanityCostOnUse', { valueAsNumber: true })} />
                     </FormField>
                   )}
+
+                  <div className="checks">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={enableBonusVsTag}
+                        onChange={(e) =>
+                          setValue('weapon.bonusVsTag', e.target.checked ? { tag: 'shadowcreature', multiplier: 2 } : undefined)
+                        }
+                      />
+                      Bonus damage against a tag
+                    </label>
+                  </div>
+                  {enableBonusVsTag && (
+                    <div className="ingredient-row">
+                      <input
+                        className={inputClass}
+                        placeholder="Tag (e.g. shadowcreature)"
+                        {...register('weapon.bonusVsTag.tag')}
+                      />
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="1"
+                        className="qty-input"
+                        placeholder="Multiplier"
+                        title="Damage multiplier against a target with this tag — 2 = double damage"
+                        {...register('weapon.bonusVsTag.multiplier', { valueAsNumber: true })}
+                      />
+                    </div>
+                  )}
                 </>
               )}
 
@@ -1130,6 +1205,9 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       )}
                       watchedDesintegrateFlags={(watched.spellbook?.source === 'static' ? watched.spellbook.spells : []).map(
                         (s) => s.desintegrate !== undefined,
+                      )}
+                      watchedGearDropFlags={(watched.spellbook?.source === 'static' ? watched.spellbook.spells : []).map(
+                        (s) => s.gearDrop !== undefined,
                       )}
                     />
                   ) : (
@@ -1739,6 +1817,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   flashbangEnabled={watched.spellDef?.flashbang !== undefined}
                   cageEnabled={watched.spellDef?.cage !== undefined}
                   desintegrateEnabled={watched.spellDef?.desintegrate !== undefined}
+                  gearDropEnabled={watched.spellDef?.gearDrop !== undefined}
                 />
               </div>
             )}
