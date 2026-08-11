@@ -3917,18 +3917,40 @@ ordem evita ambiguidade de qualquer forma. Como o Solar Beam da Viana já
 usa `spellDef.beam` via `linkedContainer` (o Sun Codex), não precisou mexer
 em `mods/viana.ts` — só a lógica em runtime do `suncodex.lua` já cobre.
 
+**Extensão pro raio real do Nova**: o usuário perguntou se o Solar Nova tem
+um raio específico (`radius: 5`) e se dava pra escolher uma retícula
+condizente em vez da genérica. Achei UM ponto de dado real que confirma a
+semântica do sufixo numérico: `prefabs/shadow_trap.lua`'s própria
+`TARGET_RADIUS = 6` — o raio de efeito real da Armadilha de Sombra do
+Waxwell — e ela usa exatamente `reticuleaoe_1_6`. Não achei uma correlação
+igualmente confirmável pra `reticuleaoe_1d2_12` (nenhum feitiço real com
+raio "12" bate de forma limpa), então só dá pra usar esse UM ponto de dado
+com confiança, não um sistema geral de "raio → melhor retícula".
+
+Regra aplicada: raio ≤ 6 usa `reticuleaoe_1_6`/`reticuleaoeping_1_6` (a
+variante confirmada); raio > 6 cai pra genérica `reticuleaoe`/
+`reticuleaoeping` (sem dado confirmado pra nenhuma maior). Isso vale pra
+`nova` E `cage` igualmente (raio 5 e 6 na Viana — os dois caem na variante
+confirmada agora).
+
 **Implementado:**
-- `src/generators/item.ts`: tanto `staticSpellbookFunctionBlock` quanto
-  `linkedContainerSpellbookFunctionBlock` (nesse, decidido em runtime via
-  `beamdamage ~= ""` / `novadamage ~= "" or cageprefab ~= ""`, já que o
-  `onselect` não sabe de antemão qual spell foi selecionada) setam
-  `reticuleprefab`/`pingprefab` explicitamente em TODO `onselect` de
-  feitiço mirado — `"reticuleline"` + `"reticulelineping"` pro beam,
-  `"reticuleaoe"` + `"reticuleaoeping"` pra nova/cage, `"reticule"` + `nil`
-  pro resto.
+- `src/generators/item.ts`: `aoeReticuleNames(radius)` (novo helper) decide
+  entre a variante confirmada e a genérica. Usado por
+  `staticSpellbookFunctionBlock` (sabe o raio em tempo de geração) e por
+  `linkedContainerSpellbookFunctionBlock` (decide em runtime, já que só sabe
+  o raio depois de decodificar o payload — `local aoeradius =
+  tonumber(novadamage ~= "" and novaradius or cageradius)` seguido de um
+  `if aoeradius <= 6`). Tanto `staticSpellbookFunctionBlock` quanto
+  `linkedContainerSpellbookFunctionBlock` setam `reticuleprefab`/
+  `pingprefab` explicitamente em TODO `onselect` de feitiço mirado —
+  `"reticuleline"` + `"reticulelineping"` pro beam, a variante do
+  `aoeReticuleNames` pra nova/cage, `"reticule"` + `nil` pro resto.
 
 **O que NÃO foi testado em jogo**: se os prefabs `reticuleaoe`/
-`reticuleline` de fato carregam/renderizam sem precisar de um `Asset(...)`
-explícito no modmain (são prefabs reais do jogo base, presumidos
-pré-carregados globalmente do mesmo jeito que a retícula padrão
-`"reticule"` já era, mas nunca confirmado ao vivo).
+`reticuleaoe_1_6`/`reticuleline` de fato carregam/renderizam sem precisar
+de um `Asset(...)` explícito no modmain (são prefabs reais do jogo base,
+presumidos pré-carregados globalmente do mesmo jeito que a retícula padrão
+`"reticule"` já era, mas nunca confirmado ao vivo), e se o anel
+`reticuleaoe_1_6` de fato aparenta ter ~6 tiles de raio visualmente (a
+correlação numérica é confirmada só pelo dado do Shadow Trap, não uma regra
+documentada oficialmente).

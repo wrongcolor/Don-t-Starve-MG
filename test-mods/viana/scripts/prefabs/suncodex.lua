@@ -254,8 +254,14 @@ local function rebuild_spellbook_items(user)
                         inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"
                         inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"
                     elseif novadamage ~= "" or cageprefab ~= "" then
-                        inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"
-                        inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"
+                        local aoeradius = tonumber(novadamage ~= "" and novaradius or cageradius)
+                        if aoeradius ~= nil and aoeradius <= 6 then
+                            inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe_1_6"
+                            inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping_1_6"
+                        else
+                            inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"
+                            inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"
+                        end
                     else
                         inst.components.aoetargeting.reticule.reticuleprefab = "reticule"
                         inst.components.aoetargeting.reticule.pingprefab = nil

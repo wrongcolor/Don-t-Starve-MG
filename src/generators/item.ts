@@ -314,6 +314,20 @@ function needsAimedSpell(item: ItemDef): boolean {
   return item.spellbook?.source === 'linkedContainer'
 }
 
+// Confirmed real data point (prefabs/shadow_trap.lua's own TARGET_RADIUS =
+// 6, the exact real effect radius of the ONE real spell — Waxwell's Shadow
+// Trap — confirmed using "reticuleaoe_1_6"): the numeric suffix tracks the
+// ring's actual drawn size in tiles. No equally-confirmed correlation
+// exists for "reticuleaoe_1d2_12" (no real spell's own radius cleanly
+// matches "12"), so this only ever picks between the one confirmed sized
+// variant and the unsized generic fallback — not a fully general "closest
+// preset" system.
+function aoeReticuleNames(radius: number): { reticuleprefab: string; pingprefab: string } {
+  return radius <= 6
+    ? { reticuleprefab: 'reticuleaoe_1_6', pingprefab: 'reticuleaoeping_1_6' }
+    : { reticuleprefab: 'reticuleaoe', pingprefab: 'reticuleaoeping' }
+}
+
 // Confirmed against the real waxwelljournal.lua (Wickerbottom's own spellbook
 // item): AddComponent("spellbook") + SetItems/SetShouldOpenFn happen BEFORE
 // SetPristine()/the ismastersim check — i.e. on BOTH client and server, unlike
@@ -717,19 +731,19 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
       // real vanilla's own straight-line attacks use (Wigfrid's spear —
       // prefabs/spear_gungnir.lua/spear_wathgrithr.lua — and Willow's
       // ember — prefabs/willow_ember.lua), a natural fit for a beam's own
-      // fixed direction+range. "reticuleaoe"/"reticuleaoeping" is the
-      // generic, no-radius-suffix AOE ring pair real vanilla itself falls
-      // back to when a spell has no dedicated size variant — there's no way
-      // to scale either shape to an arbitrary configured range/radius, only
-      // pick between a handful of fixed-size baked animations, so both are
-      // an approximate "this is a line/area effect" cue, not a to-scale
-      // preview.
+      // fixed direction+range. nova/cage pick the closest AOE ring via
+      // aoeReticuleNames (radius-aware for the one confirmed size variant,
+      // see its own comment) — there's no way to scale a ring to an
+      // arbitrary configured radius, only pick between a handful of
+      // fixed-size baked animations, so this is an approximate area cue,
+      // not a to-scale preview.
       if (spell.beam !== undefined) {
         lines.push('            inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"')
         lines.push('            inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"')
       } else if (spell.nova !== undefined || spell.cage !== undefined) {
-        lines.push('            inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"')
-        lines.push('            inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"')
+        const { reticuleprefab, pingprefab } = aoeReticuleNames((spell.nova ?? spell.cage)!.radius)
+        lines.push(`            inst.components.aoetargeting.reticule.reticuleprefab = ${luaString(reticuleprefab)}`)
+        lines.push(`            inst.components.aoetargeting.reticule.pingprefab = ${luaString(pingprefab)}`)
       } else {
         lines.push('            inst.components.aoetargeting.reticule.reticuleprefab = "reticule"')
         lines.push('            inst.components.aoetargeting.reticule.pingprefab = nil')
@@ -924,15 +938,24 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   // set explicitly, never left implicit — reticule state is shared/mutated
   // in place on the item's aoetargeting component across every spell in the
   // wheel. "reticuleline"/"reticulelineping" mirrors Wigfrid's spear/
-  // Willow's ember own directional-line reticule; "reticuleaoe"/
-  // "reticuleaoeping" is the generic AOE ring pair — both approximate cues
-  // (not to-scale to beamrange/novaradius/cageradius).
+  // Willow's ember own directional-line reticule. nova/cage pick between
+  // "reticuleaoe_1_6" (the one confirmed radius-6 variant — see
+  // aoeReticuleNames's own comment) and the generic "reticuleaoe" fallback
+  // based on the decoded radius, same rule as the static-spellbook branch,
+  // just resolved at runtime since onselect doesn't know ahead of time
+  // which spell was picked.
   lines.push('                    if beamdamage ~= "" then')
   lines.push('                        inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"')
   lines.push('                        inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"')
   lines.push('                    elseif novadamage ~= "" or cageprefab ~= "" then')
-  lines.push('                        inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"')
-  lines.push('                        inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"')
+  lines.push('                        local aoeradius = tonumber(novadamage ~= "" and novaradius or cageradius)')
+  lines.push('                        if aoeradius ~= nil and aoeradius <= 6 then')
+  lines.push('                            inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe_1_6"')
+  lines.push('                            inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping_1_6"')
+  lines.push('                        else')
+  lines.push('                            inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"')
+  lines.push('                            inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"')
+  lines.push('                        end')
   lines.push('                    else')
   lines.push('                        inst.components.aoetargeting.reticule.reticuleprefab = "reticule"')
   lines.push('                        inst.components.aoetargeting.reticule.pingprefab = nil')
