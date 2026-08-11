@@ -272,6 +272,26 @@ export const viana: ModProject = {
       },
     },
     {
+      id: 'desintegrationspell',
+      displayName: 'Desintegration Spell',
+      description: 'Bind this in the Sun Codex to mark an area with a searing light — after a long, visible wind-up, anything still caught inside is obliterated.',
+      category: 'generic',
+      animation: { source: 'vanilla', build: 'papyrus' },
+      spellDef: {
+        label: 'Desintegration',
+        manaCost: 75,
+        desintegrate: { radius: 6, damage: 2000, castTimeSeconds: 4 },
+      },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 4 },
+          { prefab: 'nightmarefuel', amount: 4 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+      },
+    },
+    {
       id: 'lightpillarspell',
       displayName: 'Light Pillar Spell',
       description: 'Bind this in the Sun Codex to raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close.',

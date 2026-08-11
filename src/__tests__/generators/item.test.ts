@@ -1070,8 +1070,10 @@ describe('generateItemFiles', () => {
     expect(code).toContain('if beamdamage ~= "" then')
     expect(code).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"')
     expect(code).toContain('inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"')
-    expect(code).toContain('elseif novadamage ~= "" or cageprefab ~= "" then')
-    expect(code).toContain('local aoeradius = tonumber(novadamage ~= "" and novaradius or cageradius)')
+    expect(code).toContain('elseif novadamage ~= "" or cageprefab ~= "" or desintegrateradius ~= "" then')
+    expect(code).toContain(
+      'local aoeradius = tonumber(novadamage ~= "" and novaradius or (cageprefab ~= "" and cageradius or desintegrateradius))',
+    )
     expect(code).toContain('if aoeradius ~= nil and aoeradius <= 6 then')
     expect(code).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe_1_6"')
     expect(code).toContain('inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping_1_6"')
@@ -1079,6 +1081,79 @@ describe('generateItemFiles', () => {
     expect(code).toContain('inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"')
     expect(code).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticule"')
     expect(code).toContain('inst.components.aoetargeting.reticule.pingprefab = nil')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  // Same telegraph idea beam.telegraphSeconds already uses (a "reticule"
+  // marker sits at the point, then DoTaskInTime fires once the wait is
+  // over) applied to a one-shot blast — the radius scan only runs AFTER
+  // casttime elapses, so it catches whoever is there THEN, not who was
+  // there at cast time. Excludes players and the caster's own companion,
+  // same convention as flashbang/cage. Always aimed, like nova/cage.
+  it('wires a static spell\'s desintegrate as a delayed aimed blast that only hits whoever is still there once the cast time elapses', () => {
+    const desintegrateStaff: ItemDef = {
+      ...trinket,
+      id: 'testdesintegratestaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          { label: 'Desintegration', desintegrate: { radius: 6, damage: 2000, castTimeSeconds: 3 } },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(desintegrateStaff)
+    expect(code).toContain('local function DoSpellDesintegrate(user, pos, desintegrate)')
+    expect(code).toContain('local marker = SpawnPrefab("reticule")')
+    expect(code).toContain('user:DoTaskInTime(desintegrate.casttime, function()')
+    expect(code).toContain('local victims = TheSim:FindEntities(x, y, z, desintegrate.radius, nil, { "INLIMBO", "player" })')
+    expect(code).toContain('local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user')
+    expect(code).toContain('if victim.components.health ~= nil and not victim.components.health:IsDead() and not isowncompanion then')
+    expect(code).toContain('victim.components.health:DoDelta(-desintegrate.damage, false, "desintegrate", false, user)')
+    expect(code).toContain('DoSpellDesintegrate(user, pos, { radius = 6, damage = 2000, casttime = 3 })')
+
+    // Aimed: needs aoetargeting/aoespell and ForceFacePoint, and radius 6
+    // lands on the same confirmed sized reticule as nova/cage (patterns.md#77).
+    expect(code).toContain('aoetargeting')
+    expect(code).toContain('aoespell')
+    expect(code).toContain('ForceFacePoint')
+    const desintegrateEntryStart = code.indexOf('label = "Desintegration"')
+    const sparkEntryStart = code.indexOf('label = "Free Spark"')
+    const desintegrateEntry = code.slice(desintegrateEntryStart, sparkEntryStart)
+    expect(desintegrateEntry).toContain('execute = StartAOETargeting,')
+    expect(desintegrateEntry).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe_1_6"')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('omits the desintegrate helper function from a static spellbook when no spell in it uses desintegrate', () => {
+    const code = generateItemPrefab({
+      ...trinket,
+      id: 'testnodesintegratestaff',
+      spellbook: { source: 'static', spells: [{ label: 'A', summonPrefab: 'x' }, { label: 'B', summonPrefab: 'y' }] },
+    })
+    expect(code).not.toContain('DoSpellDesintegrate')
+  })
+
+  it('sets inst.spell_desintegrate on a spellDef item with a desintegrate, and a linkedContainer staff casts it', () => {
+    const desintegrateSpell: ItemDef = {
+      ...trinket,
+      id: 'testdesintegratespell',
+      spellDef: { label: 'Desintegration', desintegrate: { radius: 6, damage: 2000, castTimeSeconds: 3 } },
+    }
+    expect(generateItemPrefab(desintegrateSpell)).toContain('inst.spell_desintegrate = { radius = 6, damage = 2000, casttime = 3 }')
+
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkeddesintegratestaff',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const code = generateItemPrefab(linked)
+    expect(code).toContain('local function DoSpellDesintegrate(user, pos, desintegrate)')
+    expect(code).toContain('if desintegrateradius ~= "" then')
+    expect(code).toContain(
+      'DoSpellDesintegrate(user, pos, { radius = tonumber(desintegrateradius), damage = tonumber(desintegratedamage), casttime = tonumber(desintegratecasttime) })',
+    )
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
@@ -1293,6 +1368,10 @@ describe('generateItemFiles', () => {
     expect(code).toContain('cage ~= nil and tostring(cage.radius) or ""')
     expect(code).toContain('cage ~= nil and tostring(cage.count) or ""')
     expect(code).toContain('cage ~= nil and tostring(cage.rooted) or ""')
+    expect(code).toContain('local desintegrate = slotitem.spell_desintegrate')
+    expect(code).toContain('desintegrate ~= nil and tostring(desintegrate.radius) or ""')
+    expect(code).toContain('desintegrate ~= nil and tostring(desintegrate.damage) or ""')
+    expect(code).toContain('desintegrate ~= nil and tostring(desintegrate.casttime) or ""')
     expect(code).toContain('inst.spell_contents:set(table.concat(parts, "\\30"))')
     expect(code).toContain('inst:ListenForEvent("itemget", UpdateSpellContents)')
     expect(code).toContain('inst:ListenForEvent("itemlose", UpdateSpellContents)')

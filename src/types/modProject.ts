@@ -313,6 +313,24 @@ export const spellbookSpellSchema = z
         rootedSeconds: z.number().min(1).max(60),
       })
       .optional(),
+    // Same telegraph idea beam.telegraphSeconds already uses (a reticule
+    // marker sits at the point for a while before anything happens), just
+    // applied to a one-shot blast instead of a channeled tick: a marker
+    // appears at the aimed point, and only once castTimeSeconds has fully
+    // elapsed does it scan the radius (TheSim:FindEntities, same
+    // "exclude, don't require" cantTags pattern as flashbang) and deal
+    // damage to whatever is THERE AT THAT MOMENT — re-scanned after the
+    // delay, not at cast time, so anything that walks out of the circle in
+    // time takes nothing. Excludes players and the caster's own companion,
+    // same convention as flashbang/cage. Always aimed, like nova/cage —
+    // needs a point to center on.
+    desintegrate: z
+      .object({
+        radius: z.number().min(1).max(20),
+        damage: z.number().min(1).max(5000),
+        castTimeSeconds: z.number().min(1).max(30),
+      })
+      .optional(),
     // Confirmed in prefabs/abigail_flower.lua + ghostcommand_defs.lua (see
     // docs/dst-knowledge/patterns.md#69): lets a spell that summons something
     // spawn at a mouse-aimed point (via aoetargeting+aoespell) instead of
@@ -332,7 +350,8 @@ export const spellbookSpellSchema = z
       spell.nova !== undefined ||
       spell.refraction !== undefined ||
       spell.flashbang !== undefined ||
-      spell.cage !== undefined,
+      spell.cage !== undefined ||
+      spell.desintegrate !== undefined,
     {
       message: 'A spell needs to do something — set a prefab to summon and/or a health/sanity/hunger effect',
       path: ['summonPrefab'],

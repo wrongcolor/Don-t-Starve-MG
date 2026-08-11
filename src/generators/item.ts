@@ -304,7 +304,13 @@ function needsSpellbook(item: ItemDef): boolean {
 // summon-only spell is only aimed when explicitly marked so via
 // spellbookSpellSchema.aimed.
 function isAimedSpell(spell: SpellbookSpell): boolean {
-  return spell.beam !== undefined || spell.nova !== undefined || spell.cage !== undefined || spell.aimed === true
+  return (
+    spell.beam !== undefined ||
+    spell.nova !== undefined ||
+    spell.cage !== undefined ||
+    spell.desintegrate !== undefined ||
+    spell.aimed === true
+  )
 }
 
 function needsAimedSpell(item: ItemDef): boolean {
@@ -405,6 +411,10 @@ function spellFlashbangLuaTable(flashbang: NonNullable<SpellbookSpell['flashbang
 
 function spellCageLuaTable(cage: NonNullable<SpellbookSpell['cage']>): string {
   return `{ prefab = ${luaString(cage.pillarPrefab)}, radius = ${cage.radius}, count = ${cage.pillarCount}, rooted = ${cage.rootedSeconds} }`
+}
+
+function spellDesintegrateLuaTable(desintegrate: NonNullable<SpellbookSpell['desintegrate']>): string {
+  return `{ radius = ${desintegrate.radius}, damage = ${desintegrate.damage}, casttime = ${desintegrate.castTimeSeconds} }`
 }
 
 // Confirmed against the real game scripts (components/aoespell.lua,
@@ -619,6 +629,42 @@ function cageHelperFunctionBlock(): string[] {
   ]
 }
 
+// Same telegraph idea solarBeamHelperFunctionBlock's own StartSpellBeam
+// already uses for its own optional telegraph (a "reticule" marker sits at
+// the point, then DoTaskInTime fires once the wait is over) — applied here
+// to a one-shot blast instead of a channeled tick. The radius scan
+// (TheSim:FindEntities with the same "exclude, don't require" cantTags
+// pattern flashbangHelperFunctionBlock uses) only runs AFTER casttime has
+// fully elapsed, re-checking who's actually still standing in the circle
+// at that moment — not who was there when it was cast. Excludes the
+// caster's own companion, same as flashback/cage.
+function desintegrateHelperFunctionBlock(): string[] {
+  return [
+    'local function DoSpellDesintegrate(user, pos, desintegrate)',
+    '    local x, y, z = pos:Get()',
+    '    local marker = SpawnPrefab("reticule")',
+    '    if marker ~= nil then',
+    '        marker.Transform:SetPosition(x, 0, z)',
+    '    end',
+    '',
+    '    user:DoTaskInTime(desintegrate.casttime, function()',
+    '        if marker ~= nil and marker:IsValid() then',
+    '            marker:Remove()',
+    '        end',
+    '',
+    '        local victims = TheSim:FindEntities(x, y, z, desintegrate.radius, nil, { "INLIMBO", "player" })',
+    '        for _, victim in ipairs(victims) do',
+    '            local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user',
+    '            if victim.components.health ~= nil and not victim.components.health:IsDead() and not isowncompanion then',
+    '                victim.components.health:DoDelta(-desintegrate.damage, false, "desintegrate", false, user)',
+    '            end',
+    '        end',
+    '    end)',
+    'end',
+    '',
+  ]
+}
+
 function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   const lines: string[] = []
   const hasAimedSpell = spells.some(isAimedSpell)
@@ -639,6 +685,9 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   }
   if (spells.some((spell) => spell.cage !== undefined)) {
     lines.push(...cageHelperFunctionBlock())
+  }
+  if (spells.some((spell) => spell.desintegrate !== undefined)) {
+    lines.push(...desintegrateHelperFunctionBlock())
   }
 
   spells.forEach((spell, index) => {
@@ -679,6 +728,9 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
     }
     if (spell.cage !== undefined) {
       lines.push(`    DoSpellCage(user, pos, ${spellCageLuaTable(spell.cage)})`)
+    }
+    if (spell.desintegrate !== undefined) {
+      lines.push(`    DoSpellDesintegrate(user, pos, ${spellDesintegrateLuaTable(spell.desintegrate)})`)
     }
     lines.push('    if inst.components.finiteuses ~= nil then')
     lines.push('        inst.components.finiteuses:Use(1)')
@@ -731,17 +783,17 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
       // real vanilla's own straight-line attacks use (Wigfrid's spear —
       // prefabs/spear_gungnir.lua/spear_wathgrithr.lua — and Willow's
       // ember — prefabs/willow_ember.lua), a natural fit for a beam's own
-      // fixed direction+range. nova/cage pick the closest AOE ring via
-      // aoeReticuleNames (radius-aware for the one confirmed size variant,
-      // see its own comment) — there's no way to scale a ring to an
-      // arbitrary configured radius, only pick between a handful of
+      // fixed direction+range. nova/cage/desintegrate pick the closest AOE
+      // ring via aoeReticuleNames (radius-aware for the one confirmed size
+      // variant, see its own comment) — there's no way to scale a ring to
+      // an arbitrary configured radius, only pick between a handful of
       // fixed-size baked animations, so this is an approximate area cue,
       // not a to-scale preview.
       if (spell.beam !== undefined) {
         lines.push('            inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"')
         lines.push('            inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"')
-      } else if (spell.nova !== undefined || spell.cage !== undefined) {
-        const { reticuleprefab, pingprefab } = aoeReticuleNames((spell.nova ?? spell.cage)!.radius)
+      } else if (spell.nova !== undefined || spell.cage !== undefined || spell.desintegrate !== undefined) {
+        const { reticuleprefab, pingprefab } = aoeReticuleNames((spell.nova ?? spell.cage ?? spell.desintegrate)!.radius)
         lines.push(`            inst.components.aoetargeting.reticule.reticuleprefab = ${luaString(reticuleprefab)}`)
         lines.push(`            inst.components.aoetargeting.reticule.pingprefab = ${luaString(pingprefab)}`)
       } else {
@@ -814,6 +866,7 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push(...solarRefractionHelperFunctionBlock())
   lines.push(...flashbangHelperFunctionBlock())
   lines.push(...cageHelperFunctionBlock())
+  lines.push(...desintegrateHelperFunctionBlock())
   // Confirmed in the real components/inventory.lua (server) and prefabs/
   // inventory_classified.lua (client): the replica's own FindItem only
   // scans itemslots/activeitem/overflow — it never checks equipslots (that's
@@ -854,11 +907,13 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('        local label, manacost, healthdelta, sanitydelta, hungerdelta, summonprefab,')
   lines.push('            isaimed, beamdamage, beamtickinterval, beamrange, beamduration, beamtelegraph,')
   lines.push('            novadamage, novaradius, novastun, refractionradius, refractionduration,')
-  lines.push('            flashbangradius, flashbangstun, cageprefab, cageradius, cagecount, cagerooted =')
+  lines.push('            flashbangradius, flashbangstun, cageprefab, cageradius, cagecount, cagerooted,')
+  lines.push('            desintegrateradius, desintegratedamage, desintegratecasttime =')
   lines.push('            fields[1], fields[2], fields[3], fields[4], fields[5], fields[6],')
   lines.push('            fields[7], fields[8], fields[9], fields[10], fields[11], fields[12],')
   lines.push('            fields[13], fields[14], fields[15], fields[16], fields[17],')
-  lines.push('            fields[18], fields[19], fields[20], fields[21], fields[22], fields[23]')
+  lines.push('            fields[18], fields[19], fields[20], fields[21], fields[22], fields[23],')
+  lines.push('            fields[24], fields[25], fields[26]')
   lines.push('        table.insert(items, {')
   lines.push('            label = label,')
   // Same real widgets/wheel.lua checkenabled convention, and the same
@@ -924,6 +979,11 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('                    if cageprefab ~= "" then')
   lines.push('                        DoSpellCage(user, pos, { prefab = cageprefab, radius = tonumber(cageradius), count = tonumber(cagecount), rooted = tonumber(cagerooted) })')
   lines.push('                    end')
+  lines.push('                    if desintegrateradius ~= "" then')
+  lines.push(
+    '                        DoSpellDesintegrate(user, pos, { radius = tonumber(desintegrateradius), damage = tonumber(desintegratedamage), casttime = tonumber(desintegratecasttime) })',
+  )
+  lines.push('                    end')
   lines.push('                    if inst.components.finiteuses ~= nil then')
   lines.push('                        inst.components.finiteuses:Use(1)')
   lines.push('                    end')
@@ -938,17 +998,19 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   // set explicitly, never left implicit — reticule state is shared/mutated
   // in place on the item's aoetargeting component across every spell in the
   // wheel. "reticuleline"/"reticulelineping" mirrors Wigfrid's spear/
-  // Willow's ember own directional-line reticule. nova/cage pick between
-  // "reticuleaoe_1_6" (the one confirmed radius-6 variant — see
-  // aoeReticuleNames's own comment) and the generic "reticuleaoe" fallback
-  // based on the decoded radius, same rule as the static-spellbook branch,
-  // just resolved at runtime since onselect doesn't know ahead of time
-  // which spell was picked.
+  // Willow's ember own directional-line reticule. nova/cage/desintegrate
+  // pick between "reticuleaoe_1_6" (the one confirmed radius-6 variant —
+  // see aoeReticuleNames's own comment) and the generic "reticuleaoe"
+  // fallback based on the decoded radius, same rule as the static-spellbook
+  // branch, just resolved at runtime since onselect doesn't know ahead of
+  // time which spell was picked.
   lines.push('                    if beamdamage ~= "" then')
   lines.push('                        inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"')
   lines.push('                        inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"')
-  lines.push('                    elseif novadamage ~= "" or cageprefab ~= "" then')
-  lines.push('                        local aoeradius = tonumber(novadamage ~= "" and novaradius or cageradius)')
+  lines.push('                    elseif novadamage ~= "" or cageprefab ~= "" or desintegrateradius ~= "" then')
+  lines.push(
+    '                        local aoeradius = tonumber(novadamage ~= "" and novaradius or (cageprefab ~= "" and cageradius or desintegrateradius))',
+  )
   lines.push('                        if aoeradius ~= nil and aoeradius <= 6 then')
   lines.push('                            inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe_1_6"')
   lines.push('                            inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping_1_6"')
@@ -1106,6 +1168,9 @@ function spellDefComponentBlock(item: ItemDef): string[] {
   }
   if (spell.cage !== undefined) {
     lines.push(`    inst.spell_cage = ${spellCageLuaTable(spell.cage)}`)
+  }
+  if (spell.desintegrate !== undefined) {
+    lines.push(`    inst.spell_desintegrate = ${spellDesintegrateLuaTable(spell.desintegrate)}`)
   }
   if (spell.aimed) {
     lines.push('    inst.spell_aimed = true')
@@ -1391,12 +1456,13 @@ function containerComponentBlock(item: ItemDef): string[] {
       '        for slot = 1, inst.components.container.numslots do',
       '            local slotitem = inst.components.container.slots[slot]',
       '            if slotitem ~= nil and slotitem.spell_label ~= nil then',
-      '                local isaimed = slotitem.spell_beam ~= nil or slotitem.spell_nova ~= nil or slotitem.spell_cage ~= nil or slotitem.spell_aimed',
+      '                local isaimed = slotitem.spell_beam ~= nil or slotitem.spell_nova ~= nil or slotitem.spell_cage ~= nil or slotitem.spell_desintegrate ~= nil or slotitem.spell_aimed',
       '                local beam = slotitem.spell_beam',
       '                local nova = slotitem.spell_nova',
       '                local refraction = slotitem.spell_refraction',
       '                local flashbang = slotitem.spell_flashbang',
       '                local cage = slotitem.spell_cage',
+      '                local desintegrate = slotitem.spell_desintegrate',
       '                table.insert(parts, table.concat({',
       '                    slotitem.spell_label,',
       '                    tostring(slotitem.spell_manacost or ""),',
@@ -1421,6 +1487,9 @@ function containerComponentBlock(item: ItemDef): string[] {
       '                    cage ~= nil and tostring(cage.radius) or "",',
       '                    cage ~= nil and tostring(cage.count) or "",',
       '                    cage ~= nil and tostring(cage.rooted) or "",',
+      '                    desintegrate ~= nil and tostring(desintegrate.radius) or "",',
+      '                    desintegrate ~= nil and tostring(desintegrate.damage) or "",',
+      '                    desintegrate ~= nil and tostring(desintegrate.casttime) or "",',
       '                }, "\\31"))',
       '            end',
       '        end',

@@ -62,6 +62,7 @@ interface SpellFieldsRowProps {
   refractionEnabled: boolean
   flashbangEnabled: boolean
   cageEnabled: boolean
+  desintegrateEnabled: boolean
 }
 
 function SpellFieldsRow({
@@ -74,6 +75,7 @@ function SpellFieldsRow({
   refractionEnabled,
   flashbangEnabled,
   cageEnabled,
+  desintegrateEnabled,
 }: SpellFieldsRowProps) {
   return (
     <>
@@ -352,6 +354,51 @@ function SpellFieldsRow({
             />
           </>
         )}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input
+            type="checkbox"
+            checked={desintegrateEnabled}
+            onChange={(e) =>
+              setValue(
+                `${namePrefix}.desintegrate` as const,
+                e.target.checked ? { radius: 6, damage: 2000, castTimeSeconds: 3 } : undefined,
+                { shouldDirty: true },
+              )
+            }
+          />
+          Marks the aimed area, then deals massive damage to whatever's still there once the cast time is up
+        </label>
+        {desintegrateEnabled && (
+          <>
+            <input
+              type="number"
+              step="1"
+              min="1"
+              className="qty-input"
+              placeholder="Radius"
+              title="How far from the aimed point the blast reaches"
+              {...register(`${namePrefix}.desintegrate.radius` as const, { valueAsNumber: true })}
+            />
+            <input
+              type="number"
+              step="1"
+              min="1"
+              className="qty-input"
+              placeholder="Damage"
+              title="Damage dealt once to everything still inside when the cast time finishes"
+              {...register(`${namePrefix}.desintegrate.damage` as const, { valueAsNumber: true })}
+            />
+            <input
+              type="number"
+              step="0.5"
+              min="1"
+              className="qty-input"
+              placeholder="Cast sec"
+              title="How many seconds pass between casting and the damage landing — long enough to give a warning, and a chance to run"
+              {...register(`${namePrefix}.desintegrate.castTimeSeconds` as const, { valueAsNumber: true })}
+            />
+          </>
+        )}
       </div>
     </>
   )
@@ -367,6 +414,7 @@ interface SpellbookEditorProps {
   watchedRefractionFlags: boolean[]
   watchedFlashbangFlags: boolean[]
   watchedCageFlags: boolean[]
+  watchedDesintegrateFlags: boolean[]
 }
 
 // Owns the spells field array itself, mounted only while the spellbook is
@@ -389,6 +437,7 @@ function SpellbookEditor({
   watchedRefractionFlags,
   watchedFlashbangFlags,
   watchedCageFlags,
+  watchedDesintegrateFlags,
 }: SpellbookEditorProps) {
   const spells = useFieldArray({ control, name: 'spellbook.spells' as never })
 
@@ -406,6 +455,7 @@ function SpellbookEditor({
             refractionEnabled={watchedRefractionFlags[index] ?? false}
             flashbangEnabled={watchedFlashbangFlags[index] ?? false}
             cageEnabled={watchedCageFlags[index] ?? false}
+            desintegrateEnabled={watchedDesintegrateFlags[index] ?? false}
           />
           <button type="button" className={btnDanger} onClick={() => spells.remove(index)}>
             Remove
@@ -1078,6 +1128,9 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       watchedCageFlags={(watched.spellbook?.source === 'static' ? watched.spellbook.spells : []).map(
                         (s) => s.cage !== undefined,
                       )}
+                      watchedDesintegrateFlags={(watched.spellbook?.source === 'static' ? watched.spellbook.spells : []).map(
+                        (s) => s.desintegrate !== undefined,
+                      )}
                     />
                   ) : (
                     <FormField
@@ -1685,6 +1738,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   refractionEnabled={watched.spellDef?.refraction !== undefined}
                   flashbangEnabled={watched.spellDef?.flashbang !== undefined}
                   cageEnabled={watched.spellDef?.cage !== undefined}
+                  desintegrateEnabled={watched.spellDef?.desintegrate !== undefined}
                 />
               </div>
             )}

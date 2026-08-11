@@ -154,6 +154,28 @@ local function DoSpellCage(user, pos, cage)
     end)
 end
 
+local function DoSpellDesintegrate(user, pos, desintegrate)
+    local x, y, z = pos:Get()
+    local marker = SpawnPrefab("reticule")
+    if marker ~= nil then
+        marker.Transform:SetPosition(x, 0, z)
+    end
+
+    user:DoTaskInTime(desintegrate.casttime, function()
+        if marker ~= nil and marker:IsValid() then
+            marker:Remove()
+        end
+
+        local victims = TheSim:FindEntities(x, y, z, desintegrate.radius, nil, { "INLIMBO", "player" })
+        for _, victim in ipairs(victims) do
+            local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user
+            if victim.components.health ~= nil and not victim.components.health:IsDead() and not isowncompanion then
+                victim.components.health:DoDelta(-desintegrate.damage, false, "desintegrate", false, user)
+            end
+        end
+    end)
+end
+
 local function FindCodex(user)
     local codex = user.replica.inventory ~= nil and user.replica.inventory:FindItem(function(item)
         return item.prefab == "suncodex"
@@ -182,11 +204,13 @@ local function rebuild_spellbook_items(user)
         local label, manacost, healthdelta, sanitydelta, hungerdelta, summonprefab,
             isaimed, beamdamage, beamtickinterval, beamrange, beamduration, beamtelegraph,
             novadamage, novaradius, novastun, refractionradius, refractionduration,
-            flashbangradius, flashbangstun, cageprefab, cageradius, cagecount, cagerooted =
+            flashbangradius, flashbangstun, cageprefab, cageradius, cagecount, cagerooted,
+            desintegrateradius, desintegratedamage, desintegratecasttime =
             fields[1], fields[2], fields[3], fields[4], fields[5], fields[6],
             fields[7], fields[8], fields[9], fields[10], fields[11], fields[12],
             fields[13], fields[14], fields[15], fields[16], fields[17],
-            fields[18], fields[19], fields[20], fields[21], fields[22], fields[23]
+            fields[18], fields[19], fields[20], fields[21], fields[22], fields[23],
+            fields[24], fields[25], fields[26]
         table.insert(items, {
             label = label,
             checkenabled = function(owner) return manacost == "" or owner.mana_current == nil or owner.mana_current:value() >= tonumber(manacost) end,
@@ -240,6 +264,9 @@ local function rebuild_spellbook_items(user)
                     if cageprefab ~= "" then
                         DoSpellCage(user, pos, { prefab = cageprefab, radius = tonumber(cageradius), count = tonumber(cagecount), rooted = tonumber(cagerooted) })
                     end
+                    if desintegrateradius ~= "" then
+                        DoSpellDesintegrate(user, pos, { radius = tonumber(desintegrateradius), damage = tonumber(desintegratedamage), casttime = tonumber(desintegratecasttime) })
+                    end
                     if inst.components.finiteuses ~= nil then
                         inst.components.finiteuses:Use(1)
                     end
@@ -253,8 +280,8 @@ local function rebuild_spellbook_items(user)
                     if beamdamage ~= "" then
                         inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"
                         inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"
-                    elseif novadamage ~= "" or cageprefab ~= "" then
-                        local aoeradius = tonumber(novadamage ~= "" and novaradius or cageradius)
+                    elseif novadamage ~= "" or cageprefab ~= "" or desintegrateradius ~= "" then
+                        local aoeradius = tonumber(novadamage ~= "" and novaradius or (cageprefab ~= "" and cageradius or desintegrateradius))
                         if aoeradius ~= nil and aoeradius <= 6 then
                             inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe_1_6"
                             inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping_1_6"
@@ -352,12 +379,13 @@ local function fn()
         for slot = 1, inst.components.container.numslots do
             local slotitem = inst.components.container.slots[slot]
             if slotitem ~= nil and slotitem.spell_label ~= nil then
-                local isaimed = slotitem.spell_beam ~= nil or slotitem.spell_nova ~= nil or slotitem.spell_cage ~= nil or slotitem.spell_aimed
+                local isaimed = slotitem.spell_beam ~= nil or slotitem.spell_nova ~= nil or slotitem.spell_cage ~= nil or slotitem.spell_desintegrate ~= nil or slotitem.spell_aimed
                 local beam = slotitem.spell_beam
                 local nova = slotitem.spell_nova
                 local refraction = slotitem.spell_refraction
                 local flashbang = slotitem.spell_flashbang
                 local cage = slotitem.spell_cage
+                local desintegrate = slotitem.spell_desintegrate
                 table.insert(parts, table.concat({
                     slotitem.spell_label,
                     tostring(slotitem.spell_manacost or ""),
@@ -382,6 +410,9 @@ local function fn()
                     cage ~= nil and tostring(cage.radius) or "",
                     cage ~= nil and tostring(cage.count) or "",
                     cage ~= nil and tostring(cage.rooted) or "",
+                    desintegrate ~= nil and tostring(desintegrate.radius) or "",
+                    desintegrate ~= nil and tostring(desintegrate.damage) or "",
+                    desintegrate ~= nil and tostring(desintegrate.casttime) or "",
                 }, "\31"))
             end
         end

@@ -4,7 +4,7 @@ local TUNING = GLOBAL.TUNING
 local TECH = GLOBAL.TECH
 local Ingredient = GLOBAL.Ingredient
 
-PrefabFiles = { "solarlantern", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solargatespell", "solarbeamspell", "refractionspell", "solarnovaspell", "flashbangspell", "solarcagespell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "solarchakram_proj", "viana", "sunorb", "sunwisp", "lightpillar", "sunportal" }
+PrefabFiles = { "solarlantern", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "sunwispspell", "solargatespell", "solarbeamspell", "refractionspell", "solarnovaspell", "flashbangspell", "solarcagespell", "desintegrationspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "solarchakram_proj", "viana", "sunorb", "sunwisp", "lightpillar", "sunportal" }
 
 Assets = {
     Asset("ATLAS", "bigportraits/viana.xml"),
@@ -54,6 +54,9 @@ STRINGS.CHARACTERS.GENERIC.DESCRIBE.FLASHBANGSPELL = "Bind this in the Sun Codex
 STRINGS.NAMES.SOLARCAGESPELL = "Solar Cage Spell"
 STRINGS.RECIPE_DESC.SOLARCAGESPELL = "Bind this in the Sun Codex to ring an area with pillars of light where she aims, trapping any enemy caught inside until they burn out."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARCAGESPELL = "Bind this in the Sun Codex to ring an area with pillars of light where she aims, trapping any enemy caught inside until they burn out."
+STRINGS.NAMES.DESINTEGRATIONSPELL = "Desintegration Spell"
+STRINGS.RECIPE_DESC.DESINTEGRATIONSPELL = "Bind this in the Sun Codex to mark an area with a searing light — after a long, visible wind-up, anything still caught inside is obliterated."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.DESINTEGRATIONSPELL = "Bind this in the Sun Codex to mark an area with a searing light — after a long, visible wind-up, anything still caught inside is obliterated."
 STRINGS.NAMES.LIGHTPILLARSPELL = "Light Pillar Spell"
 STRINGS.RECIPE_DESC.LIGHTPILLARSPELL = "Bind this in the Sun Codex to raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.LIGHTPILLARSPELL = "Bind this in the Sun Codex to raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close."
@@ -115,6 +118,9 @@ AddRecipe2("flashbangspell", { Ingredient("goldnugget", 2), Ingredient("nightmar
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("solarcagespell", { Ingredient("goldnugget", 3), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {
+        image = "papyrus.tex",
+    }, { "MAGIC" })
+AddRecipe2("desintegrationspell", { Ingredient("goldnugget", 4), Ingredient("nightmarefuel", 4) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("lightpillarspell", { Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 3) }, TECH.MAGIC_TWO, {

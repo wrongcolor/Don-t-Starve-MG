@@ -3954,3 +3954,51 @@ presumidos pré-carregados globalmente do mesmo jeito que a retícula padrão
 `reticuleaoe_1_6` de fato aparenta ter ~6 tiles de raio visualmente (a
 correlação numérica é confirmada só pelo dado do Shadow Trap, não uma regra
 documentada oficialmente).
+
+## 78. Um feitiço explode com atraso — telegrafa a área antes do dano cair — `desintegrate` — **implementado**
+
+Motivação: novo feitiço da Viana, Desintegration — mesmo raio 6 do
+Nova/Cage, mas o dano (2000, quase-morte-instantânea em quase tudo) só
+acontece depois de um "tempo de conjuração" — dando chance de quem estiver
+na área fugir antes. O usuário perguntou se dava pra aumentar esse tempo de
+conjuração — ou seja, se dava pra ter um atraso configurável entre lançar o
+feitiço e o dano de fato acontecer.
+
+**Mecanismo**: já existia um precedente exatamente desse formato no próprio
+código — `beam.telegraphSeconds` (patterns.md#62/#69), que planta uma
+retícula (`SpawnPrefab("reticule")`) no ponto, espera, e só depois começa o
+efeito de verdade. Reaproveitado aqui pra um estouro único (não canalizado):
+planta o marcador no ponto mirado, e um `DoTaskInTime(desintegrate.
+casttime, ...)` só faz a varredura (`TheSim:FindEntities`, mesmo padrão
+"excluir, não exigir" do `flashbang`) DEPOIS que o tempo passa — quem
+escapou do raio nesse meio-tempo simplesmente não é achado na varredura
+final, já que ela roda de novo checando quem está lá NAQUELE instante, não
+quem estava lá quando o feitiço foi lançado. Poupa jogadores e o próprio
+companion do caster, mesma convenção do `flashbang`/`cage`.
+
+**Implementado:**
+- `spellbookSpellSchema.desintegrate` (`src/types/modProject.ts`) —
+  `{ radius, damage, castTimeSeconds }`. `damage` tem teto mais alto (5000)
+  que o do `nova` (300), já que o ponto do feitiço é ser devastador. Sempre
+  mirado (`isAimedSpell`), igual `nova`/`cage`.
+- `src/generators/item.ts`: `spellDesintegrateLuaTable` +
+  `desintegrateHelperFunctionBlock` (`DoSpellDesintegrate`) — usado nos dois
+  modos de spellbook, igual os outros. Payload do `linkedContainer` ganhou
+  mais 3 campos (`desintegrateradius`/`desintegratedamage`/
+  `desintegratecasttime`, índices 24-26). Entra também na escolha de
+  retícula (patterns.md#77) — raio 6 cai na mesma `reticuleaoe_1_6`
+  confirmada que nova/cage usam.
+- UI (`ItemForm.tsx`): checkbox "Marks the aimed area, then deals massive
+  damage to whatever's still there once the cast time is up" + campos de
+  raio/dano/segundos de conjuração, mesmo `SpellFieldsRow` compartilhado —
+  `desintegrateEnabled`/`watchedDesintegrateFlags` passados por toda a
+  cadeia de props.
+- `mods/viana.ts`: o feitiço Desintegration (`spellDef.desintegrate: {
+  radius: 6, damage: 2000, castTimeSeconds: 4 }`, custo de mana 75 — o mais
+  caro de todos os feitiços dela, condizente com o poder).
+
+**O que NÃO foi testado em jogo**: se 4 segundos de conjuração dão tempo
+suficiente pra fugir de fato (sensação de jogo, não dá pra confirmar por
+leitura de código), e se o marcador `SpawnPrefab("reticule")` plantado no
+CHÃO (não relativo ao caster, diferente do telegraph do beam) fica visível
+e no lugar certo durante toda a espera.
