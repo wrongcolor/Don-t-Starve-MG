@@ -65,4 +65,39 @@ describe('CreatureForm', () => {
     const saved = onSave.mock.calls[0][0]
     expect(saved.groundAttack).toBeUndefined()
   })
+
+  it('enabling the expire-if-alive checkbox reveals its field with a sane default, and submits a custom value', async () => {
+    const onSave = vi.fn()
+    render(<CreatureForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_creature'), { target: { value: 'flickerwisp' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Flicker Wisp' } })
+    fireEvent.change(screen.getByLabelText('Description (inspect)'), { target: { value: 'Fades after a while' } })
+
+    fireEvent.click(screen.getByText('Vanishes after this many seconds if still alive'))
+    expect((screen.getByLabelText('Seconds until it vanishes') as HTMLInputElement).value).toBe('60')
+
+    fireEvent.change(screen.getByLabelText('Seconds until it vanishes'), { target: { value: '90' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add creature' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.expireIfAliveSeconds).toBe(90)
+  })
+
+  it('submits a plain creature successfully without ever touching the expire-if-alive checkbox', async () => {
+    const onSave = vi.fn()
+    render(<CreatureForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_creature'), { target: { value: 'plainmob2' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Plain Mob 2' } })
+    fireEvent.change(screen.getByLabelText('Description (inspect)'), { target: { value: 'A mob' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add creature' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.expireIfAliveSeconds).toBeUndefined()
+  })
 })

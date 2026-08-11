@@ -32,10 +32,12 @@ local function fn()
 
     inst.spell_label = "Solstice Blessing"
     inst.spell_summonprefab = nil
-    inst.spell_manacost = 30
-    inst.spell_healthdelta = 15
-    inst.spell_sanitydelta = 15
+    inst.spell_manacost = 60
+    inst.spell_healthdelta = nil
+    inst.spell_sanitydelta = 30
     inst.spell_hungerdelta = nil
+    inst.spell_temperaturedelta = 15
+    inst.spell_healovertime = { total = 50, persecond = 5 }
 
     return inst
 end

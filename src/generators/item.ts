@@ -378,15 +378,19 @@ function spellbookComponentLines(item: ItemDef): string[] {
 // the static and linkedContainer spellbook codegen below.
 function spellEffectDeltaLines(spell: SpellbookSpell, actor: string, indent: string): string[] {
   const lines: string[] = []
-  const deltas: [string, number | undefined][] = [
-    ['health', spell.healthDelta],
-    ['sanity', spell.sanityDelta],
-    ['hunger', spell.hungerDelta],
+  // temperature's extra ", true" skips DoDelta's insulation scaling (see
+  // spellbookSpellSchema.temperatureDelta) — health/sanity/hunger have no
+  // such scaling, so they call DoDelta with just the one argument.
+  const deltas: [string, number | undefined, string][] = [
+    ['health', spell.healthDelta, ''],
+    ['sanity', spell.sanityDelta, ''],
+    ['hunger', spell.hungerDelta, ''],
+    ['temperature', spell.temperatureDelta, ', true'],
   ]
-  for (const [component, delta] of deltas) {
+  for (const [component, delta, extraArgs] of deltas) {
     if (delta === undefined) continue
     lines.push(`${indent}if ${actor}.components.${component} ~= nil then`)
-    lines.push(`${indent}    ${actor}.components.${component}:DoDelta(${delta})`)
+    lines.push(`${indent}    ${actor}.components.${component}:DoDelta(${delta}${extraArgs})`)
     lines.push(`${indent}end`)
   }
   return lines
@@ -414,11 +418,16 @@ function spellCageLuaTable(cage: NonNullable<SpellbookSpell['cage']>): string {
 }
 
 function spellDesintegrateLuaTable(desintegrate: NonNullable<SpellbookSpell['desintegrate']>): string {
-  return `{ radius = ${desintegrate.radius}, damage = ${desintegrate.damage}, casttime = ${desintegrate.castTimeSeconds} }`
+  const overheatDamage = desintegrate.overheatDamage !== undefined ? desintegrate.overheatDamage : 'nil'
+  return `{ radius = ${desintegrate.radius}, damage = ${desintegrate.damage}, casttime = ${desintegrate.castTimeSeconds}, overheatdamage = ${overheatDamage} }`
 }
 
 function spellGearDropLuaTable(gearDrop: NonNullable<SpellbookSpell['gearDrop']>): string {
   return `{ prefabs = ${luaStringArray(gearDrop.prefabs)}, radius = ${gearDrop.radius} }`
+}
+
+function spellHealOverTimeLuaTable(healOverTime: NonNullable<SpellbookSpell['healOverTime']>): string {
+  return `{ total = ${healOverTime.totalAmount}, persecond = ${healOverTime.perSecond} }`
 }
 
 // Confirmed against the real game scripts (components/aoespell.lua,
@@ -660,7 +669,8 @@ function desintegrateHelperFunctionBlock(): string[] {
     '        for _, victim in ipairs(victims) do',
     '            local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user',
     '            if victim.components.health ~= nil and not victim.components.health:IsDead() and not isowncompanion then',
-    '                victim.components.health:DoDelta(-desintegrate.damage, false, "desintegrate", false, user)',
+    '                local damage = (desintegrate.overheatdamage ~= nil and user._customoverheat) and desintegrate.overheatdamage or desintegrate.damage',
+    '                victim.components.health:DoDelta(-damage, false, "desintegrate", false, user)',
     '            end',
     '        end',
     '    end)',
@@ -697,6 +707,31 @@ function gearDropHelperFunctionBlock(): string[] {
   ]
 }
 
+// Confirmed real API (components/health.lua): Health:AddRegenSource(source,
+// amount, period, key) is a real, already-supported periodic heal — used
+// here as a temporary regen buff instead of one instant DoDelta. Duration is
+// derived (total/persecond) rather than stored directly, so the spell's own
+// {totalAmount, perSecond} numbers stay the single source of truth. Never
+// aimed — always centered on the caster, like refraction/flashbang.
+function healOverTimeHelperFunctionBlock(): string[] {
+  return [
+    'local function DoSpellHealOverTime(user, hot)',
+    '    if user.components.health == nil then',
+    '        return',
+    '    end',
+    '',
+    '    user.components.health:AddRegenSource(user, hot.persecond, 1, "spell_healovertime")',
+    '    local duration = hot.total / hot.persecond',
+    '    user:DoTaskInTime(duration, function()',
+    '        if user.components.health ~= nil then',
+    '            user.components.health:RemoveRegenSource(user, "spell_healovertime")',
+    '        end',
+    '    end)',
+    'end',
+    '',
+  ]
+}
+
 function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   const lines: string[] = []
   const hasAimedSpell = spells.some(isAimedSpell)
@@ -723,6 +758,9 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
   }
   if (spells.some((spell) => spell.gearDrop !== undefined)) {
     lines.push(...gearDropHelperFunctionBlock())
+  }
+  if (spells.some((spell) => spell.healOverTime !== undefined)) {
+    lines.push(...healOverTimeHelperFunctionBlock())
   }
 
   spells.forEach((spell, index) => {
@@ -769,6 +807,9 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
     }
     if (spell.gearDrop !== undefined) {
       lines.push(`    DoSpellGearDrop(user, ${spellGearDropLuaTable(spell.gearDrop)})`)
+    }
+    if (spell.healOverTime !== undefined) {
+      lines.push(`    DoSpellHealOverTime(user, ${spellHealOverTimeLuaTable(spell.healOverTime)})`)
     }
     lines.push('    if inst.components.finiteuses ~= nil then')
     lines.push('        inst.components.finiteuses:Use(1)')
@@ -906,6 +947,7 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push(...cageHelperFunctionBlock())
   lines.push(...desintegrateHelperFunctionBlock())
   lines.push(...gearDropHelperFunctionBlock())
+  lines.push(...healOverTimeHelperFunctionBlock())
   // Confirmed in the real components/inventory.lua (server) and prefabs/
   // inventory_classified.lua (client): the replica's own FindItem only
   // scans itemslots/activeitem/overflow — it never checks equipslots (that's
@@ -948,13 +990,15 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('            novadamage, novaradius, novastun, refractionradius, refractionduration,')
   lines.push('            flashbangradius, flashbangstun, cageprefab, cageradius, cagecount, cagerooted,')
   lines.push('            desintegrateradius, desintegratedamage, desintegratecasttime,')
-  lines.push('            geardropprefabs, geardropradius =')
+  lines.push('            geardropprefabs, geardropradius, temperaturedelta, healtotal, healpersecond,')
+  lines.push('            desintegrateoverheatdamage =')
   lines.push('            fields[1], fields[2], fields[3], fields[4], fields[5], fields[6],')
   lines.push('            fields[7], fields[8], fields[9], fields[10], fields[11], fields[12],')
   lines.push('            fields[13], fields[14], fields[15], fields[16], fields[17],')
   lines.push('            fields[18], fields[19], fields[20], fields[21], fields[22], fields[23],')
   lines.push('            fields[24], fields[25], fields[26],')
-  lines.push('            fields[27], fields[28]')
+  lines.push('            fields[27], fields[28], fields[29], fields[30], fields[31],')
+  lines.push('            fields[32]')
   lines.push('        table.insert(items, {')
   lines.push('            label = label,')
   // Same real widgets/wheel.lua checkenabled convention, and the same
@@ -980,6 +1024,9 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('                    end')
   lines.push('                    if hungerdelta ~= "" and user.components.hunger ~= nil then')
   lines.push('                        user.components.hunger:DoDelta(tonumber(hungerdelta))')
+  lines.push('                    end')
+  lines.push('                    if temperaturedelta ~= "" and user.components.temperature ~= nil then')
+  lines.push('                        user.components.temperature:DoDelta(tonumber(temperaturedelta), true)')
   lines.push('                    end')
   lines.push('                    if summonprefab ~= "" then')
   lines.push('                        local fx = SpawnPrefab(summonprefab)')
@@ -1022,7 +1069,7 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('                    end')
   lines.push('                    if desintegrateradius ~= "" then')
   lines.push(
-    '                        DoSpellDesintegrate(user, pos, { radius = tonumber(desintegrateradius), damage = tonumber(desintegratedamage), casttime = tonumber(desintegratecasttime) })',
+    '                        DoSpellDesintegrate(user, pos, { radius = tonumber(desintegrateradius), damage = tonumber(desintegratedamage), casttime = tonumber(desintegratecasttime), overheatdamage = desintegrateoverheatdamage ~= "" and tonumber(desintegrateoverheatdamage) or nil })',
   )
   lines.push('                    end')
   lines.push('                    if geardropprefabs ~= "" then')
@@ -1031,6 +1078,9 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('                            table.insert(dropprefabs, dropprefab)')
   lines.push('                        end')
   lines.push('                        DoSpellGearDrop(user, { prefabs = dropprefabs, radius = tonumber(geardropradius) })')
+  lines.push('                    end')
+  lines.push('                    if healtotal ~= "" then')
+  lines.push('                        DoSpellHealOverTime(user, { total = tonumber(healtotal), persecond = tonumber(healpersecond) })')
   lines.push('                    end')
   lines.push('                    if inst.components.finiteuses ~= nil then')
   lines.push('                        inst.components.finiteuses:Use(1)')
@@ -1122,7 +1172,7 @@ function spellbookFunctionBlock(item: ItemDef): string[] {
 }
 
 function needsOnEaten(item: ItemDef): boolean {
-  return item.onEatBuff !== undefined
+  return item.onEatBuff !== undefined || item.manaBoostOnUse !== undefined
 }
 
 // Adapted from a real published Workshop mod ("Repair Combine", see
@@ -1157,23 +1207,34 @@ function combineWithFunctionBlock(): string[] {
 // edible:SetOnEatenFn(fn) runs the callback when the eater finishes eating, and
 // combat.externaldamagemultipliers (a SourceModifierList) lets a named modifier be
 // added and later removed by the same key. SetModifier takes the FINAL multiplier,
-// hence the "1 +".
+// hence the "1 +". manaBoostOnUse is independent of onEatBuff — either, both, or
+// neither can be set — and calls Mana:IncreaseMaxPermanent (mana.ts), a ONE-TIME
+// bump rather than a removable modifier, so it needs no matching cleanup task.
 function onEatenFunctionBlock(item: ItemDef): string[] {
   const upper = toUpperSnake(item.id)
-  const buffKey = luaString(`${item.id}_damage_buff`)
-  return [
-    'local function oneaten(inst, eater)',
-    '    if eater == nil or eater.components.combat == nil then return end',
-    '',
-    `    eater.components.combat.externaldamagemultipliers:SetModifier(inst, 1 + TUNING.${upper}_DAMAGE_BUFF_MULT, ${buffKey})`,
-    `    eater:DoTaskInTime(TUNING.${upper}_DAMAGE_BUFF_DURATION, function()`,
-    '        if eater.components.combat ~= nil then',
-    `            eater.components.combat.externaldamagemultipliers:RemoveModifier(inst, ${buffKey})`,
-    '        end',
-    '    end)',
-    'end',
-    '',
-  ]
+  const lines = ['local function oneaten(inst, eater)', '    if eater == nil then return end', '']
+  if (item.onEatBuff !== undefined) {
+    const buffKey = luaString(`${item.id}_damage_buff`)
+    lines.push(
+      '    if eater.components.combat ~= nil then',
+      `        eater.components.combat.externaldamagemultipliers:SetModifier(inst, 1 + TUNING.${upper}_DAMAGE_BUFF_MULT, ${buffKey})`,
+      `        eater:DoTaskInTime(TUNING.${upper}_DAMAGE_BUFF_DURATION, function()`,
+      '            if eater.components.combat ~= nil then',
+      `                eater.components.combat.externaldamagemultipliers:RemoveModifier(inst, ${buffKey})`,
+      '            end',
+      '        end)',
+      '    end',
+    )
+  }
+  if (item.manaBoostOnUse !== undefined) {
+    lines.push(
+      '    if eater.components.mana ~= nil then',
+      `        eater.components.mana:IncreaseMaxPermanent(TUNING.${upper}_MANA_BOOST, TUNING.${upper}_MANA_BOOST_CAP)`,
+      '    end',
+    )
+  }
+  lines.push('end', '')
+  return lines
 }
 
 // Adapted from a real published Workshop mod ("Renameable Watches", see
@@ -1201,6 +1262,7 @@ function spellDefComponentBlock(item: ItemDef): string[] {
     `    inst.spell_healthdelta = ${spell.healthDelta ?? 'nil'}`,
     `    inst.spell_sanitydelta = ${spell.sanityDelta ?? 'nil'}`,
     `    inst.spell_hungerdelta = ${spell.hungerDelta ?? 'nil'}`,
+    `    inst.spell_temperaturedelta = ${spell.temperatureDelta ?? 'nil'}`,
   ]
   if (spell.beam !== undefined) {
     lines.push(`    inst.spell_beam = ${spellBeamLuaTable(spell.beam)}`)
@@ -1222,6 +1284,9 @@ function spellDefComponentBlock(item: ItemDef): string[] {
   }
   if (spell.gearDrop !== undefined) {
     lines.push(`    inst.spell_geardrop = ${spellGearDropLuaTable(spell.gearDrop)}`)
+  }
+  if (spell.healOverTime !== undefined) {
+    lines.push(`    inst.spell_healovertime = ${spellHealOverTimeLuaTable(spell.healOverTime)}`)
   }
   if (spell.aimed) {
     lines.push('    inst.spell_aimed = true')
@@ -1521,6 +1586,7 @@ function containerComponentBlock(item: ItemDef): string[] {
       '                local cage = slotitem.spell_cage',
       '                local desintegrate = slotitem.spell_desintegrate',
       '                local geardrop = slotitem.spell_geardrop',
+      '                local healovertime = slotitem.spell_healovertime',
       '                table.insert(parts, table.concat({',
       '                    slotitem.spell_label,',
       '                    tostring(slotitem.spell_manacost or ""),',
@@ -1550,6 +1616,10 @@ function containerComponentBlock(item: ItemDef): string[] {
       '                    desintegrate ~= nil and tostring(desintegrate.casttime) or "",',
       '                    geardrop ~= nil and table.concat(geardrop.prefabs, ",") or "",',
       '                    geardrop ~= nil and tostring(geardrop.radius) or "",',
+      '                    tostring(slotitem.spell_temperaturedelta or ""),',
+      '                    healovertime ~= nil and tostring(healovertime.total) or "",',
+      '                    healovertime ~= nil and tostring(healovertime.persecond) or "",',
+      '                    (desintegrate ~= nil and desintegrate.overheatdamage ~= nil) and tostring(desintegrate.overheatdamage) or "",',
       '                }, "\\31"))',
       '            end',
       '        end',

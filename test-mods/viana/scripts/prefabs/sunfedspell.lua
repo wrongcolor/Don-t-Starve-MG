@@ -32,10 +32,11 @@ local function fn()
 
     inst.spell_label = "Sunfed"
     inst.spell_summonprefab = nil
-    inst.spell_manacost = 15
+    inst.spell_manacost = 50
     inst.spell_healthdelta = nil
     inst.spell_sanitydelta = nil
-    inst.spell_hungerdelta = 25
+    inst.spell_hungerdelta = 20
+    inst.spell_temperaturedelta = 5
 
     return inst
 end

@@ -32,11 +32,12 @@ local function fn()
 
     inst.spell_label = "Desintegration"
     inst.spell_summonprefab = nil
-    inst.spell_manacost = 75
+    inst.spell_manacost = 150
     inst.spell_healthdelta = nil
     inst.spell_sanitydelta = nil
     inst.spell_hungerdelta = nil
-    inst.spell_desintegrate = { radius = 6, damage = 2000, casttime = 10 }
+    inst.spell_temperaturedelta = nil
+    inst.spell_desintegrate = { radius = 6, damage = 2000, casttime = 10, overheatdamage = 5000 }
 
     return inst
 end

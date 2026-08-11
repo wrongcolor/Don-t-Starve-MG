@@ -71,7 +71,22 @@ local function OverheatIgniteTick(inst)
     end
 end
 
+local function OverheatCrash(inst)
+    inst._overheatcrashtask = nil
+    inst.components.temperature:SetTemperature(5)
+    if inst.components.health ~= nil then
+        inst.components.health:DoDelta(-inst.components.health:GetMaxWithPenalty() * 0.5, true, "overheat_crash")
+    end
+    if inst.components.hunger ~= nil then
+        inst.components.hunger:DoDelta(-inst.components.hunger.max * 0.5)
+    end
+    if inst.components.sanity ~= nil then
+        inst.components.sanity:DoDelta(-inst.components.sanity.max * 0.5)
+    end
+end
+
 local function SetOverheatActive(inst, active)
+    inst._customoverheat = active or nil
     if active then
         inst.components.combat.externaldamagemultipliers:SetModifier(inst, 1.5, "overheat")
         inst.components.sanity.externalmodifiers:SetModifier(inst, -5, "overheat")
@@ -84,6 +99,12 @@ local function SetOverheatActive(inst, active)
         if inst._overheatignitetask == nil then
             inst._overheatignitetask = inst:DoPeriodicTask(2, OverheatIgniteTick, nil, inst)
         end
+        inst.components.locomotor:SetExternalSpeedMultiplier(inst, "viana_overheat_speed", 1.15)
+        inst.components.mana:SetRegenRate(TUNING.VIANA_MANA_REGEN + 10)
+        inst.components.mana:SetMaxOverride(TUNING.VIANA_MANA_MAX * 2)
+        if inst._overheatcrashtask == nil then
+            inst._overheatcrashtask = inst:DoTaskInTime(30, OverheatCrash)
+        end
     else
         inst.components.combat.externaldamagemultipliers:RemoveModifier(inst, "overheat")
         inst.components.sanity.externalmodifiers:RemoveModifier(inst, "overheat")
@@ -92,6 +113,13 @@ local function SetOverheatActive(inst, active)
         if inst._overheatignitetask ~= nil then
             inst._overheatignitetask:Cancel()
             inst._overheatignitetask = nil
+        end
+        inst.components.locomotor:RemoveExternalSpeedMultiplier(inst, "viana_overheat_speed")
+        inst.components.mana:SetRegenRate(TUNING.VIANA_MANA_REGEN)
+        inst.components.mana:ClearMaxOverride()
+        if inst._overheatcrashtask ~= nil then
+            inst._overheatcrashtask:Cancel()
+            inst._overheatcrashtask = nil
         end
     end
 end

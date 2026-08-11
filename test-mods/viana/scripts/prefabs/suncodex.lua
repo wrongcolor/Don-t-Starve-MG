@@ -170,7 +170,8 @@ local function DoSpellDesintegrate(user, pos, desintegrate)
         for _, victim in ipairs(victims) do
             local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user
             if victim.components.health ~= nil and not victim.components.health:IsDead() and not isowncompanion then
-                victim.components.health:DoDelta(-desintegrate.damage, false, "desintegrate", false, user)
+                local damage = (desintegrate.overheatdamage ~= nil and user._customoverheat) and desintegrate.overheatdamage or desintegrate.damage
+                victim.components.health:DoDelta(-damage, false, "desintegrate", false, user)
             end
         end
     end)
@@ -189,6 +190,20 @@ local function DoSpellGearDrop(user, geardrop)
             end
         end
     end
+end
+
+local function DoSpellHealOverTime(user, hot)
+    if user.components.health == nil then
+        return
+    end
+
+    user.components.health:AddRegenSource(user, hot.persecond, 1, "spell_healovertime")
+    local duration = hot.total / hot.persecond
+    user:DoTaskInTime(duration, function()
+        if user.components.health ~= nil then
+            user.components.health:RemoveRegenSource(user, "spell_healovertime")
+        end
+    end)
 end
 
 local function FindCodex(user)
@@ -221,13 +236,15 @@ local function rebuild_spellbook_items(user)
             novadamage, novaradius, novastun, refractionradius, refractionduration,
             flashbangradius, flashbangstun, cageprefab, cageradius, cagecount, cagerooted,
             desintegrateradius, desintegratedamage, desintegratecasttime,
-            geardropprefabs, geardropradius =
+            geardropprefabs, geardropradius, temperaturedelta, healtotal, healpersecond,
+            desintegrateoverheatdamage =
             fields[1], fields[2], fields[3], fields[4], fields[5], fields[6],
             fields[7], fields[8], fields[9], fields[10], fields[11], fields[12],
             fields[13], fields[14], fields[15], fields[16], fields[17],
             fields[18], fields[19], fields[20], fields[21], fields[22], fields[23],
             fields[24], fields[25], fields[26],
-            fields[27], fields[28]
+            fields[27], fields[28], fields[29], fields[30], fields[31],
+            fields[32]
         table.insert(items, {
             label = label,
             checkenabled = function(owner) return manacost == "" or owner.mana_current == nil or owner.mana_current:value() >= tonumber(manacost) end,
@@ -249,6 +266,9 @@ local function rebuild_spellbook_items(user)
                     end
                     if hungerdelta ~= "" and user.components.hunger ~= nil then
                         user.components.hunger:DoDelta(tonumber(hungerdelta))
+                    end
+                    if temperaturedelta ~= "" and user.components.temperature ~= nil then
+                        user.components.temperature:DoDelta(tonumber(temperaturedelta), true)
                     end
                     if summonprefab ~= "" then
                         local fx = SpawnPrefab(summonprefab)
@@ -282,7 +302,7 @@ local function rebuild_spellbook_items(user)
                         DoSpellCage(user, pos, { prefab = cageprefab, radius = tonumber(cageradius), count = tonumber(cagecount), rooted = tonumber(cagerooted) })
                     end
                     if desintegrateradius ~= "" then
-                        DoSpellDesintegrate(user, pos, { radius = tonumber(desintegrateradius), damage = tonumber(desintegratedamage), casttime = tonumber(desintegratecasttime) })
+                        DoSpellDesintegrate(user, pos, { radius = tonumber(desintegrateradius), damage = tonumber(desintegratedamage), casttime = tonumber(desintegratecasttime), overheatdamage = desintegrateoverheatdamage ~= "" and tonumber(desintegrateoverheatdamage) or nil })
                     end
                     if geardropprefabs ~= "" then
                         local dropprefabs = {}
@@ -290,6 +310,9 @@ local function rebuild_spellbook_items(user)
                             table.insert(dropprefabs, dropprefab)
                         end
                         DoSpellGearDrop(user, { prefabs = dropprefabs, radius = tonumber(geardropradius) })
+                    end
+                    if healtotal ~= "" then
+                        DoSpellHealOverTime(user, { total = tonumber(healtotal), persecond = tonumber(healpersecond) })
                     end
                     if inst.components.finiteuses ~= nil then
                         inst.components.finiteuses:Use(1)
@@ -411,6 +434,7 @@ local function fn()
                 local cage = slotitem.spell_cage
                 local desintegrate = slotitem.spell_desintegrate
                 local geardrop = slotitem.spell_geardrop
+                local healovertime = slotitem.spell_healovertime
                 table.insert(parts, table.concat({
                     slotitem.spell_label,
                     tostring(slotitem.spell_manacost or ""),
@@ -440,6 +464,10 @@ local function fn()
                     desintegrate ~= nil and tostring(desintegrate.casttime) or "",
                     geardrop ~= nil and table.concat(geardrop.prefabs, ",") or "",
                     geardrop ~= nil and tostring(geardrop.radius) or "",
+                    tostring(slotitem.spell_temperaturedelta or ""),
+                    healovertime ~= nil and tostring(healovertime.total) or "",
+                    healovertime ~= nil and tostring(healovertime.persecond) or "",
+                    (desintegrate ~= nil and desintegrate.overheatdamage ~= nil) and tostring(desintegrate.overheatdamage) or "",
                 }, "\31"))
             end
         end

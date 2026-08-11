@@ -49,6 +49,7 @@ function SpellPortalTeleporter:Activate(doer, x, z)
         doer:SnapCamera()
     end
 
+    self.inst:Remove()
     return true
 end
 

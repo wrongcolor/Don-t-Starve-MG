@@ -32,11 +32,12 @@ local function fn()
 
     inst.spell_label = "Solar Nova"
     inst.spell_summonprefab = nil
-    inst.spell_manacost = 45
+    inst.spell_manacost = 70
     inst.spell_healthdelta = nil
     inst.spell_sanitydelta = nil
     inst.spell_hungerdelta = nil
-    inst.spell_nova = { damage = 40, radius = 6, stun = 3 }
+    inst.spell_temperaturedelta = 15
+    inst.spell_nova = { damage = 200, radius = 6, stun = 3 }
 
     return inst
 end

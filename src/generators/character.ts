@@ -130,7 +130,10 @@ function wetnessDislikeFunctionBlock(character: CharacterDef): string[] {
 
 function overheatFunctionBlock(character: CharacterDef): string[] {
   const overheat = character.overheat!
-  return [
+  const upper = toUpperSnake(character.id)
+  const hasMana = character.mana !== undefined
+  const speedKey = `${character.id}_overheat_speed`
+  const lines = [
     'local function OverheatIgniteTick(inst)',
     '    local x, y, z = inst.Transform:GetWorldPosition()',
     '    local ents = TheSim:FindEntities(x, y, z, 3, nil, { "INLIMBO", "player" })',
@@ -141,8 +144,27 @@ function overheatFunctionBlock(character: CharacterDef): string[] {
     '    end',
     'end',
     '',
-    'local function SetOverheatActive(inst, active)',
-    '    if active then',
+  ]
+  if (overheat.crash !== undefined) {
+    lines.push(
+      'local function OverheatCrash(inst)',
+      '    inst._overheatcrashtask = nil',
+      `    inst.components.temperature:SetTemperature(${overheat.crash.forceTemp})`,
+      '    if inst.components.health ~= nil then',
+      `        inst.components.health:DoDelta(-inst.components.health:GetMaxWithPenalty() * ${overheat.crash.statDamagePercent}, true, "overheat_crash")`,
+      '    end',
+      '    if inst.components.hunger ~= nil then',
+      `        inst.components.hunger:DoDelta(-inst.components.hunger.max * ${overheat.crash.statDamagePercent})`,
+      '    end',
+      '    if inst.components.sanity ~= nil then',
+      `        inst.components.sanity:DoDelta(-inst.components.sanity.max * ${overheat.crash.statDamagePercent})`,
+      '    end',
+      'end',
+      '',
+    )
+  }
+  lines.push('local function SetOverheatActive(inst, active)', '    inst._customoverheat = active or nil', '    if active then')
+  lines.push(
     `        inst.components.combat.externaldamagemultipliers:SetModifier(inst, ${overheat.damageMultiplier}, "overheat")`,
     `        inst.components.sanity.externalmodifiers:SetModifier(inst, -${overheat.sanityDrainPerSecond}, "overheat")`,
     `        inst.components.heater.heat = ${overheat.triggerTemp}`,
@@ -154,7 +176,27 @@ function overheatFunctionBlock(character: CharacterDef): string[] {
     '        if inst._overheatignitetask == nil then',
     '            inst._overheatignitetask = inst:DoPeriodicTask(2, OverheatIgniteTick, nil, inst)',
     '        end',
-    '    else',
+  )
+  if (overheat.speedBonusPercent !== undefined) {
+    lines.push(
+      `        inst.components.locomotor:SetExternalSpeedMultiplier(inst, "${speedKey}", ${1 + overheat.speedBonusPercent / 100})`,
+    )
+  }
+  if (hasMana && overheat.manaRegenBonus !== undefined) {
+    lines.push(`        inst.components.mana:SetRegenRate(TUNING.${upper}_MANA_REGEN + ${overheat.manaRegenBonus})`)
+  }
+  if (hasMana && overheat.manaMaxMultiplier !== undefined) {
+    lines.push(`        inst.components.mana:SetMaxOverride(TUNING.${upper}_MANA_MAX * ${overheat.manaMaxMultiplier})`)
+  }
+  if (overheat.crash !== undefined) {
+    lines.push(
+      '        if inst._overheatcrashtask == nil then',
+      `            inst._overheatcrashtask = inst:DoTaskInTime(${overheat.crash.afterSeconds}, OverheatCrash)`,
+      '        end',
+    )
+  }
+  lines.push('    else')
+  lines.push(
     '        inst.components.combat.externaldamagemultipliers:RemoveModifier(inst, "overheat")',
     '        inst.components.sanity.externalmodifiers:RemoveModifier(inst, "overheat")',
     '        inst.components.heater.heat = nil',
@@ -163,14 +205,32 @@ function overheatFunctionBlock(character: CharacterDef): string[] {
     '            inst._overheatignitetask:Cancel()',
     '            inst._overheatignitetask = nil',
     '        end',
-    '    end',
-    'end',
-    '',
+  )
+  if (overheat.speedBonusPercent !== undefined) {
+    lines.push(`        inst.components.locomotor:RemoveExternalSpeedMultiplier(inst, "${speedKey}")`)
+  }
+  if (hasMana && overheat.manaRegenBonus !== undefined) {
+    lines.push(`        inst.components.mana:SetRegenRate(TUNING.${upper}_MANA_REGEN)`)
+  }
+  if (hasMana && overheat.manaMaxMultiplier !== undefined) {
+    lines.push('        inst.components.mana:ClearMaxOverride()')
+  }
+  if (overheat.crash !== undefined) {
+    lines.push(
+      '        if inst._overheatcrashtask ~= nil then',
+      '            inst._overheatcrashtask:Cancel()',
+      '            inst._overheatcrashtask = nil',
+      '        end',
+    )
+  }
+  lines.push('    end', 'end', '')
+  lines.push(
     'local function OnOverheatTemperatureDelta(inst, data)',
     `    SetOverheatActive(inst, data.new > ${overheat.triggerTemp})`,
     'end',
     '',
-  ]
+  )
+  return lines
 }
 
 function overheatSetupLines(character: CharacterDef): string[] {

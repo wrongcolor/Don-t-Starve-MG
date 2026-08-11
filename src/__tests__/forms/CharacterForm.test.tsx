@@ -105,4 +105,58 @@ describe('CharacterForm', () => {
     const saved = onSave.mock.calls[0][0]
     expect(saved.mana).toBeUndefined()
   })
+
+  it('enabling overheat reveals the extra speed/mana bonus fields alongside the existing ones, and submits custom values', async () => {
+    const onSave = vi.fn()
+    render(<CharacterForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_char'), { target: { value: 'viana' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Viana' } })
+    fireEvent.change(screen.getByLabelText('Description (selection screen)'), { target: { value: 'A sun-touched witch' } })
+    fireEvent.change(screen.getByLabelText('Catchphrase'), { target: { value: 'The sun lends its light.' } })
+
+    fireEvent.click(screen.getByText('Enters an overheat mode above a body temperature threshold'))
+
+    fireEvent.click(screen.getByText('Moves faster while overheated'))
+    fireEvent.click(screen.getByText('Regenerates mana faster while overheated (needs a mana pool)'))
+    fireEvent.click(screen.getByText('Temporarily raises the mana cap while overheated (needs a mana pool)'))
+
+    fireEvent.change(screen.getByLabelText('Movement speed bonus (%) while overheated'), { target: { value: '25' } })
+    fireEvent.change(screen.getByLabelText('Extra mana regen per second while overheated'), { target: { value: '3' } })
+    fireEvent.change(screen.getByLabelText('Mana cap multiplier while overheated'), { target: { value: '2' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add character' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.overheat).toMatchObject({ speedBonusPercent: 25, manaRegenBonus: 3, manaMaxMultiplier: 2 })
+  })
+
+  it('enabling the overheat crash checkbox reveals its fields with sane defaults, and submits a custom value', async () => {
+    const onSave = vi.fn()
+    render(<CharacterForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_char'), { target: { value: 'viana' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Viana' } })
+    fireEvent.change(screen.getByLabelText('Description (selection screen)'), { target: { value: 'A sun-touched witch' } })
+    fireEvent.change(screen.getByLabelText('Catchphrase'), { target: { value: 'The sun lends its light.' } })
+
+    fireEvent.click(screen.getByText('Enters an overheat mode above a body temperature threshold'))
+    expect(screen.queryByLabelText('Crashes after (seconds)')).toBeNull()
+
+    fireEvent.click(screen.getByText('Forces a cooldown crash after a time limit'))
+    expect((screen.getByLabelText('Crashes after (seconds)') as HTMLInputElement).value).toBe('30')
+    expect((screen.getByLabelText('Forced temperature on crash (°C)') as HTMLInputElement).value).toBe('20')
+    expect((screen.getByLabelText('Stat damage on crash (0 to 1, % of max)') as HTMLInputElement).value).toBe('0.1')
+
+    fireEvent.change(screen.getByLabelText('Crashes after (seconds)'), { target: { value: '45' } })
+    fireEvent.change(screen.getByLabelText('Forced temperature on crash (°C)'), { target: { value: '10' } })
+    fireEvent.change(screen.getByLabelText('Stat damage on crash (0 to 1, % of max)'), { target: { value: '0.2' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add character' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.overheat.crash).toEqual({ afterSeconds: 45, forceTemp: 10, statDamagePercent: 0.2 })
+  })
 })

@@ -16,7 +16,6 @@ caminhos abaixo, substituindo os placeholders:
   - `emberwispspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solsticeblessingspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `sunfedspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
-  - `sunwispspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solargatespell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solarbeamspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `refractionspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
@@ -33,12 +32,13 @@ caminhos abaixo, substituindo os placeholders:
   - `solarblade`: reaproveita o build "nightmaresword" do jogo base — nenhum `anim/*.zip` próprio é necessário.
     - ATENÇÃO: é um item empunhável (ferramenta/arma) usando build vanilla — confirme se `swap_nightmaresword` existe no jogo base antes de publicar.
   - `solararmor`: reaproveita o build "armor_marble" do jogo base — nenhum `anim/*.zip` próprio é necessário.
+  - `solarcore`: reaproveita o build "gems" do jogo base — nenhum `anim/*.zip` próprio é necessário.
 - **Personagens**: builds em `anim/`, ícone de seleção e ícone de minimapa.
   - `viana`: reaproveita o build "wendy" do jogo base como placeholder visual — nenhum `anim/*.zip` próprio é necessário, mas a aparência final ainda será a desse personagem vanilla até você trocar por um build real.
 - **Criaturas**: por padrão reaproveitam o build "pigman" do jogo base — só precisam de `anim/<id>.zip` próprio se a animação for explicitamente marcada como personalizada.
   - `sunorb`: reaproveita o build "flameball_fx" do jogo base — confirme em-jogo que as animações "idle_loop"/"idle_loop"/"idle_loop"/"idle_loop"/"post" existem nesse build antes de publicar (não verificado por esta ferramenta).
-  - `sunwisp`: reaproveita o build "flameball_fx" do jogo base — confirme em-jogo que as animações "idle_loop"/"idle_loop"/"idle_loop"/"idle_loop"/"post" existem nesse build antes de publicar (não verificado por esta ferramenta).
   - `lightpillar`: reaproveita o build "flameball_fx" do jogo base — confirme em-jogo que as animações "idle_loop"/"idle_loop"/"idle_loop"/"idle_loop"/"post" existem nesse build antes de publicar (não verificado por esta ferramenta).
+  - `solarpillar`: reaproveita o build "flameball_fx" do jogo base — confirme em-jogo que as animações "idle_loop"/"idle_loop"/"idle_loop"/"idle_loop"/"post" existem nesse build antes de publicar (não verificado por esta ferramenta).
   - `sunportal`: reaproveita o build "teleporter_worm_build" do jogo base — confirme em-jogo que as animações "idle_loop"/"idle_loop"/"idle_loop"/"idle_loop"/"idle_loop" existem nesse build antes de publicar (não verificado por esta ferramenta).
 
 Fala de personagem (`speech_<id>.lua`) usa fallback para `speech_wilson` — só as

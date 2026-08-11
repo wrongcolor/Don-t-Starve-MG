@@ -32,10 +32,11 @@ local function fn()
 
     inst.spell_label = "Ember Wisp"
     inst.spell_summonprefab = "emberlight"
-    inst.spell_manacost = 20
+    inst.spell_manacost = 40
     inst.spell_healthdelta = nil
     inst.spell_sanitydelta = nil
     inst.spell_hungerdelta = nil
+    inst.spell_temperaturedelta = 10
     inst.spell_aimed = true
 
     return inst

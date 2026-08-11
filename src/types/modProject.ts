@@ -239,6 +239,25 @@ export const spellbookSpellSchema = z
     healthDelta: optionalFormNumber,
     sanityDelta: optionalFormNumber,
     hungerDelta: optionalFormNumber,
+    // Confirmed real API (components/temperature.lua): Temperature:DoDelta(n,
+    // skipinsulation) — skipinsulation=true (always used here) bypasses the
+    // winter/summer insulation scaling DoDelta normally applies, so the spell
+    // always grants the exact same fixed bump regardless of the caster's
+    // equipped gear.
+    temperatureDelta: optionalFormNumber,
+    // Confirmed real API (components/health.lua): Health:AddRegenSource(src,
+    // amount, period, key) — a real periodic-tick heal, distinct from the
+    // instant healthDelta above. totalAmount/perSecond describe the SPELL's
+    // shape (e.g. "heal 50 at 5/sec"); the generator derives the tick period
+    // (1s) and duration (totalAmount/perSecond) from them, then removes the
+    // regen source via RemoveRegenSource once that duration elapses. Never
+    // aimed — always centered on the caster, like refraction/flashbang.
+    healOverTime: z
+      .object({
+        totalAmount: z.number().min(1),
+        perSecond: z.number().min(0.1),
+      })
+      .optional(),
     beam: z
       .object({
         damagePerTick: z.number().min(1).max(200),
@@ -329,6 +348,13 @@ export const spellbookSpellSchema = z
         radius: z.number().min(1).max(20),
         damage: z.number().min(1).max(5000),
         castTimeSeconds: z.number().min(1).max(30),
+        // Only meaningful alongside CharacterDef.overheat — deals this much
+        // instead of the normal `damage` when the caster is in the custom
+        // overheat state at the moment the delayed damage actually lands
+        // (checked via inst._customoverheat, set by SetOverheatActive in
+        // character.ts — not the unrelated real Temperature:IsOverheating(),
+        // which uses a different, non-configurable vanilla threshold).
+        overheatDamage: z.number().min(1).max(10000).optional(),
       })
       .optional(),
     // Confirmed real API (beefaloherd.lua/piratespawner.lua — the same
@@ -360,6 +386,8 @@ export const spellbookSpellSchema = z
       spell.healthDelta !== undefined ||
       spell.sanityDelta !== undefined ||
       spell.hungerDelta !== undefined ||
+      spell.temperatureDelta !== undefined ||
+      spell.healOverTime !== undefined ||
       spell.beam !== undefined ||
       spell.nova !== undefined ||
       spell.refraction !== undefined ||
@@ -606,6 +634,18 @@ export const itemDefSchema = z
     spellDef: spellbookSpellSchema.optional(),
     edible: edibleSchema.optional(),
     onEatBuff: onEatBuffSchema.optional(),
+    // Only meaningful for an eater with CharacterDef.mana — a ONE-TIME,
+    // permanent bump to the mana pool's cap when eaten (distinct from
+    // onEatBuff's temporary damage buff above), consumed like any other
+    // edible. `cap` keeps repeated uses from pushing the pool past a
+    // deliberate ceiling (e.g. several of these item add up to +100, capped
+    // at 200 total) — see Mana:IncreaseMaxPermanent in mana.ts.
+    manaBoostOnUse: z
+      .object({
+        amount: z.number().min(1),
+        cap: z.number().min(1),
+      })
+      .optional(),
     // Sourced from a real published Workshop mod ("Repair Combine"), not a vanilla
     // game script — simplified from its full logic (drops the config-driven bonus%
     // and "raise the max" mode) to just: sum both items' remaining durability %,
@@ -717,6 +757,14 @@ export const itemDefSchema = z
   .refine((item) => item.onEatBuff === undefined || item.edible !== undefined, {
     message: 'A temporary buff on eat requires the item to be edible (category food)',
     path: ['onEatBuff'],
+  })
+  .refine((item) => item.manaBoostOnUse === undefined || item.edible !== undefined, {
+    message: 'A mana boost on use requires the item to be edible (category food)',
+    path: ['manaBoostOnUse'],
+  })
+  .refine((item) => item.manaBoostOnUse === undefined || item.manaBoostOnUse.amount <= item.manaBoostOnUse.cap, {
+    message: 'The cap must be at least as large as the amount granted per use',
+    path: ['manaBoostOnUse', 'cap'],
   })
   // Confirmed in hambat.lua (docs/dst-knowledge/patterns.md#3): the game uses EITHER
   // finiteuses (fixed use-count) OR perishable (time-based) as an item's durability
@@ -1114,6 +1162,33 @@ export const characterOverheatSchema = z.object({
   damageMultiplier: z.number().min(1).max(5),
   sanityDrainPerSecond: z.number().min(0).max(20),
   igniteChance: z.number().min(0).max(1),
+  // Confirmed real API (components/locomotor.lua): SetExternalSpeedMultiplier
+  // (already used by CharacterDef.summerWalkSpeedBonusPercent — see
+  // seasonFunctionBlock in character.ts) — a temporary movement speed bonus
+  // while overheating.
+  speedBonusPercent: z.number().min(0).max(200).optional(),
+  // Only meaningful alongside CharacterDef.mana — a temporary bump to the
+  // mana component's regen rate (added on top of CharacterDef.mana.
+  // regenPerSecond, not a replacement for it) while overheating.
+  manaRegenBonus: z.number().min(0).optional(),
+  // Only meaningful alongside CharacterDef.mana — temporarily multiplies the
+  // mana pool's cap (e.g. 2 = double) while overheating, reverting to
+  // whatever the current permanent cap is (see ItemDef.manaBoostOnUse) once
+  // overheat ends.
+  manaMaxMultiplier: z.number().min(1).max(5).optional(),
+  // Confirmed real API (components/temperature.lua): Temperature:
+  // SetTemperature(value) forces an exact value, firing "temperaturedelta"
+  // like any other change — used here to yank the character back out of
+  // overheat after a hard time limit, alongside a one-time stat penalty
+  // (a percentage of health/hunger/sanity's own max), modeling "you can't
+  // sustain overheat forever, and crashing afterward hurts."
+  crash: z
+    .object({
+      afterSeconds: z.number().min(1),
+      forceTemp: z.number().min(-20).max(90),
+      statDamagePercent: z.number().min(0).max(1),
+    })
+    .optional(),
 })
 
 export const characterShadowAffinitySchema = z.object({
@@ -1341,6 +1416,16 @@ export const creatureDefSchema = z
     // legal from modmain.lua — see needsPortalAction/portalActionBlock in
     // modmain.ts) plus a dedicated component (spellportalteleporter).
     mapPortal: z.boolean().optional(),
+    // A self-destruct timer: the creature removes itself once this many
+    // seconds pass, UNLESS it's already dead by then (health:IsDead() —
+    // always false for an invincible creature like a map portal, so this
+    // doubles as an unconditional "vanish after N seconds" for those). Two
+    // real uses: a summoned sentry that despawns if never killed, and a
+    // one-time portal that despawns if never stepped through (it also
+    // removes itself immediately on first use — see SpellPortalTeleporter:
+    // Activate in creature.ts — so this timer is really just the "didn't use
+    // it" fallback for that case).
+    expireIfAliveSeconds: z.number().min(1).optional(),
     // Confirmed real native API (prefabs/stafflight.lua, the same file the
     // emberlight/stafflight prefabs already reused for spellDef.summonPrefab):
     // entity:AddLight() + Light:SetRadius/SetFalloff/SetIntensity/SetColour/

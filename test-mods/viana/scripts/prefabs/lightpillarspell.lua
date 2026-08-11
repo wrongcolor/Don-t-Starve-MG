@@ -30,12 +30,13 @@ local function fn()
     inst:AddComponent("inventoryitem")
     inst.components.inventoryitem.imagename = "papyrus"
 
-    inst.spell_label = "Light Pillar"
-    inst.spell_summonprefab = "lightpillar"
-    inst.spell_manacost = 50
+    inst.spell_label = "Solar Pillar"
+    inst.spell_summonprefab = "solarpillar"
+    inst.spell_manacost = 80
     inst.spell_healthdelta = nil
     inst.spell_sanitydelta = nil
     inst.spell_hungerdelta = nil
+    inst.spell_temperaturedelta = nil
     inst.spell_aimed = true
 
     return inst

@@ -324,4 +324,68 @@ describe('ItemForm', () => {
     expect((screen.getByRole('checkbox', { name: /Magic effect \(use on a map point\)/ }) as HTMLInputElement).disabled).toBe(true)
     expect((screen.getByRole('checkbox', { name: /Tame cloud/ }) as HTMLInputElement).disabled).toBe(true)
   })
+
+  it('sets an optional temperature delta and heal-over-time effect on a spell, submitting both', async () => {
+    const onSave = vi.fn()
+    render(<ItemForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_item'), { target: { value: 'sunbeamspell' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Sunbeam' } })
+    fireEvent.change(screen.getByLabelText('Description (crafting + inspect)'), { target: { value: 'A spell' } })
+
+    fireEvent.click(screen.getByText("It's a spell (goes inside another item's linked-container spellbook)"))
+
+    fireEvent.change(screen.getByPlaceholderText('Spell label (e.g. Sunbeam)'), { target: { value: 'Sunbeam' } })
+    fireEvent.change(screen.getByPlaceholderText('prefab to spawn (e.g. stafflight)'), { target: { value: 'stafflight' } })
+    fireEvent.change(screen.getByPlaceholderText('Temperature'), { target: { value: '15' } })
+
+    expect(screen.queryByPlaceholderText('Total healed')).toBeNull()
+    fireEvent.click(screen.getByText('Heals over time instead of instantly'))
+    expect((screen.getByPlaceholderText('Total healed') as HTMLInputElement).value).toBe('50')
+    expect((screen.getByPlaceholderText('Heal/sec') as HTMLInputElement).value).toBe('5')
+
+    fireEvent.change(screen.getByPlaceholderText('Total healed'), { target: { value: '80' } })
+    fireEvent.change(screen.getByPlaceholderText('Heal/sec'), { target: { value: '10' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.spellDef.temperatureDelta).toBe(15)
+    expect(saved.spellDef.healOverTime).toEqual({ totalAmount: 80, perSecond: 10 })
+  })
+
+  it('enabling the mana boost checkbox on a food item reveals its fields with sane defaults, and submits a custom value', async () => {
+    const onSave = vi.fn()
+    render(<ItemForm onSave={onSave} />)
+
+    fireEvent.change(screen.getByPlaceholderText('my_item'), { target: { value: 'manafruit' } })
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Mana Fruit' } })
+    fireEvent.change(screen.getByLabelText('Description (crafting + inspect)'), { target: { value: 'A glowing fruit' } })
+    fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'food' } })
+
+    fireEvent.click(screen.getByText('Permanently boosts mana cap on eat'))
+    expect((screen.getByLabelText('Amount') as HTMLInputElement).value).toBe('10')
+    expect((screen.getByLabelText('Cap (max total from repeated uses)') as HTMLInputElement).value).toBe('100')
+
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '20' } })
+    fireEvent.change(screen.getByLabelText('Cap (max total from repeated uses)'), { target: { value: '200' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const saved = onSave.mock.calls[0][0]
+    expect(saved.manaBoostOnUse).toEqual({ amount: 20, cap: 200 })
+  })
+
+  it('clears the mana boost when switching away from Food back to another category', () => {
+    render(<ItemForm onSave={vi.fn()} />)
+
+    fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'food' } })
+    fireEvent.click(screen.getByText('Permanently boosts mana cap on eat'))
+    expect(screen.getByLabelText('Amount')).toBeDefined()
+
+    fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'generic' } })
+    expect(screen.queryByText('Permanently boosts mana cap on eat')).toBeNull()
+  })
 })

@@ -1128,8 +1128,11 @@ describe('generateItemFiles', () => {
     expect(code).toContain('local victims = TheSim:FindEntities(x, y, z, desintegrate.radius, nil, { "INLIMBO", "player" })')
     expect(code).toContain('local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user')
     expect(code).toContain('if victim.components.health ~= nil and not victim.components.health:IsDead() and not isowncompanion then')
-    expect(code).toContain('victim.components.health:DoDelta(-desintegrate.damage, false, "desintegrate", false, user)')
-    expect(code).toContain('DoSpellDesintegrate(user, pos, { radius = 6, damage = 2000, casttime = 3 })')
+    expect(code).toContain(
+      'local damage = (desintegrate.overheatdamage ~= nil and user._customoverheat) and desintegrate.overheatdamage or desintegrate.damage',
+    )
+    expect(code).toContain('victim.components.health:DoDelta(-damage, false, "desintegrate", false, user)')
+    expect(code).toContain('DoSpellDesintegrate(user, pos, { radius = 6, damage = 2000, casttime = 3, overheatdamage = nil })')
 
     // Aimed: needs aoetargeting/aoespell and ForceFacePoint, and radius 6
     // lands on the same confirmed sized reticule as nova/cage (patterns.md#77).
@@ -1160,7 +1163,9 @@ describe('generateItemFiles', () => {
       id: 'testdesintegratespell',
       spellDef: { label: 'Desintegration', desintegrate: { radius: 6, damage: 2000, castTimeSeconds: 3 } },
     }
-    expect(generateItemPrefab(desintegrateSpell)).toContain('inst.spell_desintegrate = { radius = 6, damage = 2000, casttime = 3 }')
+    expect(generateItemPrefab(desintegrateSpell)).toContain(
+      'inst.spell_desintegrate = { radius = 6, damage = 2000, casttime = 3, overheatdamage = nil }',
+    )
 
     const linked: ItemDef = {
       ...trinket,
@@ -1171,7 +1176,7 @@ describe('generateItemFiles', () => {
     expect(code).toContain('local function DoSpellDesintegrate(user, pos, desintegrate)')
     expect(code).toContain('if desintegrateradius ~= "" then')
     expect(code).toContain(
-      'DoSpellDesintegrate(user, pos, { radius = tonumber(desintegrateradius), damage = tonumber(desintegratedamage), casttime = tonumber(desintegratecasttime) })',
+      'DoSpellDesintegrate(user, pos, { radius = tonumber(desintegrateradius), damage = tonumber(desintegratedamage), casttime = tonumber(desintegratecasttime), overheatdamage = desintegrateoverheatdamage ~= "" and tonumber(desintegrateoverheatdamage) or nil })',
     )
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
@@ -1242,6 +1247,104 @@ describe('generateItemFiles', () => {
     expect(code).toContain('if geardropprefabs ~= "" then')
     expect(code).toContain('for dropprefab in geardropprefabs:gmatch("[^,]+") do')
     expect(code).toContain('DoSpellGearDrop(user, { prefabs = dropprefabs, radius = tonumber(geardropradius) })')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  // temperatureDelta is a plain sibling of healthDelta/sanityDelta/hungerDelta
+  // (spellEffectDeltaLines), not a nested effect object — it applies
+  // unconditionally on cast, alongside any other effect on the same spell.
+  it('applies temperatureDelta via Temperature:DoDelta with skipinsulation=true, on both static and spellDef/linkedContainer paths', () => {
+    const staff: ItemDef = {
+      ...trinket,
+      id: 'testtemperaturestaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          { label: 'Sunfed', hungerDelta: 20, temperatureDelta: 5 },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(staff)
+    expect(code).toContain('if user.components.temperature ~= nil then')
+    expect(code).toContain('user.components.temperature:DoDelta(5, true)')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+
+    const spellDefItem: ItemDef = {
+      ...trinket,
+      id: 'testtemperaturespell',
+      spellDef: { label: 'Sunfed', hungerDelta: 20, temperatureDelta: 5 },
+    }
+    expect(generateItemPrefab(spellDefItem)).toContain('inst.spell_temperaturedelta = 5')
+
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkedtemperaturestaff',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const linkedCode = generateItemPrefab(linked)
+    expect(linkedCode).toContain('if temperaturedelta ~= "" and user.components.temperature ~= nil then')
+    expect(linkedCode).toContain('user.components.temperature:DoDelta(tonumber(temperaturedelta), true)')
+    expect(() => parse(linkedCode, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  // Health:AddRegenSource is a real periodic-tick heal (components/health.lua)
+  // — distinct from the instant healthDelta above. Never aimed.
+  it('wires a static spell\'s healOverTime via Health:AddRegenSource, removed after total/perSecond seconds', () => {
+    const healStaff: ItemDef = {
+      ...trinket,
+      id: 'testhealovertimestaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          { label: 'Solstice Blessing', healOverTime: { totalAmount: 50, perSecond: 5 } },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(healStaff)
+    expect(code).toContain('local function DoSpellHealOverTime(user, hot)')
+    expect(code).toContain('user.components.health:AddRegenSource(user, hot.persecond, 1, "spell_healovertime")')
+    expect(code).toContain('local duration = hot.total / hot.persecond')
+    expect(code).toContain('user.components.health:RemoveRegenSource(user, "spell_healovertime")')
+    expect(code).toContain('DoSpellHealOverTime(user, { total = 50, persecond = 5 })')
+
+    // Unaimed, like refraction/flashbang/gearDrop.
+    expect(code).not.toContain('aoetargeting')
+    expect(code).not.toContain('aoespell')
+    expect(code).not.toContain('ForceFacePoint')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('omits the healOverTime helper function from a static spellbook when no spell in it uses healOverTime', () => {
+    const code = generateItemPrefab({
+      ...trinket,
+      id: 'testnohealovertimestaff',
+      spellbook: { source: 'static', spells: [{ label: 'A', summonPrefab: 'x' }, { label: 'B', summonPrefab: 'y' }] },
+    })
+    expect(code).not.toContain('DoSpellHealOverTime')
+  })
+
+  it('sets inst.spell_healovertime on a spellDef item with a healOverTime, and a linkedContainer staff casts it', () => {
+    const healSpell: ItemDef = {
+      ...trinket,
+      id: 'testhealovertimespell',
+      spellDef: { label: 'Solstice Blessing', healOverTime: { totalAmount: 50, perSecond: 5 } },
+    }
+    expect(generateItemPrefab(healSpell)).toContain('inst.spell_healovertime = { total = 50, persecond = 5 }')
+
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkedhealovertimestaff',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const code = generateItemPrefab(linked)
+    expect(code).toContain('local function DoSpellHealOverTime(user, hot)')
+    expect(code).toContain('if healtotal ~= "" then')
+    expect(code).toContain(
+      'DoSpellHealOverTime(user, { total = tonumber(healtotal), persecond = tonumber(healpersecond) })',
+    )
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
@@ -1463,6 +1566,13 @@ describe('generateItemFiles', () => {
     expect(code).toContain('local geardrop = slotitem.spell_geardrop')
     expect(code).toContain('geardrop ~= nil and table.concat(geardrop.prefabs, ",") or ""')
     expect(code).toContain('geardrop ~= nil and tostring(geardrop.radius) or ""')
+    expect(code).toContain('local healovertime = slotitem.spell_healovertime')
+    expect(code).toContain('healovertime ~= nil and tostring(healovertime.total) or ""')
+    expect(code).toContain('healovertime ~= nil and tostring(healovertime.persecond) or ""')
+    expect(code).toContain('tostring(slotitem.spell_temperaturedelta or "")')
+    expect(code).toContain(
+      '(desintegrate ~= nil and desintegrate.overheatdamage ~= nil) and tostring(desintegrate.overheatdamage) or ""',
+    )
     expect(code).toContain('inst.spell_contents:set(table.concat(parts, "\\30"))')
     expect(code).toContain('inst:ListenForEvent("itemget", UpdateSpellContents)')
     expect(code).toContain('inst:ListenForEvent("itemlose", UpdateSpellContents)')
@@ -1845,7 +1955,8 @@ describe('generateItemFiles', () => {
   it('wires a temporary combat damage buff on eat via SetOnEatenFn + externaldamagemultipliers', () => {
     const code = generateItemPrefab(food)
     expect(code).toContain('local function oneaten(inst, eater)')
-    expect(code).toContain('if eater == nil or eater.components.combat == nil then return end')
+    expect(code).toContain('if eater == nil then return end')
+    expect(code).toContain('if eater.components.combat ~= nil then')
     expect(code).toContain(
       'eater.components.combat.externaldamagemultipliers:SetModifier(inst, 1 + TUNING.TESTFOOD_DAMAGE_BUFF_MULT, "testfood_damage_buff")',
     )
@@ -1866,6 +1977,37 @@ describe('generateItemFiles', () => {
   it('rejects a temporary combat buff on a non-food item', () => {
     const buffOnWeapon = { ...sword, onEatBuff: { damageMultiplier: 0.25, durationSeconds: 120 } }
     expect(itemDefSchema.safeParse(buffOnWeapon).success).toBe(false)
+  })
+
+  // Mana:IncreaseMaxPermanent (mana.ts) is a ONE-TIME permanent bump, unlike
+  // onEatBuff's removable modifier — the two are independent and can coexist
+  // on the same food item without colliding.
+  it('wires a permanent mana cap boost on eat via Mana:IncreaseMaxPermanent, independent of onEatBuff', () => {
+    const manaFood = { ...food, manaBoostOnUse: { amount: 25, cap: 200 } }
+    const code = generateItemPrefab(manaFood)
+    expect(code).toContain('local function oneaten(inst, eater)')
+    expect(code).toContain('if eater.components.mana ~= nil then')
+    expect(code).toContain('eater.components.mana:IncreaseMaxPermanent(TUNING.TESTFOOD_MANA_BOOST, TUNING.TESTFOOD_MANA_BOOST_CAP)')
+    // Still carries the existing onEatBuff wiring alongside it.
+    expect(code).toContain('eater.components.combat.externaldamagemultipliers:SetModifier')
+    expect(code).toContain('inst.components.edible:SetOnEatenFn(oneaten)')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('wires manaBoostOnUse alone (no onEatBuff) without requiring a combat component', () => {
+    const manaOnlyFood = { ...food, onEatBuff: undefined, manaBoostOnUse: { amount: 25, cap: 200 } }
+    const code = generateItemPrefab(manaOnlyFood)
+    expect(code).toContain('if eater == nil then return end')
+    expect(code).not.toContain('externaldamagemultipliers')
+    expect(code).toContain('eater.components.mana:IncreaseMaxPermanent(TUNING.TESTFOOD_MANA_BOOST, TUNING.TESTFOOD_MANA_BOOST_CAP)')
+  })
+
+  it('rejects a mana boost on a non-food item, and rejects an amount larger than the cap', () => {
+    const boostOnWeapon = { ...sword, manaBoostOnUse: { amount: 25, cap: 200 } }
+    expect(itemDefSchema.safeParse(boostOnWeapon).success).toBe(false)
+
+    const amountAboveCap = { ...food, manaBoostOnUse: { amount: 300, cap: 200 } }
+    expect(itemDefSchema.safeParse(amountAboveCap).success).toBe(false)
   })
 
   it('supports a weapon that fires a projectile on attack AND casts createLight on a point — two independent components, no collision', () => {

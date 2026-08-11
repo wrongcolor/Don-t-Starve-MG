@@ -39,6 +39,11 @@ local function fn()
     inst.components.combat:SetRange(2)
 
     inst:AddComponent("spellportalteleporter")
+    inst:DoTaskInTime(TUNING.SUNPORTAL_EXPIRE_SECONDS, function(inst)
+        if inst.components.health == nil or not inst.components.health:IsDead() then
+            inst:Remove()
+        end
+    end)
 
     inst:AddComponent("inspectable")
 

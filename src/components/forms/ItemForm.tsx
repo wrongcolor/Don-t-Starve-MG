@@ -64,6 +64,7 @@ interface SpellFieldsRowProps {
   cageEnabled: boolean
   desintegrateEnabled: boolean
   gearDropEnabled: boolean
+  healOverTimeEnabled: boolean
 }
 
 function SpellFieldsRow({
@@ -78,6 +79,7 @@ function SpellFieldsRow({
   cageEnabled,
   desintegrateEnabled,
   gearDropEnabled,
+  healOverTimeEnabled,
 }: SpellFieldsRowProps) {
   return (
     <>
@@ -123,11 +125,53 @@ function SpellFieldsRow({
         title="Instant hunger change on the caster (negative drains) — leave blank for none"
         {...register(`${namePrefix}.hungerDelta` as const, { valueAsNumber: true })}
       />
+      <input
+        type="number"
+        step="1"
+        className="qty-input"
+        placeholder="Temperature"
+        title="Temperature change on cast (negative cools) — leave blank for none"
+        {...register(`${namePrefix}.temperatureDelta` as const, { valueAsNumber: true })}
+      />
       <div style={{ flexBasis: '100%', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <input type="checkbox" {...register(`${namePrefix}.aimed` as const)} />
           Aim where it summons (instead of always at her feet)
         </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input
+            type="checkbox"
+            checked={healOverTimeEnabled}
+            onChange={(e) =>
+              setValue(`${namePrefix}.healOverTime` as const, e.target.checked ? { totalAmount: 50, perSecond: 5 } : undefined, {
+                shouldDirty: true,
+              })
+            }
+          />
+          Heals over time instead of instantly
+        </label>
+        {healOverTimeEnabled && (
+          <>
+            <input
+              type="number"
+              step="1"
+              min="1"
+              className="qty-input"
+              placeholder="Total healed"
+              title="Total amount healed over the whole duration"
+              {...register(`${namePrefix}.healOverTime.totalAmount` as const, { valueAsNumber: true })}
+            />
+            <input
+              type="number"
+              step="0.1"
+              min="0.1"
+              className="qty-input"
+              placeholder="Heal/sec"
+              title="Heal amount per second — duration is derived from total healed / heal per second"
+              {...register(`${namePrefix}.healOverTime.perSecond` as const, { valueAsNumber: true })}
+            />
+          </>
+        )}
         <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <input
             type="checkbox"
@@ -456,6 +500,7 @@ interface SpellbookEditorProps {
   watchedCageFlags: boolean[]
   watchedDesintegrateFlags: boolean[]
   watchedGearDropFlags: boolean[]
+  watchedHealOverTimeFlags: boolean[]
 }
 
 // Owns the spells field array itself, mounted only while the spellbook is
@@ -480,6 +525,7 @@ function SpellbookEditor({
   watchedCageFlags,
   watchedDesintegrateFlags,
   watchedGearDropFlags,
+  watchedHealOverTimeFlags,
 }: SpellbookEditorProps) {
   const spells = useFieldArray({ control, name: 'spellbook.spells' as never })
 
@@ -499,13 +545,14 @@ function SpellbookEditor({
             cageEnabled={watchedCageFlags[index] ?? false}
             desintegrateEnabled={watchedDesintegrateFlags[index] ?? false}
             gearDropEnabled={watchedGearDropFlags[index] ?? false}
+            healOverTimeEnabled={watchedHealOverTimeFlags[index] ?? false}
           />
           <button type="button" className={btnDanger} onClick={() => spells.remove(index)}>
             Remove
           </button>
         </div>
       ))}
-      <button type="button" className="add-ingredient" onClick={() => spells.append({ label: '', summonPrefab: '' })}>
+      <button type="button" className="add-ingredient" onClick={() => spells.append({ label: '' })}>
         + Add spell
       </button>
       {errorMessage && <p className="field error">{errorMessage}</p>}
@@ -576,6 +623,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
   const enableWeakness = watched.armor?.weakness !== undefined
   const enableSanityLossOnHit = watched.armor?.sanityLossOnHitPercent !== undefined
   const enableOnEatBuff = watched.onEatBuff !== undefined
+  const enableManaBoostOnUse = watched.manaBoostOnUse !== undefined
   const hasDurabilityModel = enableFiniteuses || enableArmor || enablePerishable
   const enableCombinable = watched.combinable === true
   const enableContainer = watched.container !== undefined
@@ -596,6 +644,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
     } else if (nextCategory !== 'food' && watched.edible) {
       setValue('edible', undefined)
       setValue('onEatBuff', undefined)
+      setValue('manaBoostOnUse', undefined)
     }
   }
 
@@ -1149,7 +1198,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       setValue(
                         'spellbook',
                         e.target.checked
-                          ? { source: 'static', spells: [{ label: '', summonPrefab: '' }, { label: '', summonPrefab: '' }] }
+                          ? { source: 'static', spells: [{ label: '' }, { label: '' }] }
                           : undefined,
                       )
                     }}
@@ -1168,7 +1217,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       onClick={() =>
                         setValue('spellbook', {
                           source: 'static',
-                          spells: [{ label: '', summonPrefab: '' }, { label: '', summonPrefab: '' }],
+                          spells: [{ label: '' }, { label: '' }],
                         })
                       }
                     >
@@ -1208,6 +1257,9 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                       )}
                       watchedGearDropFlags={(watched.spellbook?.source === 'static' ? watched.spellbook.spells : []).map(
                         (s) => s.gearDrop !== undefined,
+                      )}
+                      watchedHealOverTimeFlags={(watched.spellbook?.source === 'static' ? watched.spellbook.spells : []).map(
+                        (s) => s.healOverTime !== undefined,
                       )}
                     />
                   ) : (
@@ -1600,6 +1652,27 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   </FormField>
                 </div>
               )}
+
+              <div className="checks">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={enableManaBoostOnUse}
+                    onChange={(e) => setValue('manaBoostOnUse', e.target.checked ? { amount: 10, cap: 100 } : undefined)}
+                  />
+                  Permanently boosts mana cap on eat
+                </label>
+              </div>
+              {enableManaBoostOnUse && (
+                <div className="row-2">
+                  <FormField label="Amount">
+                    <input type="number" min="1" className={inputClass} {...register('manaBoostOnUse.amount', { valueAsNumber: true })} />
+                  </FormField>
+                  <FormField label="Cap (max total from repeated uses)">
+                    <input type="number" min="1" className={inputClass} {...register('manaBoostOnUse.cap', { valueAsNumber: true })} />
+                  </FormField>
+                </div>
+              )}
             </Fieldset>
           )}
 
@@ -1798,7 +1871,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   type="checkbox"
                   checked={enableSpellDef}
                   disabled={enableSpellbook}
-                  onChange={(e) => setValue('spellDef', e.target.checked ? { label: '', summonPrefab: '' } : undefined)}
+                  onChange={(e) => setValue('spellDef', e.target.checked ? { label: '' } : undefined)}
                 />
                 It's a spell (goes inside another item's linked-container spellbook)
                 {enableSpellbook && ' (turn off this item\'s own spellbook first)'}
@@ -1818,6 +1891,7 @@ export function ItemForm({ initialItem, onSave, onCancel }: ItemFormProps) {
                   cageEnabled={watched.spellDef?.cage !== undefined}
                   desintegrateEnabled={watched.spellDef?.desintegrate !== undefined}
                   gearDropEnabled={watched.spellDef?.gearDrop !== undefined}
+                  healOverTimeEnabled={watched.spellDef?.healOverTime !== undefined}
                 />
               </div>
             )}

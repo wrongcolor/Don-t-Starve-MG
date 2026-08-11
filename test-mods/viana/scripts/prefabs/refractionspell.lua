@@ -32,11 +32,12 @@ local function fn()
 
     inst.spell_label = "Refraction"
     inst.spell_summonprefab = nil
-    inst.spell_manacost = 45
+    inst.spell_manacost = 40
     inst.spell_healthdelta = nil
     inst.spell_sanitydelta = nil
     inst.spell_hungerdelta = nil
-    inst.spell_refraction = { radius = 8, duration = 5 }
+    inst.spell_temperaturedelta = nil
+    inst.spell_refraction = { radius = 5, duration = 10 }
 
     return inst
 end

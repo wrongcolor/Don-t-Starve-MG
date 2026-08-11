@@ -84,6 +84,7 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
   const canBeFriendly = watched.behavior !== 'hostile'
   const companionTasks = watched.companion?.tasks ?? []
   const enableLight = watched.light !== undefined
+  const enableExpireIfAlive = watched.expireIfAliveSeconds !== undefined
 
   const togglePanicCause = (cause: PanicCause, checked: boolean) => {
     const next = checked ? [...panicCauses, cause] : panicCauses.filter((c) => c !== cause)
@@ -552,6 +553,24 @@ export function CreatureForm({ initialCreature, onSave, onCancel }: CreatureForm
                 {enableCompanion ? ' — turn off "follows the player" first' : enableSentry ? ' — turn off the stationary sentry first' : ''}
               </label>
             </div>
+
+            <div className="checks" style={{ marginTop: 12 }}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableExpireIfAlive}
+                  onChange={(e) => setValue('expireIfAliveSeconds', e.target.checked ? 60 : undefined)}
+                />
+                Vanishes after this many seconds if still alive
+              </label>
+            </div>
+            {enableExpireIfAlive && (
+              <div className="row-2">
+                <FormField label="Seconds until it vanishes">
+                  <input type="number" min="1" className={inputClass} {...register('expireIfAliveSeconds', { valueAsNumber: true })} />
+                </FormField>
+              </div>
+            )}
           </Fieldset>
 
           <Fieldset legend="Companion (optional)" step={8}>

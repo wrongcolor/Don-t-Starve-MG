@@ -257,6 +257,10 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
   const enableMana = watched.mana !== undefined
   const enableManaRegen = watched.mana?.regenPerSecond !== undefined
   const enableOverheat = watched.overheat !== undefined
+  const enableOverheatSpeedBonus = watched.overheat?.speedBonusPercent !== undefined
+  const enableOverheatManaRegenBonus = watched.overheat?.manaRegenBonus !== undefined
+  const enableOverheatManaMaxMultiplier = watched.overheat?.manaMaxMultiplier !== undefined
+  const enableOverheatCrash = watched.overheat?.crash !== undefined
 
   const onSubmit = (data: CharacterDef) => onSave(data)
 
@@ -801,6 +805,126 @@ export function CharacterForm({ initialCharacter, onSave, onCancel }: CharacterF
                   />
                 </FormField>
               </div>
+            )}
+            {enableOverheat && (
+              <>
+                <div>
+                  <div className="checks">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={enableOverheatSpeedBonus}
+                        onChange={(e) => setValue('overheat.speedBonusPercent', e.target.checked ? 20 : undefined)}
+                      />
+                      Moves faster while overheated
+                    </label>
+                  </div>
+                  {enableOverheatSpeedBonus && (
+                    <FormField label="Movement speed bonus (%) while overheated">
+                      <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        max="200"
+                        className={inputClass}
+                        {...register('overheat.speedBonusPercent', { valueAsNumber: true })}
+                      />
+                    </FormField>
+                  )}
+                </div>
+                <div>
+                  <div className="checks">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={enableOverheatManaRegenBonus}
+                        onChange={(e) => setValue('overheat.manaRegenBonus', e.target.checked ? 1 : undefined)}
+                      />
+                      Regenerates mana faster while overheated (needs a mana pool)
+                    </label>
+                  </div>
+                  {enableOverheatManaRegenBonus && (
+                    <FormField label="Extra mana regen per second while overheated">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        className={inputClass}
+                        {...register('overheat.manaRegenBonus', { valueAsNumber: true })}
+                      />
+                    </FormField>
+                  )}
+                </div>
+                <div>
+                  <div className="checks">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={enableOverheatManaMaxMultiplier}
+                        onChange={(e) => setValue('overheat.manaMaxMultiplier', e.target.checked ? 2 : undefined)}
+                      />
+                      Temporarily raises the mana cap while overheated (needs a mana pool)
+                    </label>
+                  </div>
+                  {enableOverheatManaMaxMultiplier && (
+                    <FormField label="Mana cap multiplier while overheated">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="1"
+                        max="5"
+                        className={inputClass}
+                        {...register('overheat.manaMaxMultiplier', { valueAsNumber: true })}
+                      />
+                    </FormField>
+                  )}
+                </div>
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={enableOverheatCrash}
+                      onChange={(e) =>
+                        setValue(
+                          'overheat.crash',
+                          e.target.checked ? { afterSeconds: 30, forceTemp: 20, statDamagePercent: 0.1 } : undefined,
+                        )
+                      }
+                    />
+                    Forces a cooldown crash after a time limit
+                  </label>
+                </div>
+                {enableOverheatCrash && (
+                  <div className="row-2">
+                    <FormField label="Crashes after (seconds)">
+                      <input
+                        type="number"
+                        step="1"
+                        min="1"
+                        className={inputClass}
+                        {...register('overheat.crash.afterSeconds', { valueAsNumber: true })}
+                      />
+                    </FormField>
+                    <FormField label="Forced temperature on crash (°C)">
+                      <input
+                        type="number"
+                        className={inputClass}
+                        {...register('overheat.crash.forceTemp', { valueAsNumber: true })}
+                      />
+                    </FormField>
+                    <FormField label="Stat damage on crash (0 to 1, % of max)">
+                      <input
+                        type="number"
+                        step="0.05"
+                        min="0"
+                        max="1"
+                        className={inputClass}
+                        {...register('overheat.crash.statDamagePercent', { valueAsNumber: true })}
+                      />
+                    </FormField>
+                  </div>
+                )}
+              </>
             )}
           </Fieldset>
 

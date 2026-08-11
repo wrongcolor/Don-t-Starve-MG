@@ -91,7 +91,7 @@ export const viana: ModProject = {
       description: 'Bind this in the Sun Codex to summon a warm, floating ember of light where she aims.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'papyrus' },
-      spellDef: { label: 'Ember Wisp', summonPrefab: 'emberlight', manaCost: 20, aimed: true },
+      spellDef: { label: 'Ember Wisp', summonPrefab: 'emberlight', temperatureDelta: 10, manaCost: 40, aimed: true },
       recipe: {
         ingredients: [
           { prefab: 'goldnugget', amount: 1 },
@@ -107,7 +107,13 @@ export const viana: ModProject = {
       description: 'Bind this in the Sun Codex to mend her wounds with the sun\'s warmth.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'papyrus' },
-      spellDef: { label: 'Solstice Blessing', healthDelta: 15, sanityDelta: 15, manaCost: 30 },
+      spellDef: {
+        label: 'Solstice Blessing',
+        healOverTime: { totalAmount: 50, perSecond: 5 },
+        sanityDelta: 30,
+        temperatureDelta: 15,
+        manaCost: 60,
+      },
       recipe: {
         ingredients: [
           { prefab: 'petals', amount: 2 },
@@ -123,28 +129,11 @@ export const viana: ModProject = {
       description: 'Bind this in the Sun Codex to feed her on sunlight alone.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'papyrus' },
-      spellDef: { label: 'Sunfed', hungerDelta: 25, manaCost: 15 },
+      spellDef: { label: 'Sunfed', hungerDelta: 20, temperatureDelta: 5, manaCost: 50 },
       recipe: {
         ingredients: [
           { prefab: 'twigs', amount: 1 },
           { prefab: 'goldnugget', amount: 1 },
-        ],
-        techLevel: 'MAGIC_TWO',
-        filters: ['MAGIC'],
-      },
-    },
-    {
-      id: 'sunwispspell',
-      displayName: 'Sun Wisp Spell',
-      description: 'Bind this in the Sun Codex to call a small fire spirit to where she aims — it stays glowing by her side afterward.',
-      category: 'generic',
-      animation: { source: 'vanilla', build: 'papyrus' },
-      spellDef: { label: 'Sun Wisp', summonPrefab: 'sunwisp', manaCost: 35, aimed: true },
-      recipe: {
-        ingredients: [
-          { prefab: 'twigs', amount: 1 },
-          { prefab: 'goldnugget', amount: 1 },
-          { prefab: 'nightmarefuel', amount: 2 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
@@ -158,7 +147,7 @@ export const viana: ModProject = {
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: {
         label: 'Solar Gate',
-        manaCost: 50,
+        manaCost: 90,
         summonPrefab: 'sunportal',
         aimed: true,
       },
@@ -179,8 +168,9 @@ export const viana: ModProject = {
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: {
         label: 'Solar Beam',
-        manaCost: 40,
-        beam: { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3, telegraphSeconds: 0.5 },
+        manaCost: 50,
+        temperatureDelta: 10,
+        beam: { damagePerTick: 35, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3, telegraphSeconds: 0.5 },
       },
       recipe: {
         ingredients: [
@@ -199,8 +189,8 @@ export const viana: ModProject = {
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: {
         label: 'Refraction',
-        manaCost: 45,
-        refraction: { radius: 8, immuneSeconds: 5 },
+        manaCost: 40,
+        refraction: { radius: 5, immuneSeconds: 10 },
       },
       recipe: {
         ingredients: [
@@ -219,8 +209,9 @@ export const viana: ModProject = {
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: {
         label: 'Solar Nova',
-        manaCost: 45,
-        nova: { damage: 40, radius: 6, stunSeconds: 3 },
+        manaCost: 70,
+        temperatureDelta: 15,
+        nova: { damage: 200, radius: 6, stunSeconds: 3 },
       },
       recipe: {
         ingredients: [
@@ -239,7 +230,8 @@ export const viana: ModProject = {
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: {
         label: 'Flashbang',
-        manaCost: 40,
+        manaCost: 20,
+        temperatureDelta: 3,
         flashbang: { radius: 8, stunSeconds: 4 },
       },
       recipe: {
@@ -259,8 +251,8 @@ export const viana: ModProject = {
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: {
         label: 'Solar Cage',
-        manaCost: 50,
-        cage: { pillarPrefab: 'lightpillar', radius: 6, pillarCount: 8, rootedSeconds: 8 },
+        manaCost: 40,
+        cage: { pillarPrefab: 'lightpillar', radius: 7, pillarCount: 8, rootedSeconds: 15 },
       },
       recipe: {
         ingredients: [
@@ -279,8 +271,8 @@ export const viana: ModProject = {
       animation: { source: 'vanilla', build: 'papyrus' },
       spellDef: {
         label: 'Desintegration',
-        manaCost: 75,
-        desintegrate: { radius: 6, damage: 2000, castTimeSeconds: 10 },
+        manaCost: 150,
+        desintegrate: { radius: 6, damage: 2000, overheatDamage: 5000, castTimeSeconds: 10 },
       },
       recipe: {
         ingredients: [
@@ -313,11 +305,11 @@ export const viana: ModProject = {
     },
     {
       id: 'lightpillarspell',
-      displayName: 'Light Pillar Spell',
-      description: 'Bind this in the Sun Codex to raise a pillar of solar light where she aims — it stands its ground and burns any enemy that gets close.',
+      displayName: 'Solar Pillar Spell',
+      description: 'Bind this in the Sun Codex to raise a towering pillar of solar light where she aims — it stands its ground and scorches any enemy that gets close, fading on its own if it stands unchallenged for too long.',
       category: 'generic',
       animation: { source: 'vanilla', build: 'papyrus' },
-      spellDef: { label: 'Light Pillar', summonPrefab: 'lightpillar', manaCost: 50, aimed: true },
+      spellDef: { label: 'Solar Pillar', summonPrefab: 'solarpillar', manaCost: 80, aimed: true },
       recipe: {
         ingredients: [
           { prefab: 'goldnugget', amount: 2 },
@@ -420,6 +412,23 @@ export const viana: ModProject = {
         filters: ['ARMOUR'],
       },
     },
+    {
+      id: 'solarcore',
+      displayName: 'Solar Core',
+      description: 'A condensed core of sunlight — eat it and it permanently widens how much Solar Energy she can hold, up to a point.',
+      category: 'food',
+      animation: { source: 'vanilla', build: 'gems', idleClip: 'yellowgem_idle' },
+      edible: { foodType: 'GOODIES', healthValue: 0, hungerValue: 0, sanityValue: 0 },
+      manaBoostOnUse: { amount: 25, cap: 200 },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 4 },
+          { prefab: 'nightmarefuel', amount: 3 },
+        ],
+        techLevel: 'MAGIC_TWO',
+        filters: ['MAGIC'],
+      },
+    },
   ],
   characters: [
     {
@@ -450,7 +459,16 @@ export const viana: ModProject = {
       summerStatBonus: 75,
       summerWalkSpeedBonusPercent: 15,
       winterStatPenalty: 50,
-      overheat: { triggerTemp: 65, damageMultiplier: 1.5, sanityDrainPerSecond: 5, igniteChance: 0.15 },
+      overheat: {
+        triggerTemp: 65,
+        damageMultiplier: 1.5,
+        sanityDrainPerSecond: 5,
+        igniteChance: 0.15,
+        speedBonusPercent: 15,
+        manaRegenBonus: 10,
+        manaMaxMultiplier: 2,
+        crash: { afterSeconds: 30, forceTemp: 5, statDamagePercent: 0.5 },
+      },
       shadowAffinity: { damageDealtMultiplier: 1.5, damageTakenMultiplier: 1.5 },
       foodTypeAffinities: [],
     },
@@ -481,23 +499,6 @@ export const viana: ModProject = {
       invincible: true,
     },
     {
-      id: 'sunwisp',
-      displayName: 'Sun Wisp',
-      description: 'A small fire spirit, warm and constant, that never strays far from her side.',
-      animation: {
-        source: 'vanilla',
-        build: 'flameball_fx',
-        clips: { idle: 'idle_loop', walk: 'idle_loop', atk: 'idle_loop', hit: 'idle_loop', death: 'post' },
-      },
-      stats: { health: 15, damage: 0, attackPeriod: 2, walkSpeed: 5 },
-      loot: [],
-      behavior: 'passive',
-      tags: [],
-      panicCauses: [],
-      companion: { followDistance: 4, tasks: [] },
-      light: { radius: 12, intensity: 0.8, falloff: 0.8, colour: { r: 250, g: 149, b: 18 } },
-    },
-    {
       id: 'lightpillar',
       displayName: 'Light Pillar',
       description: 'A column of solidified sunlight, rooted to the spot where it was raised — it burns anything that strays too close.',
@@ -513,6 +514,25 @@ export const viana: ModProject = {
       panicCauses: [],
       sentry: { radius: 6 },
       light: { radius: 8, intensity: 0.8, falloff: 0.8, colour: { r: 255, g: 220, b: 150 } },
+    },
+    {
+      id: 'solarpillar',
+      displayName: 'Solar Pillar',
+      description: 'A towering column of solidified sunlight, rooted to the spot where it was raised — it scorches anything that strays too close, and fades on its own if it stands unchallenged for too long.',
+      animation: {
+        source: 'vanilla',
+        build: 'flameball_fx',
+        clips: { idle: 'idle_loop', walk: 'idle_loop', atk: 'idle_loop', hit: 'idle_loop', death: 'post' },
+      },
+      stats: { health: 300, damage: 35, attackPeriod: 1.5, walkSpeed: 0.1 },
+      loot: [],
+      behavior: 'neutral',
+      tags: [],
+      panicCauses: [],
+      sentry: { radius: 8 },
+      light: { radius: 10, intensity: 0.9, falloff: 0.8, colour: { r: 255, g: 200, b: 100 } },
+      // Doesn't linger forever if nothing ever kills it.
+      expireIfAliveSeconds: 120,
     },
     {
       id: 'sunportal',
@@ -531,6 +551,9 @@ export const viana: ModProject = {
       panicCauses: [],
       mapPortal: true,
       invincible: true,
+      // Vanishes on its own if never stepped through — see
+      // SpellPortalTeleporter:Activate (creature.ts) for the "used" half.
+      expireIfAliveSeconds: 10,
     },
   ],
 }

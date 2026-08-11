@@ -32,11 +32,12 @@ local function fn()
 
     inst.spell_label = "Solar Cage"
     inst.spell_summonprefab = nil
-    inst.spell_manacost = 50
+    inst.spell_manacost = 40
     inst.spell_healthdelta = nil
     inst.spell_sanitydelta = nil
     inst.spell_hungerdelta = nil
-    inst.spell_cage = { prefab = "lightpillar", radius = 6, count = 8, rooted = 8 }
+    inst.spell_temperaturedelta = nil
+    inst.spell_cage = { prefab = "lightpillar", radius = 7, count = 8, rooted = 15 }
 
     return inst
 end

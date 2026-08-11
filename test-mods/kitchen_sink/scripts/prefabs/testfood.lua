@@ -4,14 +4,16 @@ local assets =
 }
 
 local function oneaten(inst, eater)
-    if eater == nil or eater.components.combat == nil then return end
+    if eater == nil then return end
 
-    eater.components.combat.externaldamagemultipliers:SetModifier(inst, 1 + TUNING.TESTFOOD_DAMAGE_BUFF_MULT, "testfood_damage_buff")
-    eater:DoTaskInTime(TUNING.TESTFOOD_DAMAGE_BUFF_DURATION, function()
-        if eater.components.combat ~= nil then
-            eater.components.combat.externaldamagemultipliers:RemoveModifier(inst, "testfood_damage_buff")
-        end
-    end)
+    if eater.components.combat ~= nil then
+        eater.components.combat.externaldamagemultipliers:SetModifier(inst, 1 + TUNING.TESTFOOD_DAMAGE_BUFF_MULT, "testfood_damage_buff")
+        eater:DoTaskInTime(TUNING.TESTFOOD_DAMAGE_BUFF_DURATION, function()
+            if eater.components.combat ~= nil then
+                eater.components.combat.externaldamagemultipliers:RemoveModifier(inst, "testfood_damage_buff")
+            end
+        end)
+    end
 end
 
 local prefabs = {}

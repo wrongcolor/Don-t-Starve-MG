@@ -160,6 +160,10 @@ function itemTuningBlock(item: ItemDef): string[] {
     lines.push(`GLOBAL.TUNING.${upper}_DAMAGE_BUFF_MULT = ${item.onEatBuff.damageMultiplier}`)
     lines.push(`GLOBAL.TUNING.${upper}_DAMAGE_BUFF_DURATION = ${item.onEatBuff.durationSeconds}`)
   }
+  if (item.manaBoostOnUse) {
+    lines.push(`GLOBAL.TUNING.${upper}_MANA_BOOST = ${item.manaBoostOnUse.amount}`)
+    lines.push(`GLOBAL.TUNING.${upper}_MANA_BOOST_CAP = ${item.manaBoostOnUse.cap}`)
+  }
   if (item.rechargeable) {
     lines.push(`GLOBAL.TUNING.${upper}_COOLDOWN = ${item.rechargeable.cooldownSeconds}`)
   }
@@ -241,6 +245,9 @@ function creatureTuningBlock(creature: CreatureDef): string[] {
     lines.push(`GLOBAL.TUNING.${upper}_LIGHT_COLOUR_R = ${creature.light.colour.r / 255}`)
     lines.push(`GLOBAL.TUNING.${upper}_LIGHT_COLOUR_G = ${creature.light.colour.g / 255}`)
     lines.push(`GLOBAL.TUNING.${upper}_LIGHT_COLOUR_B = ${creature.light.colour.b / 255}`)
+  }
+  if (creature.expireIfAliveSeconds !== undefined) {
+    lines.push(`GLOBAL.TUNING.${upper}_EXPIRE_SECONDS = ${creature.expireIfAliveSeconds}`)
   }
   return lines
 }

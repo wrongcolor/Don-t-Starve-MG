@@ -89,4 +89,4 @@ local events =
     end),
 }
 
-return StateGraph("SGsunwisp", states, events, "idle")
+return StateGraph("SGsolarpillar", states, events, "idle")

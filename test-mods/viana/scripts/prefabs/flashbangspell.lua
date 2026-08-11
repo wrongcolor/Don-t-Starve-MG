@@ -32,10 +32,11 @@ local function fn()
 
     inst.spell_label = "Flashbang"
     inst.spell_summonprefab = nil
-    inst.spell_manacost = 40
+    inst.spell_manacost = 20
     inst.spell_healthdelta = nil
     inst.spell_sanitydelta = nil
     inst.spell_hungerdelta = nil
+    inst.spell_temperaturedelta = 3
     inst.spell_flashbang = { radius = 8, stun = 4 }
 
     return inst

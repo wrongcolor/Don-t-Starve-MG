@@ -184,9 +184,11 @@ export function needsMapActionCreature(creature: CreatureDef): boolean {
 // own "bufferedmapaction" prefab and hands it to the target (this creature
 // itself), which is what makes PullUpMap open the map automatically for
 // that player — no UI code needed on our side. Activate then runs once the
-// player actually clicks a point (see portalActionBlock in modmain.ts). No
-// mana check here — unlike a spell that casts instantly, this creature was
-// already paid for when the aimed spell that summoned it (see
+// player actually clicks a point (see portalActionBlock in modmain.ts), and
+// removes the portal right after — a spell portal is always single-use;
+// pair with CreatureDef.expireIfAliveSeconds for a "vanishes if never used"
+// fallback too. No mana check here — unlike a spell that casts instantly,
+// this creature was already paid for when the aimed spell that summoned it (see
 // spellbookSpellSchema.aimed/summonPrefab) was cast.
 function generateSpellPortalTeleporterComponent(): string {
   return [
@@ -241,6 +243,7 @@ function generateSpellPortalTeleporterComponent(): string {
     '        doer:SnapCamera()',
     '    end',
     '',
+    '    self.inst:Remove()',
     '    return true',
     'end',
     '',
@@ -420,6 +423,15 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   }
   if (needsMapActionCreature(creature)) {
     lines.push('', '    inst:AddComponent("spellportalteleporter")')
+  }
+  if (creature.expireIfAliveSeconds !== undefined) {
+    lines.push(
+      `    inst:DoTaskInTime(TUNING.${upper}_EXPIRE_SECONDS, function(inst)`,
+      '        if inst.components.health == nil or not inst.components.health:IsDead() then',
+      '            inst:Remove()',
+      '        end',
+      '    end)',
+    )
   }
   lines.push(...lootBlock(creature))
 

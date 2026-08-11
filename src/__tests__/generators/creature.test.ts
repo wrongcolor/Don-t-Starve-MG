@@ -447,6 +447,36 @@ describe('generateCreatureFiles', () => {
     expect(generateCreatureFiles(creature)['scripts/components/spellportalteleporter.lua']).toBeUndefined()
   })
 
+  // A spell portal is single-use: teleporting removes it immediately,
+  // pairing with expireIfAliveSeconds below for a "never used" fallback.
+  it('removes the portal itself right after a successful teleport', () => {
+    const files = generateCreatureFiles({ ...creature, id: 'testportalcreature', behavior: 'passive', mapPortal: true })
+    const activateBody = files['scripts/components/spellportalteleporter.lua']!.slice(
+      files['scripts/components/spellportalteleporter.lua']!.indexOf('function SpellPortalTeleporter:Activate('),
+    )
+    expect(activateBody).toContain('self.inst:Remove()')
+    expect(activateBody.indexOf('self.inst:Remove()')).toBeLessThan(activateBody.indexOf('return true'))
+  })
+
+  // A self-destruct timer: removes the creature after N seconds UNLESS
+  // already dead by then — used both for a summoned sentry that never gets
+  // killed and (paired with the single-use Activate above) a portal that's
+  // never stepped through.
+  it('wires a DoTaskInTime despawn timer when expireIfAliveSeconds is set, guarded on not already being dead', () => {
+    const expiring: CreatureDef = { ...creature, expireIfAliveSeconds: 120 }
+    const code = generateCreaturePrefab(expiring)
+    expect(code).toContain('inst:DoTaskInTime(TUNING.TESTMOB_EXPIRE_SECONDS, function(inst)')
+    expect(code).toContain('if inst.components.health == nil or not inst.components.health:IsDead() then')
+    expect(code).toContain('inst:Remove()')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('does not wire a despawn timer when expireIfAliveSeconds is not set', () => {
+    const code = generateCreaturePrefab(creature)
+    expect(code).not.toContain('EXPIRE_SECONDS')
+    expect(code).not.toContain('DoTaskInTime')
+  })
+
   it('wires a real Light component when light is set, but not otherwise (patterns.md#65)', () => {
     expect(generateCreaturePrefab(creature)).not.toContain('AddLight')
     expect(generateCreaturePrefab(creature)).not.toContain('inst.Light')

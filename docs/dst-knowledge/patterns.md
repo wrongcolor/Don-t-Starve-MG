@@ -4099,3 +4099,232 @@ específica. Também não testado: se o raio 2 do `gearDrop` realmente
 espalha os 3 itens sem sobrepor visualmente, e se `swap_nightmaresword`
 existe de fato como símbolo de build no jogo base (aviso já deixado como
 comentário no Lua gerado, `solarblade.lua:4`).
+
+Atualização: pesquisando `Original/prefabs/prefabs/nightsword.lua` (a
+Espada da Noite de verdade) pra outra tarefa, confirmei que
+`swap_nightmaresword` EXISTE mesmo — é literalmente o símbolo real que o
+próprio jogo troca (`OverrideSymbol("swap_object", "swap_nightmaresword",
+"swap_nightmaresword")`). O aviso no comentário ficou desatualizado, mas
+inofensivo.
+
+## 80. Rebalanceamento em lote de todos os feitiços da Viana — mudanças de valor, mais dois efeitos novos (`temperatureDelta`, `healOverTime`) — **implementado**
+
+Motivação: o usuário pediu uma rodada grande de ajustes de balance em
+todos os 13 feitiços de uma vez (custo de mana, dano, raio, duração) mais
+dois efeitos que não existiam: aquecer a própria Viana ao lançar (efeito
+colateral "aquecido pela própria magia solar") e uma cura ao longo do
+tempo em vez de instantânea (Solstice Blessing).
+
+**Mecanismo 1 — `temperatureDelta`**: `components/temperature.lua` real
+já expõe `DoDelta(delta, skipinsulation)` — o SEGUNDO argumento
+(`skipinsulation = true`, sempre usado aqui) pula o fator de isolamento de
+inverno/verão que `DoDelta` aplica por padrão, garantindo que o bônus do
+feitiço seja sempre o valor exato configurado, não importa o equipamento
+da Viana no momento. Como `healthDelta`/`sanityDelta`/`hungerDelta` já
+eram aplicados incondicionalmente em TODO feitiço (não são um "efeito"
+com objeto próprio, são só campos soltos em `spellEffectDeltaLines`),
+`temperatureDelta` entrou exatamente do mesmo jeito — um quarto campo na
+mesma lista, sem precisar de wiring especial em lugar nenhum.
+
+**Mecanismo 2 — `healOverTime`**: confirmado real e já pronto pra esse
+uso exato: `Health:AddRegenSource(source, amount, period, key)`
+(`components/health.lua`) — um regen periódico de verdade, independente
+do `Health:DoDelta` instantâneo que `healthDelta` já usava. Diferente dos
+outros efeitos (que são objetos fixos tipo `{radius, damage}`), este só
+precisa de `{totalAmount, perSecond}` — o gerador deriva a duração
+(`total/persecond`) e agenda a remoção da fonte de regen com
+`DoTaskInTime`, mesma ideia de "liga por um tempo, desliga sozinho depois"
+que `refraction`/`cage` já usam pros seus próprios efeitos. Nunca mirado
+— sempre centrado na própria Viana, como `refraction`/`flashbang`.
+
+**Implementado:**
+- `spellbookSpellSchema.temperatureDelta`/`healOverTime`
+  (`src/types/modProject.ts`).
+- `src/generators/item.ts`: `temperatureDelta` entrou em
+  `spellEffectDeltaLines` (mesma lista de health/sanity/hunger, com
+  `, true` extra só pra ele). `healOverTime` ganhou o padrão completo de
+  efeito (`spellHealOverTimeLuaTable` + `healOverTimeHelperFunctionBlock`
+  → `DoSpellHealOverTime`), wired nos dois modos de spellbook (`static` e
+  `linkedContainer`, este último usado de verdade pela Viana via Sun
+  Codex) e no payload do container (+3 campos: `temperaturedelta`,
+  `healtotal`, `healpersecond`, índices 29-31).
+- `mods/viana.ts`: todos os 13 feitiços tiveram custo de mana e/ou
+  números de efeito ajustados; Solstice Blessing trocou `healthDelta: 15`
+  instantâneo por `healOverTime: { totalAmount: 50, perSecond: 5 }` (cura
+  5/seg, por 10 segundos, 50 no total) + `sanityDelta: 30` +
+  `temperatureDelta: 15`; Sunfed/Ember Wisp/Solar Beam/Solar Nova/
+  Flashbang ganharam `temperatureDelta` (5/10/10/15/3 respectivamente).
+  Sun Wisp (feitiço E criatura) foi removido por completo, a pedido
+  explícito do usuário.
+
+**O que NÃO foi testado em jogo**: sensação de balance real dos novos
+custos de mana (alguns dobraram, ex. Desintegration foi de 75 pra 150) —
+só validado que o código gera e roda sem erro, não que os números
+"sentem" bem em uma sessão de jogo real.
+
+## 81. Estado `overheat` estendido: velocidade, regen/teto de mana, e um "crash" forçado depois de um tempo-limite — **implementado**
+
+Motivação: a Viana já tinha um `overheat` básico (de uma tarefa anterior
+a esta sessão) — acima de 65° ela pega fogo em quem chega perto, causa
+1.5x mais dano e drena sanidade. O usuário pediu pra ENRIQUECER esse
+mesmo estado (não criar um novo): +15% de velocidade, regeneração de
+mana +10/seg, o teto de mana dobrando, e depois de 30 segundos nesse
+estado a temperatura é forçada de volta a 5° e ela recebe 50% de dano em
+vida/fome/sanidade — um "estoura o superaquecimento" punitivo.
+
+**Mecanismo**: reaproveitado 100% do sistema já existente
+(`character.ts`'s `SetOverheatActive(inst, active)`, ligado ao evento
+real `"temperaturedelta"` que `Temperature:SetTemperature` já dispara).
+Cada bônus novo é só mais um par de linhas dentro do mesmo
+liga/desliga:
+- Velocidade: `locomotor:SetExternalSpeedMultiplier`/
+  `RemoveExternalSpeedMultiplier` — a MESMA API real que o bônus de
+  velocidade de verão (`summerWalkSpeedBonusPercent`) já usava antes
+  desta sessão.
+- Mana: `mana:SetRegenRate(TUNING.<X>_MANA_REGEN + bonus)` no liga,
+  `SetRegenRate(TUNING.<X>_MANA_REGEN)` (volta ao normal) no desliga —
+  reaproveita a constante já existente, sem precisar de TUNING novo.
+  O teto de mana usa dois métodos NOVOS no componente `mana.lua`
+  (`SetMaxOverride`/`ClearMaxOverride`) — ver seção seguinte pra detalhe.
+- Crash: um `DoTaskInTime(afterSeconds, OverheatCrash)` agendado só
+  quando o estado liga, cancelado se ele desligar sozinho antes do prazo
+  (evita disparar o crash depois que ela já esfriou por conta própria).
+  `OverheatCrash` chama `Temperature:SetTemperature(forceTemp)` — que
+  por si só já dispara `"temperaturedelta"` de novo e desliga o overheat
+  como efeito colateral, sem precisar chamar `SetOverheatActive` à mão —
+  e aplica o dano de vida/fome/sanidade direto (`% do máximo de cada
+  um`, não do valor atual).
+
+**Mecanismo 2 — teto de mana dinâmico (`mana.lua`)**: o componente de
+mana (100% autoral deste projeto, não vanilla) só tinha `SetMax`, pensado
+só pro spawn inicial (ele SEMPRE enche o `current` até o `max`, de
+propósito — comentário original já avisava isso). Reusar `SetMax` pra
+ligar/desligar o dobro de mana toda vez que ela entra/sai do overheat
+encheria a mana por completo a cada toggle, o que não é o comportamento
+esperado. Resolvido com dois métodos novos que NUNCA forçam refill:
+`SetMaxOverride(newmax)` (só abre mais espaço, ou reduz o atual se
+encolher) e `ClearMaxOverride()` (volta pro `self.basemax` — o teto
+"de verdade", que só muda via a permanente `IncreaseMaxPermanent` da
+seção seguinte, nunca fica "preso" num valor temporário de overheat).
+
+**Implementado:**
+- `characterOverheatSchema` ganhou `speedBonusPercent`, `manaRegenBonus`,
+  `manaMaxMultiplier`, `crash: { afterSeconds, forceTemp,
+  statDamagePercent }`, todos opcionais (não quebra nenhum outro
+  personagem que já usasse `overheat` só com os 4 campos originais).
+- `src/generators/character.ts`: `overheatFunctionBlock` estendido;
+  `inst._customoverheat` (um marcador booleano simples) setado toda vez
+  que `SetOverheatActive` roda — usado pelo Desintegration (seção #82)
+  pra saber se a Viana está overheated no momento do dano.
+- `src/generators/mana.ts`: `self.basemax` rastreado separado de
+  `self.max`; `IncreaseMaxPermanent`/`SetMaxOverride`/`ClearMaxOverride`
+  novos; `OnSave`/`OnLoad` persistem `basemax` (senão um upgrade
+  permanente se perderia ao salvar e carregar de novo).
+- `mods/viana.ts`: `overheat.speedBonusPercent: 15`,
+  `manaRegenBonus: 10`, `manaMaxMultiplier: 2`,
+  `crash: { afterSeconds: 30, forceTemp: 5, statDamagePercent: 0.5 }`.
+
+**Item novo — Solar Core (`item.manaBoostOnUse`)**: o usuário também
+pediu itens que aumentam o teto de 100 pra até 200 de mana. Resolvido
+como um consumível de uso único (`edible` com todos os valores de
+comida zerados, só o efeito de mana) que chama
+`Mana:IncreaseMaxPermanent(amount, cap)` ao ser comido — +25 de mana
+máxima por unidade, até um teto de 200 (`cap`), 4 usos pra ir de 100 a
+200. Visual escolhido com o usuário: build vanilla `gems`/
+`yellowgem_idle`, a mesma família visual do Solar Prism já existente.
+
+**O que NÃO foi testado em jogo**: se 30 segundos de overheat "sentem"
+justos antes do crash, se dobrar a mana de fato compensa o risco do
+crash, e se o teto de mana em 200 quebra a UI da barra de mana (badge)
+de alguma forma visual não prevista — só a lógica numérica foi validada.
+
+## 82. Dano em dois níveis, condicionado a um estado do personagem — Desintegration causa mais dano "overheated" — **implementado**
+
+Motivação: o usuário pediu que o Desintegration cause 2000 de dano no
+estado normal e 5000 no estado overheat (seção #81) — o primeiro
+mecanismo desta ferramenta em que um EFEITO DE FEITIÇO muda de valor
+dependendo de um estado do PERSONAGEM que o lança, não do alvo.
+
+**Mecanismo**: reaproveita o marcador `inst._customoverheat` que a seção
+#81 já expõe (setado toda vez que `SetOverheatActive` liga/desliga).
+`desintegrate.overheatDamage` é um campo opcional a mais no efeito
+`desintegrate` já existente — quando presente, `DoSpellDesintegrate`
+escolhe entre `desintegrate.overheatdamage` e `desintegrate.damage` no
+MOMENTO em que o dano de fato acontece (depois do `casttime`, na mesma
+varredura que já roda tarde de propósito — patterns.md#78), não no
+momento em que o feitiço foi lançado — ou seja, se a Viana ENTRAR em
+overheat DURANTE o tempo de conjuração, o dano maior ainda se aplica
+quando o estouro finalmente cai.
+
+**Implementado:**
+- `spellbookSpellSchema.desintegrate.overheatDamage` (opcional).
+- `src/generators/item.ts`: `DoSpellDesintegrate` calcula
+  `local damage = (desintegrate.overheatdamage ~= nil and
+  user._customoverheat) and desintegrate.overheatdamage or
+  desintegrate.damage` antes de aplicar — idiom ternário clássico de Lua,
+  seguro aqui porque `overheatdamage` nunca é um número falso (Lua só
+  trata `nil`/`false` como falso). Payload do `linkedContainer` ganhou
+  mais 1 campo (`desintegrateoverheatdamage`, índice 32).
+- `mods/viana.ts`: Desintegration ganhou `overheatDamage: 5000` (mantendo
+  `damage: 2000` normal) e o custo de mana subiu de 75 pra 150.
+
+**O que NÃO foi testado em jogo**: se o "estado overheat mudou no meio do
+cast time" realmente muda o resultado do jeito esperado numa sessão real
+(a lógica lê o estado no momento exato do dano, não no cast — só
+confirmado por leitura de código e teste unitário, não em uma partida).
+
+## 83. Uma criatura se autodestrói se ninguém a matar — e um portal que se autodestrói ao ser usado — `expireIfAliveSeconds` — **implementado**
+
+Motivação: dois pedidos relacionados do usuário — (1) o Light Pillar
+virou Solar Pillar, um sentinela bem mais forte (300 HP, raio de dano 8,
+35 de dano por ataque, vs. 200/6/20 do Light Pillar original) que deveria
+sumir sozinho depois de ~2 minutos se ninguém o matasse; (2) o Solar Gate
+deveria durar só 10 segundos se não fosse usado, E desaparecer assim que
+fosse usado uma vez.
+
+**Conflito resolvido primeiro**: o Solar Cage (`cage.pillarPrefab:
+'lightpillar'`) já reaproveitava o MESMO prefab `lightpillar` pros seus 8
+pilares decorativos/prendedores. Se o Light Pillar/Solar Pillar
+recebesse HP/dano maiores no MESMO prefab, os 8 pilares do Cage também
+virariam sentinelas ofensivas — muito mais forte que o Cage original
+(que é só CC, sem dano). Resolvido criando um prefab NOVO e separado
+(`solarpillar`) só pro feitiço standalone, deixando o Solar Cage
+inalterado, ainda usando `lightpillar` (200 HP, 20 de dano, sentry raio
+6) exatamente como antes.
+
+**Mecanismo 1 — despawn se não morrer**: campo genérico novo,
+`CreatureDef.expireIfAliveSeconds`, que agenda um
+`DoTaskInTime(TUNING.<X>_EXPIRE_SECONDS, ...)` que só remove a criatura
+se `health:IsDead()` for falso — ou seja, se ela já morreu por conta
+própria (looting normal já cuidou dela), o timer não faz nada. Pra uma
+criatura invencível SEM conceito real de morte (como o `sunportal`,
+`IsDead()` sempre falso), isso vira, na prática, um "some depois de N
+segundos" incondicional.
+
+**Mecanismo 2 — portal desaparece ao ser usado**: `SpellPortalTeleporter:
+Activate` (o método que já teletransporta o jogador quando ele clica no
+mapa — patterns.md#73) ganhou um `self.inst:Remove()` logo depois do
+teleporte, tornando TODO portal desse tipo de uso único por padrão —
+natural pra um "portal de feitiço", diferente de uma estrutura
+permanente. Combinado com `expireIfAliveSeconds: 10` no `sunportal`, ele
+morre de um jeito ou de outro: em até 10 segundos se ninguém entrar, ou
+imediatamente ao ser usado.
+
+**Implementado:**
+- `creatureDefSchema.expireIfAliveSeconds` (opcional).
+- `src/generators/creature.ts`: wiring do `DoTaskInTime` guardado por
+  `IsDead()`; `SpellPortalTeleporter:Activate` (mesmo arquivo, função
+  `generateSpellPortalTeleporterComponent`) ganhou o `self.inst:Remove()`.
+- `src/generators/modmain.ts`: `TUNING.<X>_EXPIRE_SECONDS` emitido em
+  `creatureTuningBlock` quando o campo está setado.
+- `mods/viana.ts`: `solarpillar` (nova criatura, 300 HP, `sentry: {
+  radius: 8 }`, `damage: 35`, `expireIfAliveSeconds: 120`);
+  `lightpillarspell` renomeado pra "Solar Pillar", agora mira o novo
+  `solarpillar` (mana 50→80); `sunportal` ganhou
+  `expireIfAliveSeconds: 10`.
+
+**O que NÃO foi testado em jogo**: se 2 minutos é tempo suficiente/justo
+pro Solar Pillar sobreviver contra inimigos reais antes de expirar, e se
+o portal "sumir" no exato frame do teleporte causa algum artefato visual
+(ex.: o jogador ver o portal desaparecer atrás de si) — não verificável
+por leitura de código.

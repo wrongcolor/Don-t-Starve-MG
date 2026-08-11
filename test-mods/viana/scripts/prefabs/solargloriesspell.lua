@@ -36,6 +36,7 @@ local function fn()
     inst.spell_healthdelta = nil
     inst.spell_sanitydelta = nil
     inst.spell_hungerdelta = nil
+    inst.spell_temperaturedelta = nil
     inst.spell_geardrop = { prefabs = { "solarblade", "solararmor", "solarchakram" }, radius = 2 }
 
     return inst

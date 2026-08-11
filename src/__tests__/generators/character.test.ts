@@ -119,6 +119,57 @@ describe('generateCharacterPrefab', () => {
     expect(code).not.toContain('mana')
   })
 
+  // Extends the pre-existing overheat state (damage/sanity/ignite) with a
+  // speed bonus, a mana regen bonus + temporarily doubled mana cap while
+  // active, and a hard time-limited "crash" back out of it.
+  it('wires speed/mana bonuses and a crash timer on top of the base overheat state', () => {
+    const overheated = {
+      ...character,
+      mana: { max: 100, regenPerSecond: 1 },
+      overheat: {
+        triggerTemp: 65,
+        damageMultiplier: 1.5,
+        sanityDrainPerSecond: 5,
+        igniteChance: 0.15,
+        speedBonusPercent: 15,
+        manaRegenBonus: 10,
+        manaMaxMultiplier: 2,
+        crash: { afterSeconds: 30, forceTemp: 5, statDamagePercent: 0.5 },
+      },
+    }
+    const overheatCode = generateCharacterPrefab(overheated)
+
+    expect(overheatCode).toContain('inst._customoverheat = active or nil')
+
+    expect(overheatCode).toContain('inst.components.locomotor:SetExternalSpeedMultiplier(inst, "testchar_overheat_speed", 1.15)')
+    expect(overheatCode).toContain('inst.components.locomotor:RemoveExternalSpeedMultiplier(inst, "testchar_overheat_speed")')
+
+    expect(overheatCode).toContain('inst.components.mana:SetRegenRate(TUNING.TESTCHAR_MANA_REGEN + 10)')
+    expect(overheatCode).toContain('inst.components.mana:SetMaxOverride(TUNING.TESTCHAR_MANA_MAX * 2)')
+    expect(overheatCode).toContain('inst.components.mana:SetRegenRate(TUNING.TESTCHAR_MANA_REGEN)')
+    expect(overheatCode).toContain('inst.components.mana:ClearMaxOverride()')
+
+    expect(overheatCode).toContain('local function OverheatCrash(inst)')
+    expect(overheatCode).toContain('inst.components.temperature:SetTemperature(5)')
+    expect(overheatCode).toContain('inst.components.health:GetMaxWithPenalty() * 0.5')
+    expect(overheatCode).toContain('inst.components.hunger:DoDelta(-inst.components.hunger.max * 0.5)')
+    expect(overheatCode).toContain('inst.components.sanity:DoDelta(-inst.components.sanity.max * 0.5)')
+    expect(overheatCode).toContain('inst._overheatcrashtask = inst:DoTaskInTime(30, OverheatCrash)')
+    expect(overheatCode).toContain('inst._overheatcrashtask:Cancel()')
+  })
+
+  it('omits speed/mana/crash overheat extras entirely when only the base overheat fields are set', () => {
+    const baseOverheat = {
+      ...character,
+      overheat: { triggerTemp: 65, damageMultiplier: 1.5, sanityDrainPerSecond: 5, igniteChance: 0.15 },
+    }
+    const baseCode = generateCharacterPrefab(baseOverheat)
+    expect(baseCode).not.toContain('testchar_overheat_speed')
+    expect(baseCode).not.toContain('SetMaxOverride')
+    expect(baseCode).not.toContain('OverheatCrash')
+    expect(baseCode).toContain('inst._customoverheat = active or nil')
+  })
+
   it('wires a customdamagemultfn that checks the angle behind the target when backstab is set', () => {
     const rogue = { ...character, backstab: { multiplier: 3, arcDegrees: 90 } }
     const rogueCode = generateCharacterPrefab(rogue)

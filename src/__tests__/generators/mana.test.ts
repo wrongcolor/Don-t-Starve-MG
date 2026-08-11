@@ -33,7 +33,32 @@ describe('generateManaComponentFile', () => {
 
   it('SetMax fills current to the new max, so a freshly spawned character starts full', () => {
     expect(code).toContain('self.current = max')
-    expect(code).not.toContain('math.min(self.current, self.max)')
+    const setMaxBody = code.slice(code.indexOf('function Mana:SetMax('), code.indexOf('function Mana:IncreaseMaxPermanent('))
+    expect(setMaxBody).not.toContain('math.min(self.current, self.max)')
+  })
+
+  // A ONE-TIME permanent raise (ItemDef.manaBoostOnUse) — distinct from the
+  // TEMPORARY override below (CharacterDef.overheat.manaMaxMultiplier).
+  it('IncreaseMaxPermanent raises basemax/max/current together, capped, and no-ops once already at the cap', () => {
+    expect(code).toContain('function Mana:IncreaseMaxPermanent(amount, cap)')
+    expect(code).toContain('newbasemax = math.min(newbasemax, cap)')
+    expect(code).toContain('self.max = self.max + delta')
+    expect(code).toContain('self.current = self.current + delta')
+    expect(code).toContain('if delta <= 0 then')
+    expect(code).toContain('return false')
+  })
+
+  it('SetMaxOverride/ClearMaxOverride resize the cap without force-refilling current', () => {
+    expect(code).toContain('function Mana:SetMaxOverride(newmax)')
+    expect(code).toContain('function Mana:ClearMaxOverride()')
+    expect(code).toContain('self.max = self.basemax')
+    const overrideBody = code.slice(code.indexOf('function Mana:SetMaxOverride('), code.indexOf('function Mana:SetRegenRate('))
+    expect(overrideBody).toContain('self.current = math.min(self.current, self.max)')
+  })
+
+  it('persists basemax across save/load, not just current', () => {
+    expect(code).toContain('basemax = self.basemax')
+    expect(code).toContain('if data.basemax ~= nil then')
   })
 
   it('persists current mana across save/load', () => {
