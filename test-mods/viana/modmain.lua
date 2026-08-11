@@ -137,7 +137,7 @@ AddRecipe2("flashbangspell", { Ingredient("papyrus", 1), Ingredient("nightmarefu
 AddRecipe2("solarcagespell", { Ingredient("papyrus", 3), Ingredient("nightmarefuel", 10), Ingredient("fence_item", 6) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
-AddRecipe2("desintegrationspell", { Ingredient("papyrus", 4), Ingredient("moonrocknugget", 1), Ingredient("purebrilliance", 5) }, TECH.MAGIC_TWO, {
+AddRecipe2("desintegrationspell", { Ingredient("papyrus", 4), Ingredient("alterguardianhatshard", 1), Ingredient("purebrilliance", 5) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("solargloriesspell", { Ingredient("papyrus", 2), Ingredient("nightsword", 1), Ingredient("armor_sanity", 1) }, TECH.MAGIC_TWO, {

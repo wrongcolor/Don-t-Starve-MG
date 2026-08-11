@@ -286,7 +286,7 @@ export const viana: ModProject = {
       recipe: {
         ingredients: [
           { prefab: 'papyrus', amount: 4 },
-          { prefab: 'moonrocknugget', amount: 1 },
+          { prefab: 'alterguardianhatshard', amount: 1 },
           { prefab: 'purebrilliance', amount: 5 },
         ],
         techLevel: 'MAGIC_TWO',
