@@ -3895,24 +3895,40 @@ variante de tamanho dedicada) — um indicador aproximado de "isso é uma
 área", não uma prévia em escala do raio configurado.
 
 Só faz sentido pra `nova`/`cage` (os dois efeitos com raio de
-explosão/efeito de verdade); um feitiço de invocação mirada simples ou um
-`beam` (linha, não área) mantêm o cursor de ponto padrão. Confirmado em
-`waxwelljournal.lua`'s própria tabela `SPELLS`: TODO feitiço mirado real
-seta `reticuleprefab`/`pingprefab` explicitamente no seu `onselect`, nunca
-deixa implícito — o estado da retícula é compartilhado/mutado no mesmo
-componente `aoetargeting` do item entre toda a roda, então só adicionar a
-troca pro nova/cage e nunca resetar pros outros vazaria o anel de uma
-seleção anterior pra um feitiço de invocação simples.
+explosão/efeito de verdade); um feitiço de invocação mirada simples mantém
+o cursor de ponto padrão. Confirmado em `waxwelljournal.lua`'s própria
+tabela `SPELLS`: TODO feitiço mirado real seta `reticuleprefab`/
+`pingprefab` explicitamente no seu `onselect`, nunca deixa implícito — o
+estado da retícula é compartilhado/mutado no mesmo componente
+`aoetargeting` do item entre toda a roda, então só adicionar a troca pro
+nova/cage e nunca resetar pros outros vazaria o anel de uma seleção
+anterior pra um feitiço de invocação simples.
+
+**Extensão pro `beam` (Solar Beam)**: pediram pra também dar uma retícula
+direcional pro beam, em vez do cursor de ponto. Achei o par real usado
+pelas próprias linhas retas do jogo — a lança do Wigfrid
+(`prefabs/spear_gungnir.lua`/`spear_wathgrithr.lua`) e o Ember da Willow
+(`prefabs/willow_ember.lua`) — confirmado: `reticuleprefab = "reticuleline"`
++ `pingprefab = "reticulelineping"` (`prefabs/reticuleline.lua`), a mesma
+limitação de "forma fixa, não escala pro range configurado" do
+`reticuleaoe`. Prioridade na escolha (`beam` > `nova`/`cage` > padrão) já
+que um spell hipotético não teria os dois ao mesmo tempo na prática, mas a
+ordem evita ambiguidade de qualquer forma. Como o Solar Beam da Viana já
+usa `spellDef.beam` via `linkedContainer` (o Sun Codex), não precisou mexer
+em `mods/viana.ts` — só a lógica em runtime do `suncodex.lua` já cobre.
 
 **Implementado:**
 - `src/generators/item.ts`: tanto `staticSpellbookFunctionBlock` quanto
   `linkedContainerSpellbookFunctionBlock` (nesse, decidido em runtime via
-  `novadamage ~= "" or cageprefab ~= ""`, já que o `onselect` não sabe de
-  antemão qual spell foi selecionada) setam `reticuleprefab`/`pingprefab`
-  explicitamente em TODO `onselect` de feitiço mirado — `"reticuleaoe"` +
-  `"reticuleaoeping"` pra nova/cage, `"reticule"` + `nil` pro resto.
+  `beamdamage ~= ""` / `novadamage ~= "" or cageprefab ~= ""`, já que o
+  `onselect` não sabe de antemão qual spell foi selecionada) setam
+  `reticuleprefab`/`pingprefab` explicitamente em TODO `onselect` de
+  feitiço mirado — `"reticuleline"` + `"reticulelineping"` pro beam,
+  `"reticuleaoe"` + `"reticuleaoeping"` pra nova/cage, `"reticule"` + `nil`
+  pro resto.
 
-**O que NÃO foi testado em jogo**: se o anel genérico `reticuleaoe` de fato
-carrega/renderiza sem precisar de um `Asset(...)` explícito no modmain (é um
-prefab real do jogo base, presumido pré-carregado globalmente do mesmo jeito
-que a retícula padrão `"reticule"` já era, mas nunca confirmado ao vivo).
+**O que NÃO foi testado em jogo**: se os prefabs `reticuleaoe`/
+`reticuleline` de fato carregam/renderizam sem precisar de um `Asset(...)`
+explícito no modmain (são prefabs reais do jogo base, presumidos
+pré-carregados globalmente do mesmo jeito que a retícula padrão
+`"reticule"` já era, mas nunca confirmado ao vivo).

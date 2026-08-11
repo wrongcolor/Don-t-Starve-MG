@@ -707,19 +707,27 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
       if (spell.beam !== undefined) {
         lines.push(`            inst.components.aoetargeting:SetRange(${spell.beam.range})`)
       }
-      // Confirmed real prefabs (prefabs/reticuleaoe.lua): every real aimed
-      // spell explicitly sets its own reticuleprefab/pingprefab in onselect
-      // (waxwelljournal.lua's own SPELLS table never leaves it implicit) —
-      // reticule state is mutated in place on the shared aoetargeting
-      // component, so switching from a radius spell to a summon-point one in
-      // the same wheel would otherwise leak the previous ring shape.
-      // "reticuleaoe"/"reticuleaoeping" is the generic, no-radius-suffix AOE
-      // ring pair real vanilla itself falls back to when a spell has no
-      // dedicated size variant — there's no way to scale a ring to an
-      // arbitrary configured radius, only pick between a handful of
-      // fixed-size baked animations, so this is an approximate "this is an
-      // area effect" cue, not a to-scale preview.
-      if (spell.nova !== undefined || spell.cage !== undefined) {
+      // Confirmed real prefabs (prefabs/reticuleaoe.lua, prefabs/
+      // reticuleline.lua): every real aimed spell explicitly sets its own
+      // reticuleprefab/pingprefab in onselect (waxwelljournal.lua's own
+      // SPELLS table never leaves it implicit) — reticule state is mutated
+      // in place on the shared aoetargeting component, so switching between
+      // spells in the same wheel would otherwise leak the previous shape.
+      // "reticuleline"/"reticulelineping" is the same directional-line pair
+      // real vanilla's own straight-line attacks use (Wigfrid's spear —
+      // prefabs/spear_gungnir.lua/spear_wathgrithr.lua — and Willow's
+      // ember — prefabs/willow_ember.lua), a natural fit for a beam's own
+      // fixed direction+range. "reticuleaoe"/"reticuleaoeping" is the
+      // generic, no-radius-suffix AOE ring pair real vanilla itself falls
+      // back to when a spell has no dedicated size variant — there's no way
+      // to scale either shape to an arbitrary configured range/radius, only
+      // pick between a handful of fixed-size baked animations, so both are
+      // an approximate "this is a line/area effect" cue, not a to-scale
+      // preview.
+      if (spell.beam !== undefined) {
+        lines.push('            inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"')
+        lines.push('            inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"')
+      } else if (spell.nova !== undefined || spell.cage !== undefined) {
         lines.push('            inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"')
         lines.push('            inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"')
       } else {
@@ -915,9 +923,14 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   // See the static-spellbook onselect's own comment for why this is always
   // set explicitly, never left implicit — reticule state is shared/mutated
   // in place on the item's aoetargeting component across every spell in the
-  // wheel. "reticuleaoe"/"reticuleaoeping" is the generic AOE ring pair,
-  // an approximate area cue (not to-scale to novaradius/cageradius).
-  lines.push('                    if novadamage ~= "" or cageprefab ~= "" then')
+  // wheel. "reticuleline"/"reticulelineping" mirrors Wigfrid's spear/
+  // Willow's ember own directional-line reticule; "reticuleaoe"/
+  // "reticuleaoeping" is the generic AOE ring pair — both approximate cues
+  // (not to-scale to beamrange/novaradius/cageradius).
+  lines.push('                    if beamdamage ~= "" then')
+  lines.push('                        inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"')
+  lines.push('                        inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"')
+  lines.push('                    elseif novadamage ~= "" or cageprefab ~= "" then')
   lines.push('                        inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"')
   lines.push('                        inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"')
   lines.push('                    else')

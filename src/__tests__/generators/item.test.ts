@@ -1012,30 +1012,37 @@ describe('generateItemFiles', () => {
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
-  // Confirmed real prefabs (prefabs/reticuleaoe.lua): reticuleaoe/
-  // reticuleaoeping have no numbered size variant baked in (unlike
-  // reticuleaoe_1_6/reticuleaoe_1d2_12), so they're the generic
-  // approximate-area cue real vanilla itself falls back to — there's no
-  // config field to scale a ring to an arbitrary radius. Only nova/cage
-  // (the two effects with a real blast/effect radius) get it; a plain aimed
-  // summon or a beam keeps the default point reticule, and it must be set
-  // explicitly every time (not just added for nova/cage) since the wheel
-  // shares one aoetargeting component across every spell — otherwise
-  // picking Nova then switching to a summon-point spell would leave the
-  // ring showing from the previous selection.
-  it('shows an AOE ring reticule for a static nova/cage spell, but the plain point reticule for an aimed summon', () => {
+  // Confirmed real prefabs (prefabs/reticuleaoe.lua, prefabs/reticuleline.lua):
+  // reticuleaoe/reticuleaoeping and reticuleline/reticulelineping have no
+  // numbered size/length variant baked in, so they're the generic
+  // approximate cue real vanilla itself falls back to — there's no config
+  // field to scale either to an arbitrary radius/range. beam gets the line
+  // pair (same one Wigfrid's spear and Willow's ember use for their own
+  // straight-line attacks); nova/cage (the two effects with a real blast
+  // radius) get the ring pair; a plain aimed summon keeps the default point
+  // reticule. Must be set explicitly every time (not just added for
+  // beam/nova/cage) since the wheel shares one aoetargeting component
+  // across every spell — otherwise picking Beam then switching to a
+  // summon-point spell would leave the line showing from the previous
+  // selection.
+  it('shows a line reticule for beam, an AOE ring for nova/cage, and the plain point reticule for an aimed summon', () => {
     const code = generateItemPrefab({
       ...trinket,
       id: 'testreticulestaff',
       spellbook: {
         source: 'static',
         spells: [
+          { label: 'Beam', beam: { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3 } },
           { label: 'Nova', nova: { damage: 40, radius: 5, stunSeconds: 3 } },
           { label: 'Cage', cage: { pillarPrefab: 'lightpillar', radius: 6, pillarCount: 8, rootedSeconds: 8 } },
           { label: 'Summon', summonPrefab: 'firefly', aimed: true },
         ],
       },
     })
+    const beamEntry = code.slice(code.indexOf('label = "Beam"'), code.indexOf('label = "Nova"'))
+    expect(beamEntry).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"')
+    expect(beamEntry).toContain('inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"')
+
     const novaEntry = code.slice(code.indexOf('label = "Nova"'), code.indexOf('label = "Cage"'))
     expect(novaEntry).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"')
     expect(novaEntry).toContain('inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"')
@@ -1051,14 +1058,17 @@ describe('generateItemFiles', () => {
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
-  it('picks the AOE ring reticule at runtime for a linkedContainer spell based on the decoded nova/cage fields', () => {
+  it('picks the line/AOE ring reticule at runtime for a linkedContainer spell based on the decoded beam/nova/cage fields', () => {
     const linked: ItemDef = {
       ...trinket,
       id: 'testlinkedreticulestaff',
       spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
     }
     const code = generateItemPrefab(linked)
-    expect(code).toContain('if novadamage ~= "" or cageprefab ~= "" then')
+    expect(code).toContain('if beamdamage ~= "" then')
+    expect(code).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"')
+    expect(code).toContain('inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"')
+    expect(code).toContain('elseif novadamage ~= "" or cageprefab ~= "" then')
     expect(code).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"')
     expect(code).toContain('inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"')
     expect(code).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticule"')
