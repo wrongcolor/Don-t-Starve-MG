@@ -23,7 +23,7 @@ caminhos abaixo, substituindo os placeholders:
   - `solarcagespell`: precisa de `anim/solarcagespell.zip` (build/bank "solarcagespell", animação "idle").
   - `desintegrationspell`: precisa de `anim/desintegrationspell.zip` (build/bank "desintegrationspell", animação "idle").
   - `solargloriesspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
-  - `lightpillarspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
+  - `lightpillarspell`: precisa de `anim/lightpillarspell.zip` (build/bank "lightpillarspell", animação "idle").
   - `suntotem`: reaproveita o build "moonrock_idol" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solarprism`: reaproveita o build "gems" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solarchakram`: reaproveita o build "boomerang" do jogo base — nenhum `anim/*.zip` próprio é necessário.

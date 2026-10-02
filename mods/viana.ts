@@ -379,7 +379,12 @@ export const viana: ModProject = {
       displayName: 'Solar Pillar Spell',
       description: 'Bind this in the Sun Codex to raise a towering pillar of solar light where she aims — it stands its ground and scorches any enemy that gets close, fading on its own if it stands unchallenged for too long.',
       category: 'generic',
-      animation: { source: 'vanilla', build: 'papyrus' },
+      // Scroll art composed from the user's Golden Bloom scrolls (their
+      // amber already matches the pillar): the butterfly emblem and badge
+      // replaced by the Solar Pillar itself on a gold disc, rendered with
+      // the same drawing code as its animation.
+      animation: { source: 'custom' },
+      hasCustomIcon: true,
       spellDef: { label: 'Solar Pillar', summonPrefab: 'solarpillar', manaCost: 80, aimed: true },
       recipe: {
         ingredients: [

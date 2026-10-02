@@ -149,7 +149,8 @@ AddRecipe2("solargloriesspell", { Ingredient("papyrus", 2), Ingredient("nightswo
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("lightpillarspell", { Ingredient("papyrus", 3), Ingredient("redgem", 5), Ingredient("deerclops_eyeball", 1) }, TECH.MAGIC_TWO, {
-        image = "papyrus.tex",
+        atlas = "images/inventoryimages/lightpillarspell.xml",
+        image = "lightpillarspell.tex",
     }, { "MAGIC" })
 AddRecipe2("suntotem", { Ingredient("twigs", 3), Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 2) }, TECH.MAGIC_TWO, {
         image = "moonrock_idol.tex",
@@ -186,6 +187,7 @@ GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/solargatespell.xml", "
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/solarbeamspell.xml", "solarbeamspell.tex")
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/solarcagespell.xml", "solarcagespell.tex")
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/desintegrationspell.xml", "desintegrationspell.tex")
+GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/lightpillarspell.xml", "lightpillarspell.tex")
 
 -- Structures: tuning + strings
 STRINGS.NAMES.SOLARRIFT = "Solar Rift"
