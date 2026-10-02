@@ -3677,6 +3677,31 @@ realmente aponta de volta pro `sunportal` quando a ação é resolvida a partir
 do clique no mapa, e se `map_works_on_unexplored = false` bloqueia cliques
 em névoa de guerra do jeito esperado. Os dois precisam de teste ao vivo.
 
+**Retratação (2026-10-02) — o mapa abria com a ação ERRADA.** Lendo o
+`prefabs/bufferedmapaction.lua` real: ele só transmite o `code` numérico da
+ação, e o `GetAction` resolve como `ACTIONS_BY_ACTION_CODE[code]` — a tabela
+do JOGO BASE. Só que ação de mod (`modutil.lua`'s `AddAction`) recebe como
+`code` apenas o índice dela entre as ações DAQUELE mod
+(`MOD_ACTIONS_BY_ACTION_CODE[modname]`). Na Viana, `SPELLPORTAL_MAP` é a 4ª
+ação do mod → `code = 4` → `ACTIONS_BY_ACTION_CODE[4] = ACTIVATE` (confirmado
+imprimindo no servidor). O mapa abria via `PullUpMap`, mas com uma ação que
+não é `map_only`, então clicar não teleportava. Correção: o portal ganha a
+tag `spellportal` e o modmain faz `AddPrefabPostInit("bufferedmapaction")`
+trocando o `GetAction` pra devolver `ACTIONS.SPELLPORTAL_MAP` quando o pai
+tem essa tag (o fluxo de VOLTA, `OnMapAction`, já recebe o `mod_name` certo
+via `action.mod_name` no `mapscreen.lua`, então não precisou mexer).
+
+**Segundo problema achado junto:** `RemapMapAction` (`playercontroller.lua`)
+oferece uma ação `map_only` em qualquer tile de OCEANO também — sem checagem
+própria dava pra teleportar pro meio do mar. Adicionado
+`maponly_checkvalidpos_fn` (mesmo campo que o Orbe usa): exige
+`Map:IsPassableAtPoint` (terra, borda visual da costa ou barco) e
+`IsTeleportingPermittedFromPointToPoint` (`componentutil.lua` — bloqueia
+entrar/sair da sala do Cofre e da arena WagPunk ativa). Testado no servidor
+headless: teleporte em terra funciona e remove o portal; mar aberto recusa;
+portal não usado some em 10s. O fluxo de UI do mapa no cliente em si ainda
+precisa de teste ao vivo.
+
 ## 74. Um item é container E spellbook ao mesmo tempo — `Alt+clique` escolhe qual ação — **implementado**
 
 Motivação: o usuário queria fundir o Sun Staff (empunhável, conjura) com o

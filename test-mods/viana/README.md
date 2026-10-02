@@ -44,7 +44,7 @@ caminhos abaixo, substituindo os placeholders:
   - `sunmoth`: usa o build próprio `anim/sunmoth_cauda.zip` (projeto Spriter compilado), que já precisa estar na pasta `anim/` do mod.
   - `sunorb`: reaproveita o build "flameball_fx" do jogo base — confirme em-jogo que as animações "idle_loop"/"idle_loop"/"idle_loop"/"idle_loop"/"post" existem nesse build antes de publicar (não verificado por esta ferramenta).
   - `solarpillar`: reaproveita o build "flameball_fx" do jogo base — confirme em-jogo que as animações "idle_loop"/"idle_loop"/"idle_loop"/"idle_loop"/"post" existem nesse build antes de publicar (não verificado por esta ferramenta).
-  - `sunportal`: reaproveita o build "teleporter_worm_build" do jogo base — confirme em-jogo que as animações "idle_loop"/"idle_loop"/"idle_loop"/"idle_loop"/"idle_loop" existem nesse build antes de publicar (não verificado por esta ferramenta).
+  - `sunportal`: usa o build próprio `anim/simbolo_solar.zip` (projeto Spriter compilado), que já precisa estar na pasta `anim/` do mod.
 
 Fala de personagem (`speech_<id>.lua`) usa fallback para `speech_wilson` — só as
 falas customizadas no formulário foram sobrescritas; o resto herda do Wilson.

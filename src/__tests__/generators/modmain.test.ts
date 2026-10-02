@@ -487,6 +487,14 @@ describe('generateModMain', () => {
     expect(portalCode).toContain('AddAction("SPELLPORTAL_MAP", "Teleport", function(act)')
     expect(portalCode).toContain('return target.components.spellportalteleporter:Activate(act.doer, x, z)')
     expect(portalCode).toContain('SPELLPORTAL_MAP_ACTION.map_only = true')
+    // bufferedmapaction resolves codes against vanilla ACTIONS_BY_ACTION_CODE
+    // only; without this postinit the map opened with vanilla ACTIVATE
+    expect(portalCode).toContain('AddPrefabPostInit("bufferedmapaction", function(inst)')
+    expect(portalCode).toContain('        if parent ~= nil and parent:HasTag("spellportal") then')
+    // no teleporting into open sea / out of the vault room
+    expect(portalCode).toContain('SPELLPORTAL_MAP_ACTION.maponly_checkvalidpos_fn = SpellPortalCheckValidPos')
+    expect(portalCode).toContain('    if not GLOBAL.TheWorld.Map:IsPassableAtPoint(x, 0, z) then')
+    expect(portalCode).toContain('    if not GLOBAL.IsTeleportingPermittedFromPointToPoint(px, py, pz, x, 0, z) then')
     expect(portalCode).toContain('SPELLPORTAL_MAP_ACTION.closes_map = true')
     expect(portalCode).toContain('AddComponentAction("SCENE", "spellportalteleporter", function(inst, doer, actions, right)')
     expect(portalCode.split('AddAction("SPELLPORTAL_MAP"').length - 1).toBe(1)

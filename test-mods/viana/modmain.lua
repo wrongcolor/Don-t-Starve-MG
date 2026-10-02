@@ -284,13 +284,28 @@ end)
 START_SPELLPORTAL_ACTION.rmb = true
 START_SPELLPORTAL_ACTION.instant = true
 
-local SPELLPORTAL_MAP_ACTION = AddAction("SPELLPORTAL_MAP", "Teleport", function(act)
+local function SpellPortalCheckValidPos(act)
     local act_pos = act:GetActionPoint()
-    if act_pos == nil then
+    if act_pos == nil or act.doer == nil then
+        return false
+    end
+    local x, y, z = act_pos:Get()
+    if not GLOBAL.TheWorld.Map:IsPassableAtPoint(x, 0, z) then
+        return false
+    end
+    local px, py, pz = act.doer.Transform:GetWorldPosition()
+    if not GLOBAL.IsTeleportingPermittedFromPointToPoint(px, py, pz, x, 0, z) then
+        return false
+    end
+    return true, nil, x, z
+end
+
+local SPELLPORTAL_MAP_ACTION = AddAction("SPELLPORTAL_MAP", "Teleport", function(act)
+    local valid, reason, x, z = SpellPortalCheckValidPos(act)
+    if not valid then
         return false
     end
 
-    local x, y, z = act_pos:Get()
     local target = act.target or act.invobject
     if target == nil or target.components.spellportalteleporter == nil then
         return false
@@ -304,6 +319,18 @@ SPELLPORTAL_MAP_ACTION.map_only = true
 SPELLPORTAL_MAP_ACTION.map_works_on_unexplored = false
 SPELLPORTAL_MAP_ACTION.closes_map = true
 SPELLPORTAL_MAP_ACTION.customarrivecheck = function() return true end
+SPELLPORTAL_MAP_ACTION.maponly_checkvalidpos_fn = SpellPortalCheckValidPos
+
+AddPrefabPostInit("bufferedmapaction", function(inst)
+    local _GetAction = inst.GetAction
+    inst.GetAction = function(inst)
+        local parent = inst.entity:GetParent()
+        if parent ~= nil and parent:HasTag("spellportal") then
+            return ACTIONS.SPELLPORTAL_MAP
+        end
+        return _GetAction(inst)
+    end
+end)
 
 AddComponentAction("SCENE", "spellportalteleporter", function(inst, doer, actions, right)
     if right then
@@ -382,9 +409,15 @@ GLOBAL.TUNING.SUNPORTAL_HEALTH = 100
 GLOBAL.TUNING.SUNPORTAL_DAMAGE = 0
 GLOBAL.TUNING.SUNPORTAL_ATTACK_PERIOD = 2
 GLOBAL.TUNING.SUNPORTAL_WALKSPEED = 0.1
+GLOBAL.TUNING.SUNPORTAL_LIGHT_RADIUS = 2.6
+GLOBAL.TUNING.SUNPORTAL_LIGHT_FALLOFF = 0.9
+GLOBAL.TUNING.SUNPORTAL_LIGHT_INTENSITY = 0.5
+GLOBAL.TUNING.SUNPORTAL_LIGHT_COLOUR_R = 1
+GLOBAL.TUNING.SUNPORTAL_LIGHT_COLOUR_G = 0.8235294117647058
+GLOBAL.TUNING.SUNPORTAL_LIGHT_COLOUR_B = 0.43137254901960786
 GLOBAL.TUNING.SUNPORTAL_EXPIRE_SECONDS = 10
 STRINGS.NAMES.SUNPORTAL = "Solar Gate"
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNPORTAL = "A rift of light, rooted to the spot where it was raised. Right-click it to open the map and step through to anywhere already explored."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNPORTAL = "A sun sigil burned into the ground where it was raised. Right-click it to open the map and step through to anywhere already explored."
 
 -- Characters: tuning + strings + registration
 GLOBAL.TUNING.VIANA_HEALTH = 120

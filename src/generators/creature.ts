@@ -178,6 +178,13 @@ function sentryFunctionBlock(creature: CreatureDef): string[] {
   ]
 }
 
+// The stategraph's one-shot "vanish" state (death clip, then removed — see
+// stategraph.ts): used at dawn by vanishAtDawn, and by a map portal to fade
+// out after being used or expiring instead of popping out of existence.
+export function hasVanishState(creature: CreatureDef): boolean {
+  return creature.vanishAtDawn === true || creature.mapPortal === true
+}
+
 export function needsMapActionCreature(creature: CreatureDef): boolean {
   return creature.mapPortal === true
 }
@@ -248,7 +255,14 @@ function generateSpellPortalTeleporterComponent(): string {
     '        doer:SnapCamera()',
     '    end',
     '',
-    '    self.inst:Remove()',
+    // Fade out with the portal's own "vanish" state when its stategraph has
+    // one (every mapPortal creature does, see hasVanishState) — Remove is
+    // only the fallback for a hand-made portal without it.
+    '    if self.inst.sg ~= nil and self.inst.sg.sg.states.vanish ~= nil then',
+    '        self.inst.sg:GoToState("vanish")',
+    '    else',
+    '        self.inst:Remove()',
+    '    end',
     '    return true',
     'end',
     '',
@@ -467,11 +481,19 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   } else {
     lines.push('    MakeCharacterPhysics(inst, 50, .5)')
   }
+  // Still a physics body (locomotor:StopMoving and friends call into
+  // inst.Physics), just one nothing bumps into.
+  if (creature.groundDecal) lines.push('    RemovePhysicsColliders(inst)')
   lines.push('')
   if (creature.twoFaced) lines.push('    inst.Transform:SetTwoFaced()')
   lines.push(`    inst.AnimState:SetBank(${luaString(bank)})`)
   lines.push(`    inst.AnimState:SetBuild(${luaString(build)})`)
   lines.push(`    inst.AnimState:PlayAnimation(${luaString(clips.spawn ?? clips.idle)})`)
+  if (creature.groundDecal) {
+    lines.push('    inst.AnimState:SetOrientation(ANIM_ORIENTATION.OnGround)')
+    lines.push('    inst.AnimState:SetLayer(LAYER_BACKGROUND)')
+    lines.push('    inst.AnimState:SetSortOrder(3)')
+  }
   if (creature.glow !== undefined) {
     lines.push('    inst.AnimState:SetBloomEffectHandle("shaders/anim.ksh")')
     lines.push(`    inst.AnimState:SetLightOverride(${creature.glow})`)
@@ -488,6 +510,9 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   lines.push(`    inst:AddTag("${creature.behavior === 'hostile' ? 'monster' : 'animal'}")`)
   if (creature.behavior === 'hostile') lines.push('    inst:AddTag("hostile")')
   if (creature.flying) lines.push('    inst:AddTag("flying")')
+  // Lets modmain.lua's bufferedmapaction postinit recognise a pending map
+  // action as this mod's own (see portalActionBlock in modmain.ts).
+  if (needsMapActionCreature(creature)) lines.push('    inst:AddTag("spellportal")')
   for (const tag of creature.tags) lines.push(`    inst:AddTag(${luaString(tag)})`)
   if (needsHerd(creature) || creature.squadAlert !== undefined) lines.push(`    inst:AddTag(${luaString(creature.id)})`)
   lines.push('')
@@ -544,7 +569,7 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
     lines.push(
       `    inst:DoTaskInTime(TUNING.${upper}_EXPIRE_SECONDS, function(inst)`,
       '        if inst.components.health == nil or not inst.components.health:IsDead() then',
-      '            inst:Remove()',
+      ...(hasVanishState(creature) ? ['            inst.sg:GoToState("vanish")'] : ['            inst:Remove()']),
       '        end',
       '    end)',
     )

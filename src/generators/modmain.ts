@@ -562,13 +562,36 @@ function portalActionBlock(): string[] {
     'START_SPELLPORTAL_ACTION.rmb = true',
     'START_SPELLPORTAL_ACTION.instant = true',
     '',
-    'local SPELLPORTAL_MAP_ACTION = AddAction("SPELLPORTAL_MAP", "Teleport", function(act)',
+    // Where a click on the map may land. Confirmed in the real
+    // playercontroller.lua RemapMapAction: without this, a map_only action
+    // is offered on ANY ocean or ground tile — so a click on the sea would
+    // teleport the player into the water. Mirrors the real Vault Orb's own
+    // maponly_checkvalidpos_fn (actions.lua): IsTeleportingPermittedFrom
+    // PointToPoint (componentutil.lua) blocks crossing in/out of the vault
+    // room / an active WagPunk arena. Runs client-side too (it decides
+    // whether the map even offers the action) and again in the server fn.
+    'local function SpellPortalCheckValidPos(act)',
     '    local act_pos = act:GetActionPoint()',
-    '    if act_pos == nil then',
+    '    if act_pos == nil or act.doer == nil then',
+    '        return false',
+    '    end',
+    '    local x, y, z = act_pos:Get()',
+    '    if not GLOBAL.TheWorld.Map:IsPassableAtPoint(x, 0, z) then',
+    '        return false',
+    '    end',
+    '    local px, py, pz = act.doer.Transform:GetWorldPosition()',
+    '    if not GLOBAL.IsTeleportingPermittedFromPointToPoint(px, py, pz, x, 0, z) then',
+    '        return false',
+    '    end',
+    '    return true, nil, x, z',
+    'end',
+    '',
+    'local SPELLPORTAL_MAP_ACTION = AddAction("SPELLPORTAL_MAP", "Teleport", function(act)',
+    '    local valid, reason, x, z = SpellPortalCheckValidPos(act)',
+    '    if not valid then',
     '        return false',
     '    end',
     '',
-    '    local x, y, z = act_pos:Get()',
     '    local target = act.target or act.invobject',
     '    if target == nil or target.components.spellportalteleporter == nil then',
     '        return false',
@@ -582,6 +605,29 @@ function portalActionBlock(): string[] {
     'SPELLPORTAL_MAP_ACTION.map_works_on_unexplored = false',
     'SPELLPORTAL_MAP_ACTION.closes_map = true',
     'SPELLPORTAL_MAP_ACTION.customarrivecheck = function() return true end',
+    'SPELLPORTAL_MAP_ACTION.maponly_checkvalidpos_fn = SpellPortalCheckValidPos',
+    '',
+    // Confirmed against the real prefabs/bufferedmapaction.lua + modutil.lua:
+    // bufferedmapaction only networks the action's numeric `code`, and its
+    // GetAction resolves it as ACTIONS_BY_ACTION_CODE[code] — the BASE GAME
+    // table. A mod action's code is just its index among that mod's own
+    // AddAction calls (modutil.lua, MOD_ACTIONS_BY_ACTION_CODE[modname]),
+    // so SPELLPORTAL_MAP (this mod's 4th action) came back as vanilla
+    // ACTIONS_BY_ACTION_CODE[4] = ACTIVATE: the map opened, but with a
+    // non-map action, so clicking it never teleported. Every portal carries
+    // the "spellportal" tag (creature.ts), so a bufferedmapaction parented
+    // to one resolves to the right action instead — on both the client
+    // (OnActionDirty) and a hosting player (doer.HUD path).
+    'AddPrefabPostInit("bufferedmapaction", function(inst)',
+    '    local _GetAction = inst.GetAction',
+    '    inst.GetAction = function(inst)',
+    '        local parent = inst.entity:GetParent()',
+    '        if parent ~= nil and parent:HasTag("spellportal") then',
+    '            return ACTIONS.SPELLPORTAL_MAP',
+    '        end',
+    '        return _GetAction(inst)',
+    '    end',
+    'end)',
     '',
     'AddComponentAction("SCENE", "spellportalteleporter", function(inst, doer, actions, right)',
     '    if right then',

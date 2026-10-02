@@ -1,6 +1,7 @@
 import type { CreatureDef } from '../types/modProject'
 import { luaString } from './luaUtils'
 import { resolveCreatureAnimation } from './creatureAnimation'
+import { hasVanishState } from './creature'
 
 // Minimal but complete stategraph: idle/moving/attack/hit/death, driven by the
 // standard "locomote"/"attacked"/"death" events every creature with a locomotor +
@@ -55,14 +56,20 @@ function extraStates(creature: CreatureDef, clips: { idle: string; death: string
     },
 `)
   }
-  if (creature.vanishAtDawn) {
+  if (hasVanishState(creature)) {
     states.push(`    State{
         name = "vanish",
         tags = { "busy", "nointerrupt" },
         onenter = function(inst)
             inst.components.locomotor:StopMoving()
             inst.persists = false
+            inst:AddTag("NOCLICK")
             inst.AnimState:PlayAnimation(${luaString(clips.death)})
+            -- "animover" never fires while asleep (no player nearby), and
+            -- neither does the stategraph's own timeout (reproduced on a
+            -- headless server), so a plain scheduler task removes it
+            -- regardless.
+            inst:DoTaskInTime(5, inst.Remove)
         end,
         events =
         {
@@ -82,7 +89,7 @@ export function generateStategraph(creature: CreatureDef): string {
   // keeps every existing creature's output unchanged.
   // "vanish" is a one-time chance per day (vanishAtDawn) — a hit must not
   // knock it back to idle, or the creature lingers the whole next day.
-  const attackedGuard = creature.vanishAtDawn ? ' and not inst.sg:HasStateTag("nointerrupt")' : ''
+  const attackedGuard = hasVanishState(creature) ? ' and not inst.sg:HasStateTag("nointerrupt")' : ''
   const busyGuard =
     extra !== ''
       ? `        if inst.sg:HasStateTag("busy") then

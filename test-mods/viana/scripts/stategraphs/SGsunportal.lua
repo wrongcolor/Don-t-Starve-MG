@@ -5,7 +5,7 @@ local states =
         tags = { "idle", "canrotate" },
         onenter = function(inst)
             inst.components.locomotor:StopMoving()
-            inst.AnimState:PlayAnimation("idle_loop", true)
+            inst.AnimState:PlayAnimation("idle", true)
         end,
     },
 
@@ -13,7 +13,7 @@ local states =
         name = "moving",
         tags = { "moving", "running", "canrotate" },
         onenter = function(inst)
-            inst.AnimState:PlayAnimation("idle_loop", true)
+            inst.AnimState:PlayAnimation("idle", true)
         end,
         onupdate = function(inst)
             if not inst.components.locomotor:WantsToMoveForward() then
@@ -27,7 +27,7 @@ local states =
         tags = { "attack", "busy" },
         onenter = function(inst)
             inst.components.locomotor:StopMoving()
-            inst.AnimState:PlayAnimation("idle_loop")
+            inst.AnimState:PlayAnimation("idle")
         end,
         timeline =
         {
@@ -48,7 +48,7 @@ local states =
         tags = { "hit", "busy" },
         onenter = function(inst)
             inst.components.locomotor:StopMoving()
-            inst.AnimState:PlayAnimation("idle_loop")
+            inst.AnimState:PlayAnimation("idle")
         end,
         events =
         {
@@ -62,16 +62,49 @@ local states =
         onenter = function(inst)
             inst.components.locomotor:StopMoving()
             inst:RemoveComponent("locomotor")
-            inst.AnimState:PlayAnimation("idle_loop")
+            inst.AnimState:PlayAnimation("sumir")
             RemovePhysicsColliders(inst)
         end,
+    },
+
+    State{
+        name = "spawn",
+        tags = { "busy" },
+        onenter = function(inst)
+            inst.components.locomotor:StopMoving()
+            inst.AnimState:PlayAnimation("surgir")
+        end,
+        events =
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end),
+        },
+    },
+
+    State{
+        name = "vanish",
+        tags = { "busy", "nointerrupt" },
+        onenter = function(inst)
+            inst.components.locomotor:StopMoving()
+            inst.persists = false
+            inst:AddTag("NOCLICK")
+            inst.AnimState:PlayAnimation("sumir")
+            -- "animover" never fires while asleep (no player nearby), and
+            -- neither does the stategraph's own timeout (reproduced on a
+            -- headless server), so a plain scheduler task removes it
+            -- regardless.
+            inst:DoTaskInTime(5, inst.Remove)
+        end,
+        events =
+        {
+            EventHandler("animover", function(inst) inst:Remove() end),
+        },
     },
 }
 
 local events =
 {
     EventHandler("attacked", function(inst)
-        if not inst.components.health:IsDead() then
+        if not inst.components.health:IsDead() and not inst.sg:HasStateTag("nointerrupt") then
             inst.sg:GoToState("hit")
         end
     end),
@@ -79,6 +112,9 @@ local events =
         inst.sg:GoToState("death")
     end),
     EventHandler("locomote", function(inst)
+        if inst.sg:HasStateTag("busy") then
+            return
+        end
         local is_moving = inst.sg:HasStateTag("moving")
         local wants_to_move = inst.components.locomotor:WantsToMoveForward()
         if not is_moving and wants_to_move then
@@ -89,4 +125,4 @@ local events =
     end),
 }
 
-return StateGraph("SGsunportal", states, events, "idle")
+return StateGraph("SGsunportal", states, events, "spawn")

@@ -86,7 +86,13 @@ local states =
         onenter = function(inst)
             inst.components.locomotor:StopMoving()
             inst.persists = false
+            inst:AddTag("NOCLICK")
             inst.AnimState:PlayAnimation("death")
+            -- "animover" never fires while asleep (no player nearby), and
+            -- neither does the stategraph's own timeout (reproduced on a
+            -- headless server), so a plain scheduler task removes it
+            -- regardless.
+            inst:DoTaskInTime(5, inst.Remove)
         end,
         events =
         {

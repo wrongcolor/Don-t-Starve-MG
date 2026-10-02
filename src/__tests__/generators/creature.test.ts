@@ -422,6 +422,7 @@ describe('generateCreatureFiles', () => {
     const code = generateCreaturePrefab(portalCreature)
     expect(code).toContain('local prefabs = { "bufferedmapaction" }')
     expect(code).toContain('inst:AddComponent("spellportalteleporter")')
+    expect(code).toContain('inst:AddTag("spellportal")')
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
@@ -593,6 +594,50 @@ describe('generateCreatureFiles', () => {
       expect(sg).toContain('return StateGraph("SGtestmob", states, events, "idle")')
       expect(sg).not.toContain('HasStateTag("busy")')
       expect(sg).not.toContain('nointerrupt')
+    })
+  })
+
+  describe('ground-decal map portal', () => {
+    const portal: CreatureDef = {
+      ...sampleProject.creatures[0],
+      id: 'sigilportal',
+      behavior: 'passive',
+      kiting: undefined,
+      groundAttack: undefined,
+      squadAlert: undefined,
+      herd: undefined,
+      companion: undefined,
+      panicCauses: [],
+      animation: {
+        source: 'custom',
+        build: 'simbolo_solar',
+        clips: { idle: 'idle', walk: 'idle', atk: 'idle', hit: 'idle', death: 'sumir', spawn: 'surgir' },
+      },
+      groundDecal: true,
+      mapPortal: true,
+      invincible: true,
+      expireIfAliveSeconds: 10,
+    }
+
+    it('lies flat on the ground with no colliders, and is tagged for the map-action fix', () => {
+      const code = generateCreaturePrefab(portal)
+      expect(code).toContain('inst.AnimState:SetOrientation(ANIM_ORIENTATION.OnGround)')
+      expect(code).toContain('inst.AnimState:SetLayer(LAYER_BACKGROUND)')
+      expect(code).toContain('    RemovePhysicsColliders(inst)')
+      expect(code).toContain('inst:AddTag("spellportal")')
+      expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+    })
+
+    it('fades out through the vanish state when used or expired, with a scheduler fallback', () => {
+      const code = generateCreaturePrefab(portal)
+      expect(code).toContain('            inst.sg:GoToState("vanish")')
+      const component = generateCreatureFiles(portal)['scripts/components/spellportalteleporter.lua']
+      expect(component).toContain('    if self.inst.sg ~= nil and self.inst.sg.sg.states.vanish ~= nil then')
+      const sg = generateStategraph(portal)
+      expect(sg).toContain('name = "vanish"')
+      expect(sg).toContain('inst.AnimState:PlayAnimation("sumir")')
+      expect(sg).toContain('inst:DoTaskInTime(5, inst.Remove)')
+      expect(() => parse(sg, { luaVersion: '5.1' })).not.toThrow()
     })
   })
 })

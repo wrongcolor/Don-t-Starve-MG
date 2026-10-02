@@ -646,13 +646,21 @@ export const viana: ModProject = {
     {
       id: 'sunportal',
       displayName: 'Solar Gate',
-      description: 'A rift of light, rooted to the spot where it was raised. Right-click it to open the map and step through to anywhere already explored.',
+      description: 'A sun sigil burned into the ground where it was raised. Right-click it to open the map and step through to anywhere already explored.',
+      // User-made Spriter build (mods/viana-assets/anim/simbolo_solar.zip):
+      // a 520px ground sigil — ~465px of actual art, ~4.7 world units across
+      // by the same ~100px/unit calibration as the Solar Cage bars (the
+      // reference ring, firefighter_placement, is an on-ground anim too).
+      // "surgir" plays as it appears, "idle" pulses, "sumir" plays when it's
+      // used or expires. Light values are the artist's own.
       animation: {
-        source: 'vanilla',
-        bank: 'teleporter_worm',
-        build: 'teleporter_worm_build',
-        clips: { idle: 'idle_loop', walk: 'idle_loop', atk: 'idle_loop', hit: 'idle_loop', death: 'idle_loop' },
+        source: 'custom',
+        build: 'simbolo_solar',
+        clips: { idle: 'idle', walk: 'idle', atk: 'idle', hit: 'idle', death: 'sumir', spawn: 'surgir' },
       },
+      groundDecal: true,
+      glow: 1,
+      light: { radius: 2.6, intensity: 0.5, falloff: 0.9, colour: { r: 255, g: 210, b: 110 } },
       stats: { health: 100, damage: 0, attackPeriod: 2, walkSpeed: 0.1 },
       loot: [],
       behavior: 'passive',

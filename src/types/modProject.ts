@@ -1556,6 +1556,12 @@ export const creatureDefSchema = z
     // Fades out with its death clip and removes itself (no loot) a few
     // random seconds after the world turns to day — WatchWorldState("isday").
     vanishAtDawn: z.boolean().optional(),
+    // Lies flat on the ground like a rug/decal instead of standing up —
+    // AnimState:SetOrientation(ANIM_ORIENTATION.OnGround) + LAYER_BACKGROUND
+    // + SetSortOrder(3), the exact trio the real pond.lua/animal_track.lua
+    // use (both still clickable/inspectable that way). Its physics keeps no
+    // colliders (RemovePhysicsColliders), so everything walks right over it.
+    groundDecal: z.boolean().optional(),
     // Lets a player remove it with a hammer (workable HAMMER). The hammer
     // finishes it with Health:ForceKill, which (confirmed in the real
     // components/health.lua) bypasses SetInvincible — so this also works on

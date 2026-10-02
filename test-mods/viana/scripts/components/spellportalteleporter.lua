@@ -49,7 +49,11 @@ function SpellPortalTeleporter:Activate(doer, x, z)
         doer:SnapCamera()
     end
 
-    self.inst:Remove()
+    if self.inst.sg ~= nil and self.inst.sg.sg.states.vanish ~= nil then
+        self.inst.sg:GoToState("vanish")
+    else
+        self.inst:Remove()
+    end
     return true
 end
 
