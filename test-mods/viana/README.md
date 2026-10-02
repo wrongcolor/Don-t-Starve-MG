@@ -14,8 +14,7 @@ caminhos abaixo, substituindo os placeholders:
   - `suncodex`: reaproveita o build "books" do jogo base — nenhum `anim/*.zip` próprio é necessário.
     - ATENÇÃO: é um item empunhável (ferramenta/arma) usando build vanilla — confirme se `swap_books` existe no jogo base antes de publicar.
   - `emberwispspell`: precisa de `anim/emberwispspell.zip` (build/bank "emberwispspell", animação "idle").
-  - `solsticeblessingspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
-  - `sunfedspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
+  - `solsticeblessingspell`: precisa de `anim/solsticeblessingspell.zip` (build/bank "solsticeblessingspell", animação "idle").
   - `solargatespell`: precisa de `anim/solargatespell.zip` (build/bank "solargatespell", animação "idle").
   - `solarbeamspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `refractionspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.

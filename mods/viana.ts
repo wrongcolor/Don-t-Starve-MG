@@ -121,13 +121,20 @@ export const viana: ModProject = {
     {
       id: 'solsticeblessingspell',
       displayName: 'Solstice Blessing Spell',
-      description: 'Bind this in the Sun Codex to mend her wounds with the sun\'s warmth.',
+      description: 'Bind this in the Sun Codex to bathe her in the sun\'s warmth — it mends her wounds, eases her mind and fills her stomach.',
       category: 'generic',
-      animation: { source: 'vanilla', build: 'papyrus' },
+      // Scroll art composed from the user's Golden Bloom scrolls: orange
+      // accents recoloured rose-red, the butterfly emblem (and the small
+      // badge) replaced by an inked sun with a heart in its centre.
+      animation: { source: 'custom' },
+      hasCustomIcon: true,
+      // Merged with the former Sunfed spell (hunger): one instant
+      // restore of health, hunger and sanity.
       spellDef: {
         label: 'Solstice Blessing',
-        healOverTime: { totalAmount: 50, perSecond: 5 },
-        sanityDelta: 30,
+        healthDelta: 20,
+        hungerDelta: 10,
+        sanityDelta: 15,
         temperatureDelta: 15,
         manaCost: 60,
       },
@@ -139,23 +146,6 @@ export const viana: ModProject = {
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
         characterCost: { type: 'health', amount: 20 },
-      },
-    },
-    {
-      id: 'sunfedspell',
-      displayName: 'Sunfed Spell',
-      description: 'Bind this in the Sun Codex to feed her on sunlight alone.',
-      category: 'generic',
-      animation: { source: 'vanilla', build: 'papyrus' },
-      spellDef: { label: 'Sunfed', hungerDelta: 20, temperatureDelta: 5, manaCost: 50 },
-      recipe: {
-        ingredients: [
-          { prefab: 'papyrus', amount: 1 },
-          { prefab: 'seeds', amount: 10 },
-          { prefab: 'petals', amount: 10 },
-        ],
-        techLevel: 'MAGIC_TWO',
-        filters: ['MAGIC'],
       },
     },
     {

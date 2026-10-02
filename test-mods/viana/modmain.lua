@@ -5,7 +5,7 @@ local TECH = GLOBAL.TECH
 local Ingredient = GLOBAL.Ingredient
 local CHARACTER_INGREDIENT = GLOBAL.CHARACTER_INGREDIENT
 
-PrefabFiles = { "solarlantern", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "solargatespell", "solarbeamspell", "lightbeam", "refractionspell", "solarnovaspell", "flashbangspell", "solarcagespell", "sungate", "desintegrationspell", "starfall", "solargloriesspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "solarchakram_proj", "solarblade", "solararmor", "solarcore", "sun_pillar_shard", "solarrift", "solarrift_placer", "solarreturn", "solarreturn_placer", "viana", "goldflower", "sunmoth", "sunorb", "solarpillar", "sunportal" }
+PrefabFiles = { "solarlantern", "suncodex", "emberwispspell", "solsticeblessingspell", "solargatespell", "solarbeamspell", "lightbeam", "refractionspell", "solarnovaspell", "flashbangspell", "solarcagespell", "sungate", "desintegrationspell", "starfall", "solargloriesspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "solarchakram_proj", "solarblade", "solararmor", "solarcore", "sun_pillar_shard", "solarrift", "solarrift_placer", "solarreturn", "solarreturn_placer", "viana", "goldflower", "sunmoth", "sunorb", "solarpillar", "sunportal" }
 
 Assets = {
     Asset("ATLAS", "bigportraits/viana.xml"),
@@ -29,11 +29,8 @@ STRINGS.NAMES.EMBERWISPSPELL = "Golden Bloom Spell"
 STRINGS.RECIPE_DESC.EMBERWISPSPELL = "Bind this in the Sun Codex to grow a Golden Flower where she aims — every so often it lets loose a Sun Moth that lights the way for whoever walks by."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.EMBERWISPSPELL = "Bind this in the Sun Codex to grow a Golden Flower where she aims — every so often it lets loose a Sun Moth that lights the way for whoever walks by."
 STRINGS.NAMES.SOLSTICEBLESSINGSPELL = "Solstice Blessing Spell"
-STRINGS.RECIPE_DESC.SOLSTICEBLESSINGSPELL = "Bind this in the Sun Codex to mend her wounds with the sun's warmth."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLSTICEBLESSINGSPELL = "Bind this in the Sun Codex to mend her wounds with the sun's warmth."
-STRINGS.NAMES.SUNFEDSPELL = "Sunfed Spell"
-STRINGS.RECIPE_DESC.SUNFEDSPELL = "Bind this in the Sun Codex to feed her on sunlight alone."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNFEDSPELL = "Bind this in the Sun Codex to feed her on sunlight alone."
+STRINGS.RECIPE_DESC.SOLSTICEBLESSINGSPELL = "Bind this in the Sun Codex to bathe her in the sun's warmth — it mends her wounds, eases her mind and fills her stomach."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLSTICEBLESSINGSPELL = "Bind this in the Sun Codex to bathe her in the sun's warmth — it mends her wounds, eases her mind and fills her stomach."
 STRINGS.NAMES.SOLARGATESPELL = "Solar Gate Spell"
 STRINGS.RECIPE_DESC.SOLARGATESPELL = "Bind this in the Sun Codex to raise a rift of light where she aims — step into it later to open the map and step out anywhere already explored."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARGATESPELL = "Bind this in the Sun Codex to raise a rift of light where she aims — step into it later to open the map and step out anywhere already explored."
@@ -120,10 +117,8 @@ AddRecipe2("emberwispspell", { Ingredient("papyrus", 2), Ingredient("butterflywi
         image = "emberwispspell.tex",
     }, { "MAGIC" })
 AddRecipe2("solsticeblessingspell", { Ingredient("papyrus", 2), Ingredient("spidergland", 10), Ingredient(CHARACTER_INGREDIENT.HEALTH, 20) }, TECH.MAGIC_TWO, {
-        image = "papyrus.tex",
-    }, { "MAGIC" })
-AddRecipe2("sunfedspell", { Ingredient("papyrus", 1), Ingredient("seeds", 10), Ingredient("petals", 10) }, TECH.MAGIC_TWO, {
-        image = "papyrus.tex",
+        atlas = "images/inventoryimages/solsticeblessingspell.xml",
+        image = "solsticeblessingspell.tex",
     }, { "MAGIC" })
 AddRecipe2("solargatespell", { Ingredient("papyrus", 3), Ingredient("purebrilliance", 3), Ingredient("solarprism", 1) }, TECH.MAGIC_TWO, {
         atlas = "images/inventoryimages/solargatespell.xml",
@@ -185,6 +180,7 @@ end)
 -- Items: register custom inventory icon atlases (simutil.lua GetInventoryItemAtlas)
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/suncodex.xml", "suncodex.tex")
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/emberwispspell.xml", "emberwispspell.tex")
+GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/solsticeblessingspell.xml", "solsticeblessingspell.tex")
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/solargatespell.xml", "solargatespell.tex")
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/solarcagespell.xml", "solarcagespell.tex")
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/desintegrationspell.xml", "desintegrationspell.tex")

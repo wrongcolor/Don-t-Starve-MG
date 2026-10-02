@@ -1,6 +1,8 @@
 local assets =
 {
-    -- Build "papyrus" reaproveitado do jogo base, sem asset próprio necessário.
+    Asset("ANIM", "anim/solsticeblessingspell.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)
+    Asset("ATLAS", "images/inventoryimages/solsticeblessingspell.xml"),
+    Asset("IMAGE", "images/inventoryimages/solsticeblessingspell.tex"),
 }
 
 local prefabs = {}
@@ -14,8 +16,8 @@ local function fn()
 
     MakeInventoryPhysics(inst)
 
-    inst.AnimState:SetBank("papyrus")
-    inst.AnimState:SetBuild("papyrus")
+    inst.AnimState:SetBank("solsticeblessingspell")
+    inst.AnimState:SetBuild("solsticeblessingspell")
     inst.AnimState:PlayAnimation("idle")
 
     inst:AddTag("item")
@@ -28,16 +30,14 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
-    inst.components.inventoryitem.imagename = "papyrus"
 
     inst.spell_label = "Solstice Blessing"
     inst.spell_summonprefab = nil
     inst.spell_manacost = 60
-    inst.spell_healthdelta = nil
-    inst.spell_sanitydelta = 30
-    inst.spell_hungerdelta = nil
+    inst.spell_healthdelta = 20
+    inst.spell_sanitydelta = 15
+    inst.spell_hungerdelta = 10
     inst.spell_temperaturedelta = 15
-    inst.spell_healovertime = { total = 50, persecond = 5 }
 
     return inst
 end
