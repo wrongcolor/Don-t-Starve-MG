@@ -16,7 +16,7 @@ caminhos abaixo, substituindo os placeholders:
   - `emberwispspell`: precisa de `anim/emberwispspell.zip` (build/bank "emberwispspell", animação "idle").
   - `solsticeblessingspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `sunfedspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
-  - `solargatespell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
+  - `solargatespell`: precisa de `anim/solargatespell.zip` (build/bank "solargatespell", animação "idle").
   - `solarbeamspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `refractionspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solarnovaspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.

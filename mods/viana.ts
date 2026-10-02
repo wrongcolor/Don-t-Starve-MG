@@ -91,10 +91,10 @@ export const viana: ModProject = {
       displayName: 'Golden Bloom Spell',
       description: 'Bind this in the Sun Codex to grow a Golden Flower where she aims — every so often it lets loose a Sun Moth that lights the way for whoever walks by.',
       category: 'generic',
-      // User-supplied scroll art, used for both looks: the inventory icon
-      // (squared + converted via scripts/png_to_ktex.py) and, for now, the
-      // ground sprite too (a one-frame "idle" Spriter build compiled to
-      // anim/<id>.zip, sized ~180px tall like vanilla papyrus' ~200px).
+      // User-supplied scroll art: the upright scroll is the inventory icon
+      // (squared + converted via scripts/png_to_ktex.py); a separate
+      // lying-down scroll is the ground sprite (a one-frame "idle" Spriter
+      // build compiled to anim/<id>.zip, 200px wide like vanilla papyrus).
       animation: { source: 'custom' },
       hasCustomIcon: true,
       spellDef: { label: 'Golden Bloom', summonPrefab: 'goldflower', temperatureDelta: 15, manaCost: 100, aimed: true },
@@ -153,7 +153,12 @@ export const viana: ModProject = {
       displayName: 'Solar Gate Spell',
       description: 'Bind this in the Sun Codex to raise a rift of light where she aims — step into it later to open the map and step out anywhere already explored.',
       category: 'generic',
-      animation: { source: 'vanilla', build: 'papyrus' },
+      // Scroll art composed from the user's own Solar Cage scrolls: the cage
+      // emblem swapped for the Solar Gate's simbolo_solar sigil (upright,
+      // recoloured blue -> gold, for the inventory icon; lying down, sigil
+      // projected onto the page, for the ground sprite).
+      animation: { source: 'custom' },
+      hasCustomIcon: true,
       spellDef: {
         label: 'Solar Gate',
         manaCost: 90,
@@ -278,10 +283,10 @@ export const viana: ModProject = {
       displayName: 'Solar Cage Spell',
       description: 'Bind this in the Sun Codex to raise a ring of golden bars where she aims — nothing inside can get out, and nothing outside can get in, until they fade.',
       category: 'generic',
-      // User-supplied scroll art, used for both looks: the inventory icon
-      // (squared + converted via scripts/png_to_ktex.py) and, for now, the
-      // ground sprite too (a one-frame "idle" Spriter build compiled to
-      // anim/<id>.zip, sized ~180px tall like vanilla papyrus' ~200px).
+      // User-supplied scroll art: the upright scroll is the inventory icon
+      // (squared + converted via scripts/png_to_ktex.py); a separate
+      // lying-down scroll is the ground sprite (a one-frame "idle" Spriter
+      // build compiled to anim/<id>.zip, 200px wide like vanilla papyrus).
       animation: { source: 'custom' },
       hasCustomIcon: true,
       spellDef: {
@@ -310,10 +315,10 @@ export const viana: ModProject = {
       displayName: 'Desintegration Spell',
       description: 'Bind this in the Sun Codex to mark an area with a searing light — after a long, visible wind-up, anything still caught inside is obliterated.',
       category: 'generic',
-      // User-supplied scroll art, used for both looks: the inventory icon
-      // (squared + converted via scripts/png_to_ktex.py) and, for now, the
-      // ground sprite too (a one-frame "idle" Spriter build compiled to
-      // anim/<id>.zip, sized ~180px tall like vanilla papyrus' ~200px).
+      // User-supplied scroll art: the upright scroll is the inventory icon
+      // (squared + converted via scripts/png_to_ktex.py); a separate
+      // lying-down scroll is the ground sprite (a one-frame "idle" Spriter
+      // build compiled to anim/<id>.zip, 200px wide like vanilla papyrus).
       animation: { source: 'custom' },
       hasCustomIcon: true,
       spellDef: {

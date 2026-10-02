@@ -126,7 +126,8 @@ AddRecipe2("sunfedspell", { Ingredient("papyrus", 1), Ingredient("seeds", 10), I
         image = "papyrus.tex",
     }, { "MAGIC" })
 AddRecipe2("solargatespell", { Ingredient("papyrus", 3), Ingredient("purebrilliance", 3), Ingredient("solarprism", 1) }, TECH.MAGIC_TWO, {
-        image = "papyrus.tex",
+        atlas = "images/inventoryimages/solargatespell.xml",
+        image = "solargatespell.tex",
     }, { "MAGIC" })
 AddRecipe2("solarbeamspell", { Ingredient("papyrus", 1), Ingredient("goldnugget", 10), Ingredient("yellowgem", 2) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
@@ -184,6 +185,7 @@ end)
 -- Items: register custom inventory icon atlases (simutil.lua GetInventoryItemAtlas)
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/suncodex.xml", "suncodex.tex")
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/emberwispspell.xml", "emberwispspell.tex")
+GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/solargatespell.xml", "solargatespell.tex")
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/solarcagespell.xml", "solarcagespell.tex")
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/desintegrationspell.xml", "desintegrationspell.tex")
 
