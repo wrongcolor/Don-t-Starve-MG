@@ -1,10 +1,2 @@
-local assets =
-{
-    -- Build "pig_house" reaproveitado do jogo base, sem asset próprio necessário.
-}
-
-local function fn()
-    return MakePlacer("sawmill_placer", "pig_house", "pig_house", "idle")
-end
-
-return Prefab("sawmill_placer", fn, assets)
+-- Build "pig_house" reaproveitado do jogo base, sem asset próprio necessário.
+return MakePlacer("sawmill_placer", "pig_house", "pig_house", "idle")

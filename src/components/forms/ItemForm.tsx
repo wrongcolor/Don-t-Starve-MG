@@ -353,22 +353,20 @@ function SpellFieldsRow({
             onChange={(e) =>
               setValue(
                 `${namePrefix}.cage` as const,
-                e.target.checked ? { pillarPrefab: '', radius: 6, pillarCount: 8, rootedSeconds: 8 } : undefined,
+                e.target.checked ? { fxBuild: '', radius: 6, durationSeconds: 8 } : undefined,
                 { shouldDirty: true },
               )
             }
           />
-          Rings the aimed area with pillars and roots every enemy caught inside (can't move at all)
+          Rings the aimed area with solid bars nothing can cross — what's inside stays in, what's outside stays out
         </label>
         {cageEnabled && (
           <>
             <input
               className={inputClass}
-              placeholder="Pillar prefab (e.g. lightpillar)"
-              {...register(`${namePrefix}.cage.pillarPrefab` as const)}
-            />
-            <PrefabPickerButton
-              onSelect={(id) => setValue(`${namePrefix}.cage.pillarPrefab` as const, id, { shouldDirty: true })}
+              placeholder="Bar build (e.g. sungate)"
+              title="Compiled anim build with post_pre/post_idle/post_pst (tall bar) and short_pre/short_idle/short_pst (short bar) clips — ship it as anim/<build>.zip"
+              {...register(`${namePrefix}.cage.fxBuild` as const)}
             />
             <input
               type="number"
@@ -376,27 +374,27 @@ function SpellFieldsRow({
               min="1"
               className="qty-input"
               placeholder="Radius"
-              title="How far from the aimed point the ring of pillars reaches"
+              title="How far from the aimed point the ring of bars stands"
               {...register(`${namePrefix}.cage.radius` as const, { valueAsNumber: true })}
             />
             <input
               type="number"
-              step="1"
-              min="3"
-              max="16"
+              step="0.1"
+              min="0.6"
+              max="2"
               className="qty-input"
-              placeholder="Pillars"
-              title="How many pillars form the ring"
-              {...register(`${namePrefix}.cage.pillarCount` as const, { valueAsNumber: true })}
+              placeholder="Spacing"
+              title="Distance between bars (default 0.8) — each bar's body is 0.3 in radius, so keep it under ~1 or creatures squeeze through"
+              {...register(`${namePrefix}.cage.postSpacing` as const, { setValueAs: (v: unknown) => (v === '' || v === undefined ? undefined : Number(v)) })}
             />
             <input
               type="number"
               step="1"
               min="1"
               className="qty-input"
-              placeholder="Rooted sec"
-              title="How many seconds everything caught inside is rooted in place for — the pillars vanish once it wears off"
-              {...register(`${namePrefix}.cage.rootedSeconds` as const, { valueAsNumber: true })}
+              placeholder="Duration sec"
+              title="How many seconds the bars stand before sinking away"
+              {...register(`${namePrefix}.cage.durationSeconds` as const, { valueAsNumber: true })}
             />
           </>
         )}

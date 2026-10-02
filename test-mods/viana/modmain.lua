@@ -3,8 +3,9 @@ local STRINGS = GLOBAL.STRINGS
 local TUNING = GLOBAL.TUNING
 local TECH = GLOBAL.TECH
 local Ingredient = GLOBAL.Ingredient
+local CHARACTER_INGREDIENT = GLOBAL.CHARACTER_INGREDIENT
 
-PrefabFiles = { "solarlantern", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "solargatespell", "solarbeamspell", "refractionspell", "solarnovaspell", "flashbangspell", "solarcagespell", "desintegrationspell", "solargloriesspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "solarchakram_proj", "solarblade", "solararmor", "solarcore", "viana", "sunorb", "lightpillar", "solarpillar", "sunportal" }
+PrefabFiles = { "solarlantern", "suncodex", "emberwispspell", "solsticeblessingspell", "sunfedspell", "solargatespell", "solarbeamspell", "lightbeam", "refractionspell", "solarnovaspell", "flashbangspell", "solarcagespell", "sungate", "desintegrationspell", "starfall", "solargloriesspell", "lightpillarspell", "suntotem", "solarprism", "solarchakram", "solarchakram_proj", "solarblade", "solararmor", "solarcore", "sun_pillar_shard", "solarrift", "solarrift_placer", "solarreturn", "solarreturn_placer", "viana", "goldflower", "sunmoth", "sunorb", "solarpillar", "sunportal" }
 
 Assets = {
     Asset("ATLAS", "bigportraits/viana.xml"),
@@ -24,9 +25,9 @@ GLOBAL.TUNING.SUNCODEX_DAMAGE = 0
 STRINGS.NAMES.SUNCODEX = "Sun Codex"
 STRINGS.RECIPE_DESC.SUNCODEX = "Holds up to 3 spells at once and channels whatever is bound inside — hold Alt and click to open it."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNCODEX = "Holds up to 3 spells at once and channels whatever is bound inside — hold Alt and click to open it."
-STRINGS.NAMES.EMBERWISPSPELL = "Ember Wisp Spell"
-STRINGS.RECIPE_DESC.EMBERWISPSPELL = "Bind this in the Sun Codex to summon a warm, floating ember of light where she aims."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.EMBERWISPSPELL = "Bind this in the Sun Codex to summon a warm, floating ember of light where she aims."
+STRINGS.NAMES.EMBERWISPSPELL = "Golden Bloom Spell"
+STRINGS.RECIPE_DESC.EMBERWISPSPELL = "Bind this in the Sun Codex to grow a Golden Flower where she aims — every so often it lets loose a Sun Moth that lights the way for whoever walks by."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.EMBERWISPSPELL = "Bind this in the Sun Codex to grow a Golden Flower where she aims — every so often it lets loose a Sun Moth that lights the way for whoever walks by."
 STRINGS.NAMES.SOLSTICEBLESSINGSPELL = "Solstice Blessing Spell"
 STRINGS.RECIPE_DESC.SOLSTICEBLESSINGSPELL = "Bind this in the Sun Codex to mend her wounds with the sun's warmth."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLSTICEBLESSINGSPELL = "Bind this in the Sun Codex to mend her wounds with the sun's warmth."
@@ -49,8 +50,8 @@ STRINGS.NAMES.FLASHBANGSPELL = "Flashbang Spell"
 STRINGS.RECIPE_DESC.FLASHBANGSPELL = "Bind this in the Sun Codex to release a blinding flash around her, stunning every creature nearby — players are unaffected."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.FLASHBANGSPELL = "Bind this in the Sun Codex to release a blinding flash around her, stunning every creature nearby — players are unaffected."
 STRINGS.NAMES.SOLARCAGESPELL = "Solar Cage Spell"
-STRINGS.RECIPE_DESC.SOLARCAGESPELL = "Bind this in the Sun Codex to ring an area with pillars of light where she aims, trapping any enemy caught inside until they burn out."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARCAGESPELL = "Bind this in the Sun Codex to ring an area with pillars of light where she aims, trapping any enemy caught inside until they burn out."
+STRINGS.RECIPE_DESC.SOLARCAGESPELL = "Bind this in the Sun Codex to raise a ring of golden bars where she aims — nothing inside can get out, and nothing outside can get in, until they fade."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARCAGESPELL = "Bind this in the Sun Codex to raise a ring of golden bars where she aims — nothing inside can get out, and nothing outside can get in, until they fade."
 STRINGS.NAMES.DESINTEGRATIONSPELL = "Desintegration Spell"
 STRINGS.RECIPE_DESC.DESINTEGRATIONSPELL = "Bind this in the Sun Codex to mark an area with a searing light — after a long, visible wind-up, anything still caught inside is obliterated."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.DESINTEGRATIONSPELL = "Bind this in the Sun Codex to mark an area with a searing light — after a long, visible wind-up, anything still caught inside is obliterated."
@@ -101,6 +102,10 @@ GLOBAL.TUNING.SOLARCORE_MANA_BOOST_CAP = 200
 STRINGS.NAMES.SOLARCORE = "Solar Core"
 STRINGS.RECIPE_DESC.SOLARCORE = "A condensed core of sunlight — eat it and it permanently widens how much Solar Energy she can hold, up to a point."
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARCORE = "A condensed core of sunlight — eat it and it permanently widens how much Solar Energy she can hold, up to a point."
+GLOBAL.TUNING.SUN_PILLAR_SHARD_STACK_SIZE = 40
+STRINGS.NAMES.SUN_PILLAR_SHARD = "Sun Pillar Shard"
+STRINGS.RECIPE_DESC.SUN_PILLAR_SHARD = "A splinter of the pillar the Antlion kept buried under the sands. It still hums with trapped sunlight."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUN_PILLAR_SHARD = "A splinter of the pillar the Antlion kept buried under the sands. It still hums with trapped sunlight."
 
 -- Items: recipes
 AddRecipe2("solarlantern", { Ingredient("twigs", 2), Ingredient("goldnugget", 2), Ingredient("nightmarefuel", 1) }, TECH.MAGIC_TWO, {
@@ -110,8 +115,9 @@ AddRecipe2("suncodex", { Ingredient("twigs", 2), Ingredient("goldnugget", 3), In
         atlas = "images/inventoryimages/suncodex.xml",
         image = "suncodex.tex",
     }, { "MAGIC" })
-AddRecipe2("emberwispspell", { Ingredient("papyrus", 1), Ingredient("torch", 1), Ingredient("charcoal", 5) }, TECH.MAGIC_TWO, {
-        image = "papyrus.tex",
+AddRecipe2("emberwispspell", { Ingredient("papyrus", 2), Ingredient("butterflywings", 20), Ingredient("yellowgem", 2) }, TECH.MAGIC_TWO, {
+        atlas = "images/inventoryimages/emberwispspell.xml",
+        image = "emberwispspell.tex",
     }, { "MAGIC" })
 AddRecipe2("solsticeblessingspell", { Ingredient("papyrus", 2), Ingredient("spidergland", 10), Ingredient(CHARACTER_INGREDIENT.HEALTH, 20) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
@@ -134,11 +140,13 @@ AddRecipe2("solarnovaspell", { Ingredient("papyrus", 2), Ingredient("gunpowder",
 AddRecipe2("flashbangspell", { Ingredient("papyrus", 1), Ingredient("nightmarefuel", 3), Ingredient("slurtleslime", 5) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
     }, { "MAGIC" })
-AddRecipe2("solarcagespell", { Ingredient("papyrus", 3), Ingredient("nightmarefuel", 10), Ingredient("fence_item", 6) }, TECH.MAGIC_TWO, {
-        image = "papyrus.tex",
+AddRecipe2("solarcagespell", { Ingredient("papyrus", 2), Ingredient("sun_pillar_shard", 1) }, TECH.MAGIC_TWO, {
+        atlas = "images/inventoryimages/solarcagespell.xml",
+        image = "solarcagespell.tex",
     }, { "MAGIC" })
-AddRecipe2("desintegrationspell", { Ingredient("papyrus", 4), Ingredient("alterguardianhatshard", 1), Ingredient("purebrilliance", 5) }, TECH.MAGIC_TWO, {
-        image = "papyrus.tex",
+AddRecipe2("desintegrationspell", { Ingredient("papyrus", 5), Ingredient("alterguardianhatshard", 5), Ingredient("shadowheart_infused", 1) }, TECH.MAGIC_TWO, {
+        atlas = "images/inventoryimages/desintegrationspell.xml",
+        image = "desintegrationspell.tex",
     }, { "MAGIC" })
 AddRecipe2("solargloriesspell", { Ingredient("papyrus", 2), Ingredient("nightsword", 1), Ingredient("armor_sanity", 1) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
@@ -165,8 +173,37 @@ AddRecipe2("solarcore", { Ingredient("goldnugget", 4), Ingredient("nightmarefuel
         image = "gems.tex",
     }, { "MAGIC" })
 
+-- Items: extra drops on existing prefabs (components/lootdropper.lua AddChanceLoot)
+AddPrefabPostInit("antlion", function(inst)
+    if not GLOBAL.TheWorld.ismastersim or inst.components.lootdropper == nil then
+        return
+    end
+    inst.components.lootdropper:AddChanceLoot("sun_pillar_shard", 1)
+end)
+
 -- Items: register custom inventory icon atlases (simutil.lua GetInventoryItemAtlas)
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/suncodex.xml", "suncodex.tex")
+GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/emberwispspell.xml", "emberwispspell.tex")
+GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/solarcagespell.xml", "solarcagespell.tex")
+GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/desintegrationspell.xml", "desintegrationspell.tex")
+
+-- Structures: tuning + strings
+STRINGS.NAMES.SOLARRIFT = "Solar Rift"
+STRINGS.RECIPE_DESC.SOLARRIFT = "A tear toward the Solar realm. Step through to cross over."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARRIFT = "A tear toward the Solar realm. Step through to cross over."
+STRINGS.NAMES.SOLARRETURN = "Homeward Rift"
+STRINGS.RECIPE_DESC.SOLARRETURN = "Leads back out of the Solar realm, to the world above."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SOLARRETURN = "Leads back out of the Solar realm, to the world above."
+
+-- Structures: recipes
+AddRecipe2("solarrift", { Ingredient("goldnugget", 1), Ingredient("rocks", 2) }, TECH.NONE, {
+        image = "researchlab.tex",
+        placer = "solarrift_placer",
+    }, { "MAGIC" })
+AddRecipe2("solarreturn", { Ingredient("goldnugget", 1), Ingredient("rocks", 2) }, TECH.NONE, {
+        image = "researchlab.tex",
+        placer = "solarreturn_placer",
+    }, { "MAGIC" })
 
 -- Solar battery charge action (shared by every solar battery item)
 local ACTIONS = GLOBAL.ACTIONS
@@ -229,6 +266,12 @@ AddComponentAction("INVENTORY", "container", function(inst, doer, actions, right
     end
 end)
 
+AddComponentAction("EQUIPPED", "container", function(inst, doer, target, actions, right)
+    if target == doer and TheInput:IsKeyDown(KEY_ALT) then
+        table.insert(actions, ACTIONS.OPENCODEX)
+    end
+end)
+
 -- Spell portal open-map + map-teleport actions (shared by every portal creature)
 local ACTIONS = GLOBAL.ACTIONS
 
@@ -283,6 +326,30 @@ function params.suncodex.itemtestfn(container, item, slot)
 end
 
 -- Creatures: tuning + strings
+GLOBAL.TUNING.GOLDFLOWER_HEALTH = 100
+GLOBAL.TUNING.GOLDFLOWER_DAMAGE = 0
+GLOBAL.TUNING.GOLDFLOWER_ATTACK_PERIOD = 2
+GLOBAL.TUNING.GOLDFLOWER_WALKSPEED = 0.1
+GLOBAL.TUNING.GOLDFLOWER_LIGHT_RADIUS = 1.3
+GLOBAL.TUNING.GOLDFLOWER_LIGHT_FALLOFF = 0.8
+GLOBAL.TUNING.GOLDFLOWER_LIGHT_INTENSITY = 0.6
+GLOBAL.TUNING.GOLDFLOWER_LIGHT_COLOUR_R = 1
+GLOBAL.TUNING.GOLDFLOWER_LIGHT_COLOUR_G = 0.8196078431372549
+GLOBAL.TUNING.GOLDFLOWER_LIGHT_COLOUR_B = 0.4
+STRINGS.NAMES.GOLDFLOWER = "Golden Flower"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.GOLDFLOWER = "A flower grown from pure sunlight. Every so often it shudders and lets a Sun Moth loose."
+GLOBAL.TUNING.SUNMOTH_HEALTH = 20
+GLOBAL.TUNING.SUNMOTH_DAMAGE = 0
+GLOBAL.TUNING.SUNMOTH_ATTACK_PERIOD = 2
+GLOBAL.TUNING.SUNMOTH_WALKSPEED = 4
+GLOBAL.TUNING.SUNMOTH_LIGHT_RADIUS = 2.2
+GLOBAL.TUNING.SUNMOTH_LIGHT_FALLOFF = 0.75
+GLOBAL.TUNING.SUNMOTH_LIGHT_INTENSITY = 0.65
+GLOBAL.TUNING.SUNMOTH_LIGHT_COLOUR_R = 1
+GLOBAL.TUNING.SUNMOTH_LIGHT_COLOUR_G = 0.8196078431372549
+GLOBAL.TUNING.SUNMOTH_LIGHT_COLOUR_B = 0.4
+STRINGS.NAMES.SUNMOTH = "Sun Moth"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNMOTH = "A little piece of the sun that learned to fly."
 GLOBAL.TUNING.SUNORB_HEALTH = 150
 GLOBAL.TUNING.SUNORB_DAMAGE = 25
 GLOBAL.TUNING.SUNORB_ATTACK_PERIOD = 2
@@ -298,18 +365,6 @@ GLOBAL.TUNING.SUNORB_LIGHT_COLOUR_G = 0.5490196078431373
 GLOBAL.TUNING.SUNORB_LIGHT_COLOUR_B = 0.0784313725490196
 STRINGS.NAMES.SUNORB = "Sun Orb"
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.SUNORB = "A living cinder of sunlight, orbiting whoever called it up — warm, bright, and quick to defend her."
-GLOBAL.TUNING.LIGHTPILLAR_HEALTH = 200
-GLOBAL.TUNING.LIGHTPILLAR_DAMAGE = 20
-GLOBAL.TUNING.LIGHTPILLAR_ATTACK_PERIOD = 1.5
-GLOBAL.TUNING.LIGHTPILLAR_WALKSPEED = 0.1
-GLOBAL.TUNING.LIGHTPILLAR_LIGHT_RADIUS = 8
-GLOBAL.TUNING.LIGHTPILLAR_LIGHT_FALLOFF = 0.8
-GLOBAL.TUNING.LIGHTPILLAR_LIGHT_INTENSITY = 0.8
-GLOBAL.TUNING.LIGHTPILLAR_LIGHT_COLOUR_R = 1
-GLOBAL.TUNING.LIGHTPILLAR_LIGHT_COLOUR_G = 0.8627450980392157
-GLOBAL.TUNING.LIGHTPILLAR_LIGHT_COLOUR_B = 0.5882352941176471
-STRINGS.NAMES.LIGHTPILLAR = "Light Pillar"
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.LIGHTPILLAR = "A column of solidified sunlight, rooted to the spot where it was raised — it burns anything that strays too close."
 GLOBAL.TUNING.SOLARPILLAR_HEALTH = 300
 GLOBAL.TUNING.SOLARPILLAR_DAMAGE = 35
 GLOBAL.TUNING.SOLARPILLAR_ATTACK_PERIOD = 1.5

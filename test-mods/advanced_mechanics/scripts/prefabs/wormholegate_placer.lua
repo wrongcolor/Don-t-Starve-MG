@@ -1,10 +1,2 @@
-local assets =
-{
-    Asset("ANIM", "anim/wormholegate.zip"), -- PLACEHOLDER: mesmo build da estrutura, ver README
-}
-
-local function fn()
-    return MakePlacer("wormholegate_placer", "wormholegate", "wormholegate", "idle")
-end
-
-return Prefab("wormholegate_placer", fn, assets)
+-- Mesmo build da estrutura (anim/<id>.zip, declarado no prefab dela), ver README.
+return MakePlacer("wormholegate_placer", "wormholegate", "wormholegate", "idle")

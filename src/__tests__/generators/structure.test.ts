@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { parse } from 'luaparse'
-import { generateStructureFiles, generateStructureItemPrefab, generateStructurePrefab } from '../../generators/structure'
+import {
+  generateStructureFiles,
+  generateStructureItemPrefab,
+  generateStructurePlacerPrefab,
+  generateStructurePrefab,
+} from '../../generators/structure'
 import type { StructureDef } from '../../types/modProject'
 import { sampleProject } from '../fixtures'
 
@@ -91,6 +96,24 @@ describe('generateStructureFiles', () => {
     expect(code).toContain('GLOBAL.TELEPORT_PAIRS = GLOBAL.TELEPORT_PAIRS or {}')
     expect(code).toContain('a.components.teleporter:Target(b)')
     expect(code).toContain('b.components.teleporter:Target(a)')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('returns MakePlacer directly instead of wrapping it in another Prefab (prefabutil.lua, tent.lua)', () => {
+    const code = generateStructurePlacerPrefab(structure)
+    expect(code).toContain(`return MakePlacer("${structure.id}_placer",`)
+    expect(code).not.toContain('local function fn()')
+    expect(code).not.toContain('return Prefab(')
+
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('wires a worldmigrator bound to a named shard when shardPortal is set (cave_exit.lua)', () => {
+    const portal: StructureDef = { ...structure, id: 'testshardportal', shardPortal: { shardName: 'Solar' } }
+    const code = generateStructurePrefab(portal)
+    expect(code).toContain('inst:AddComponent("worldmigrator")')
+    expect(code).toContain('inst.components.worldmigrator.shard_name = "Solar"')
 
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })

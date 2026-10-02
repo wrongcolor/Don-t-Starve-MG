@@ -263,4 +263,30 @@ describe('generateBrain', () => {
     expect(code).not.toContain('CollectItemAction')
     expect(code).not.toContain('COLLECT_RADIUS')
   })
+
+  it('locks onto the first player within acquireRadius instead of always the closest one', () => {
+    const moth: CreatureDef = {
+      ...hostileMob,
+      behavior: 'passive',
+      kiting: undefined,
+      panicCauses: [],
+      companion: { followDistance: 3, tasks: [], acquireRadius: 6 },
+    }
+    const code = generateBrain(moth)
+    expect(code).toContain('local ACQUIRE_DIST = 6')
+    expect(code).toContain('Follow(self.inst, function() return GetFollowTarget(self.inst) end, FOLLOW_MIN_DIST, FOLLOW_TARGET_DIST, FOLLOW_MAX_DIST),')
+    expect(code).toContain('Wander(self.inst, GetIdleHomePos, MAX_WANDER_DIST),')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('never wanders a child spawner away from its spot', () => {
+    const flower: CreatureDef = {
+      ...hostileMob,
+      behavior: 'passive',
+      kiting: undefined,
+      panicCauses: [],
+      childSpawner: { prefab: 'sunmoth', intervalSeconds: 60 },
+    }
+    expect(generateBrain(flower)).not.toContain('Wander(')
+  })
 })

@@ -398,7 +398,10 @@ function spellEffectDeltaLines(spell: SpellbookSpell, actor: string, indent: str
 
 function spellBeamLuaTable(beam: NonNullable<SpellbookSpell['beam']>): string {
   const telegraph = beam.telegraphSeconds !== undefined ? beam.telegraphSeconds : 'nil'
-  return `{ damage = ${beam.damagePerTick}, tickinterval = ${beam.tickIntervalSeconds}, range = ${beam.range}, duration = ${beam.durationSeconds}, telegraph = ${telegraph} }`
+  const fx = beam.fxBuild !== undefined ? luaString(beam.fxBuild) : 'nil'
+  const fxscale = beam.fxScale !== undefined ? beam.fxScale : 'nil'
+  const fxspeed = beam.fxSpeed !== undefined ? beam.fxSpeed : 'nil'
+  return `{ damage = ${beam.damagePerTick}, tickinterval = ${beam.tickIntervalSeconds}, range = ${beam.range}, duration = ${beam.durationSeconds}, telegraph = ${telegraph}, fx = ${fx}, fxscale = ${fxscale}, fxspeed = ${fxspeed} }`
 }
 
 function spellNovaLuaTable(nova: NonNullable<SpellbookSpell['nova']>): string {
@@ -413,13 +416,18 @@ function spellFlashbangLuaTable(flashbang: NonNullable<SpellbookSpell['flashbang
   return `{ radius = ${flashbang.radius}, stun = ${flashbang.stunSeconds} }`
 }
 
+const DEFAULT_CAGE_POST_SPACING = 0.8
+
 function spellCageLuaTable(cage: NonNullable<SpellbookSpell['cage']>): string {
-  return `{ prefab = ${luaString(cage.pillarPrefab)}, radius = ${cage.radius}, count = ${cage.pillarCount}, rooted = ${cage.rootedSeconds} }`
+  return `{ fx = ${luaString(cage.fxBuild)}, radius = ${cage.radius}, spacing = ${cage.postSpacing ?? DEFAULT_CAGE_POST_SPACING}, duration = ${cage.durationSeconds} }`
 }
 
 function spellDesintegrateLuaTable(desintegrate: NonNullable<SpellbookSpell['desintegrate']>): string {
   const overheatDamage = desintegrate.overheatDamage !== undefined ? desintegrate.overheatDamage : 'nil'
-  return `{ radius = ${desintegrate.radius}, damage = ${desintegrate.damage}, casttime = ${desintegrate.castTimeSeconds}, overheatdamage = ${overheatDamage} }`
+  const fx = desintegrate.fxBuild !== undefined ? luaString(desintegrate.fxBuild) : 'nil'
+  const fxscale = desintegrate.fxScale !== undefined ? desintegrate.fxScale : 'nil'
+  const fxleadin = desintegrate.fxLeadInSeconds !== undefined ? desintegrate.fxLeadInSeconds : 'nil'
+  return `{ radius = ${desintegrate.radius}, damage = ${desintegrate.damage}, casttime = ${desintegrate.castTimeSeconds}, overheatdamage = ${overheatDamage}, fx = ${fx}, fxscale = ${fxscale}, fxleadin = ${fxleadin} }`
 }
 
 function spellGearDropLuaTable(gearDrop: NonNullable<SpellbookSpell['gearDrop']>): string {
@@ -442,8 +450,40 @@ function spellHealOverTimeLuaTable(healOverTime: NonNullable<SpellbookSpell['hea
 // any aimed spell, not just a beam — see isAimedSpell.
 function aimedSpellHelperFunctionBlock(): string[] {
   return [
-    'local function spell_aoe_reticuletargetfn()',
-    '    return Vector3(ThePlayer.entity:LocalToWorldSpace(5, 0.001, 0))',
+    // Confirmed against the real components/reticule.lua: with mouseenabled
+    // (the default we set below), a mouse player's targetpos is the RAW
+    // world position under the cursor, with no built-in max-range clamp at
+    // all — targetfn (this function) only ever drives the CONTROLLER,
+    // no-twinstick fallback. Reproduced in-game: the reticule (and the
+    // spell's own actual fired direction/point) could end up anywhere on
+    // screen, arbitrarily far from the caster, instead of staying anchored
+    // to her within the spell's own real cast range — reported as "should
+    // start from the character and rotate around her instead".
+    // aoetargeting.range is the same real distance already used to validate
+    // the actual cast (components/aoespell.lua's own CanCast ->
+    // TheWorld.Map:CanCastAtPoint), so clamping the reticule to it keeps the
+    // visual honest instead of introducing a second, separate distance.
+    'local function spell_aoe_mousetargetfn(inst, pos)',
+    '    if pos == nil then',
+    '        return nil',
+    '    end',
+    '    local range = inst.components.aoetargeting ~= nil and inst.components.aoetargeting.range or 8',
+    '    local x, y, z = ThePlayer.Transform:GetWorldPosition()',
+    '    local dx, dz = pos.x - x, pos.z - z',
+    '    local distsq = dx * dx + dz * dz',
+    '    if distsq > range * range then',
+    '        local scale = range / math.sqrt(distsq)',
+    '        return Vector3(x + dx * scale, y, z + dz * scale)',
+    '    end',
+    '    return pos',
+    'end',
+    '',
+    // Controller, non-twinstick fallback only (twinstickmode below normally
+    // takes over instead) — same range-anchored idea as the mouse fn above,
+    // replacing the old fixed "5" with the spell's own real range.
+    'local function spell_aoe_reticuletargetfn(inst)',
+    '    local range = inst.components.aoetargeting ~= nil and inst.components.aoetargeting.range or 8',
+    '    return Vector3(ThePlayer.entity:LocalToWorldSpace(range, 0.001, 0))',
     'end',
     '',
     'local function StartAOETargeting(inst)',
@@ -476,21 +516,137 @@ function solarBeamHelperFunctionBlock(): string[] {
     '    end',
     'end',
     '',
-    'local function StartSpellBeamTicking(user, beam)',
+    // Reported in-game: nothing stopped Viana or played any cast gesture —
+    // the beam just fired instantly while she stayed free to walk. Confirmed
+    // against the real stategraphs/SGwilson.lua: aimed spellbook casts
+    // (ACTIONS.CASTAOE) are SUPPOSED to route through its "castspell" state
+    // (staff_pre/staff windup, locks movement via locomotor:Stop() plus a
+    // disabled playercontroller, real vanilla magic-cast pose — the same
+    // fallback state used for Willow's own spells when they don't have a
+    // dedicated animation) — but nothing here ever confirmed that dispatch
+    // was actually reached for a custom item outside vanilla's own staff/
+    // book prefabs, so this calls it directly as a guaranteed fallback,
+    // guarded (same idiom as the real components/channelcaster.lua's own
+    // "is it safe to interrupt the player's current state" check) so it
+    // never re-triggers if some other path already put her in a busy state.
+    'local function DoSpellCastPose(user)',
+    '    if user.components.locomotor ~= nil then',
+    '        user.components.locomotor:Stop()',
+    '    end',
+    '    if user.sg ~= nil and user.sg:HasAnyStateTag("idle", "running") then',
+    '        user.sg:GoToState("castspell")',
+    '    end',
+    'end',
+    '',
+    // Confirmed against the real prefabs/spear_gungnir.lua (Wigfrid's spear
+    // — the same "reticuleline" reticule shape as our beam): a directional
+    // line reticule needs its own controller targetfn, mouse targetfn, and
+    // updatepositionfn, all keyed off inst.components.aoetargeting.range
+    // (already set to this exact beam's own range in onselect) instead of
+    // the spear's hardcoded 6.5, so it works for any beam range configured.
+    'local function spell_aoe_linetargetfn(inst)',
+    '    local range = inst.components.aoetargeting ~= nil and inst.components.aoetargeting.range or 8',
+    '    return Vector3(ThePlayer.entity:LocalToWorldSpace(range, 0, 0))',
+    'end',
+    '',
+    // Rescales to EXACTLY `range` (not merely clamped) — matches
+    // ReticuleMouseTargetFn's own real math (`l = 6.5 / math.sqrt(l)`) so the
+    // reticule stays a fixed distance from the caster and only ever changes
+    // ANGLE with the mouse, same as spear_gungnir.lua's own lunge reticule.
+    'local function spell_aoe_linemousetargetfn(inst, pos)',
+    '    if pos == nil then',
+    '        return nil',
+    '    end',
+    '    local range = inst.components.aoetargeting ~= nil and inst.components.aoetargeting.range or 8',
+    '    local x, y, z = inst.Transform:GetWorldPosition()',
+    '    local dx, dz = pos.x - x, pos.z - z',
+    '    local distsq = dx * dx + dz * dz',
+    '    if distsq <= 0 then',
+    '        return inst.components.reticule ~= nil and inst.components.reticule.targetpos or pos',
+    '    end',
+    '    local scale = range / math.sqrt(distsq)',
+    '    return Vector3(x + dx * scale, 0, z + dz * scale)',
+    'end',
+    '',
+    // Parks the reticule's own origin AT the caster (not at the aim point —
+    // that generic default is exactly what looked wrong: "should start from
+    // the character") and rotates it to face wherever `pos` is, so the line
+    // sprite visually points from her toward the aim direction.
+    'local function spell_aoe_lineupdatepositionfn(inst, pos, reticule, ease, smoothing, dt)',
+    '    local x, y, z = inst.Transform:GetWorldPosition()',
+    '    reticule.Transform:SetPosition(x, 0, z)',
+    '    local rot = -math.atan2(pos.z - z, pos.x - x) / DEGREES',
+    '    if ease and dt ~= nil then',
+    '        local rot0 = reticule.Transform:GetRotation()',
+    '        local drot = rot - rot0',
+    '        rot = Lerp((drot > 180 and rot0 + 360) or (drot < -180 and rot0 - 360) or rot0, rot, dt * smoothing)',
+    '    end',
+    '    reticule.Transform:SetRotation(rot)',
+    'end',
+    '',
+    'local function StartSpellBeamTicking(user, beam, pos)',
+    // NOT parented via AddChild. Confirmed in-game (twice) that a child's
+    // rotation isn't a fixed local offset: with the caster's own Transform
+    // rotation live-updating as she walks around (autoface), a parented fx's
+    // effective on-screen angle kept drifting away from the locked aim
+    // direction as the player moved during the beam's duration — "atira pra
+    // outros lugares" / direction changing with walking direction. Every
+    // real aimed-direction FX in the extracted game scripts (prefabs/
+    // reticuleline.lua's reticule, prefabs/willow_ember.lua's
+    // willow_shadow_flame) is spawned as a plain top-level entity instead,
+    // positioned/rotated explicitly, never AddChild'd to the caster — so the
+    // aim angle, once set, can't be disturbed by the caster's own rotation.
+    // Position is refreshed each damage tick below to still follow the
+    // caster, but rotation is set once here and left alone.
+    '    local fx',
+    '    if beam.fx ~= nil then',
+    '        fx = SpawnPrefab(beam.fx)',
+    '        if fx ~= nil then',
+    '            local ux, uy, uz = user.Transform:GetWorldPosition()',
+    '            fx.Transform:SetPosition(ux, 0, uz)',
+    '            if pos ~= nil then',
+    '                local px, py, pz = pos:Get()',
+    '                local worldangle = -math.atan2(pz - uz, px - ux) / DEGREES',
+    '                fx.Transform:SetRotation(worldangle)',
+    '            else',
+    '                fx.Transform:SetRotation(user.Transform:GetRotation())',
+    '            end',
+    '            if beam.fxscale ~= nil then',
+    '                fx.Transform:SetScale(beam.fxscale, beam.fxscale, beam.fxscale)',
+    '            end',
+    '            if beam.fxspeed ~= nil then',
+    '                fx.AnimState:SetDeltaTimeMultiplier(beam.fxspeed)',
+    '            end',
+    '        end',
+    '    end',
     '    local task',
     '    task = user:DoPeriodicTask(beam.tickinterval, function()',
     '        DoSpellBeamDamage(user, beam)',
+    '        if fx ~= nil and fx:IsValid() then',
+    '            local fux, fuy, fuz = user.Transform:GetWorldPosition()',
+    '            fx.Transform:SetPosition(fux, 0, fuz)',
+    '        end',
     '    end)',
-    '    user:DoTaskInTime(beam.duration, function()',
+    // The damage tick stays on the caster (it follows her and should stop
+    // with her), but the cleanup is on TheWorld: a caster's own tasks are
+    // cancelled when she leaves/changes shard, which would otherwise leave
+    // the beam fx looping forever. The timed Remove is a fallback for an fx
+    // far from any player, whose "animover" never fires while asleep.
+    '    TheWorld:DoTaskInTime(beam.duration, function()',
     '        if task ~= nil then',
     '            task:Cancel()',
+    '        end',
+    '        if fx ~= nil and fx:IsValid() then',
+    '            fx.AnimState:PlayAnimation("pst")',
+    '            fx:ListenForEvent("animover", fx.Remove)',
+    '            fx:DoTaskInTime(3, fx.Remove)',
     '        end',
     '    end)',
     'end',
     '',
-    'local function StartSpellBeam(user, beam)',
+    'local function StartSpellBeam(user, beam, pos)',
     '    if beam.telegraph == nil then',
-    '        StartSpellBeamTicking(user, beam)',
+    '        StartSpellBeamTicking(user, beam, pos)',
     '        return',
     '    end',
     '',
@@ -500,11 +656,13 @@ function solarBeamHelperFunctionBlock(): string[] {
     '    if marker ~= nil then',
     '        marker.Transform:SetPosition(x + math.cos(angle) * 3, 0, z - math.sin(angle) * 3)',
     '    end',
-    '    user:DoTaskInTime(beam.telegraph, function()',
+    '    TheWorld:DoTaskInTime(beam.telegraph, function()',
     '        if marker ~= nil and marker:IsValid() then',
     '            marker:Remove()',
     '        end',
-    '        StartSpellBeamTicking(user, beam)',
+    '        if user:IsValid() then',
+    '            StartSpellBeamTicking(user, beam, pos)',
+    '        end',
     '    end)',
     'end',
     '',
@@ -587,54 +745,99 @@ function flashbangHelperFunctionBlock(): string[] {
   ]
 }
 
-// Confirmed real mechanism (Waxwell's own "Shadow Pillars" spell —
-// prefabs/waxwelljournal.lua's PillarsSpellFn + prefabs/shadow_pillar.lua's
-// DoPillarsTarget/DoPillars): rings pillar props evenly around a circle
-// (same TWOPI * i / count angle math groundAttack.ts/structure.ts already
-// use for their own circular placement) and adds the real
-// components/rooted.lua component to every enemy caught inside — an actual
-// movement lock (Physics:Stop() + 0 speed), not a slow. AddSource/RemoveSource
-// are the real ref-counted API (the component removes itself once its last
-// source is gone), so a fresh AddComponent is only needed the first time.
-// Pillars self-remove once the root wears off — the real spell's own pillars
-// are ephemeral too (each carries its own lifetime timer), not a permanent
-// structure. Excludes the caster's own companion the same way flashbang
-// does (components.follower:GetLeader() == user).
+// See spellbookSpellSchema.cage for the two real mechanisms (obstacle bars
+// + a containment tick for flyers). Everything is scheduled on TheWorld,
+// not the caster: a task on the caster dies with them (death/disconnect),
+// which would leave the bars standing forever. Bars rise one after another
+// (CAGE_RISE_DELAY apart) as a wave around the ring, starting in front of
+// the camera, and dismiss the same way. Who's "inside" is decided at cast
+// time; anything that later turns up well inside (spawned there) joins
+// them rather than being thrown out. Bars are non-persistent, so a save
+// mid-cage simply drops them.
 function cageHelperFunctionBlock(): string[] {
   return [
+    'local CAGE_RISE_DELAY = 0.035',
+    'local CAGE_TICK = 0.1',
+    'local CAGE_MARGIN = 0.6',
+    'local CAGE_CANT_TAGS = { "INLIMBO", "player", "playerghost", "FX", "NOCLICK", "notarget", "wall" }',
+    '',
+    'local function IsCageable(victim, user)',
+    '    if victim.components.locomotor == nil then',
+    '        return false',
+    '    end',
+    '    local leader = victim.components.follower ~= nil and victim.components.follower:GetLeader() or nil',
+    '    return leader == nil or not leader:HasTag("player")',
+    'end',
+    '',
     'local function DoSpellCage(user, pos, cage)',
     '    local x, y, z = pos:Get()',
-    '    local pillars = {}',
-    '    for i = 1, cage.count do',
-    '        local angle = TWOPI * (i - 1) / cage.count',
-    '        local pillar = SpawnPrefab(cage.prefab)',
-    '        if pillar ~= nil then',
-    '            pillar.Transform:SetPosition(x + math.cos(angle) * cage.radius, 0, z - math.sin(angle) * cage.radius)',
-    '            table.insert(pillars, pillar)',
+    '    local count = math.max(8, math.floor(TWOPI * cage.radius / cage.spacing))',
+    '    if count % 2 == 1 then',
+    '        count = count + 1',
+    '    end',
+    '',
+    '    local bars = {}',
+    '    local ended = false',
+    '    for i = 0, count - 1 do',
+    '        local angle = PI / 2 + i / count * TWOPI',
+    '        local bx, bz = x + math.cos(angle) * cage.radius, z + math.sin(angle) * cage.radius',
+    '        TheWorld:DoTaskInTime(i * CAGE_RISE_DELAY, function()',
+    '            if ended then',
+    '                return',
+    '            end',
+    '            local bar = SpawnPrefab(cage.fx .. (i % 2 == 0 and "_tall" or "_short"))',
+    '            if bar ~= nil then',
+    '                bar.Transform:SetPosition(bx, 0, bz)',
+    '                table.insert(bars, bar)',
+    '            end',
+    '        end)',
+    '    end',
+    '',
+    '    local inside = {}',
+    '    for _, victim in ipairs(TheSim:FindEntities(x, y, z, cage.radius, nil, CAGE_CANT_TAGS)) do',
+    '        if IsCageable(victim, user) then',
+    '            inside[victim] = true',
     '        end',
     '    end',
     '',
-    '    local victims = TheSim:FindEntities(x, y, z, cage.radius, nil, { "INLIMBO", "player" })',
-    '    for _, victim in ipairs(victims) do',
-    '        local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user',
-    '        if victim.components.locomotor ~= nil and not isowncompanion then',
-    '            if victim.components.rooted == nil then',
-    '                victim:AddComponent("rooted")',
+    '    local inner, outer = cage.radius - CAGE_MARGIN, cage.radius + CAGE_MARGIN',
+    '    local contain = TheWorld:DoPeriodicTask(CAGE_TICK, function()',
+    '        for _, victim in ipairs(TheSim:FindEntities(x, y, z, outer + 2, nil, CAGE_CANT_TAGS)) do',
+    '            if victim:IsValid() and IsCageable(victim, user) then',
+    '                local vx, vy, vz = victim.Transform:GetWorldPosition()',
+    '                local dx, dz = vx - x, vz - z',
+    '                local dist = math.sqrt(dx * dx + dz * dz)',
+    '                local clampto',
+    '                if inside[victim] then',
+    '                    if dist > inner then',
+    '                        clampto = inner',
+    '                    end',
+    '                elseif dist < inner - CAGE_MARGIN then',
+    '                    inside[victim] = true',
+    '                elseif dist < outer then',
+    '                    clampto = outer',
+    '                end',
+    '                if clampto ~= nil and dist > 0.001 then',
+    '                    local nx, nz = x + dx / dist * clampto, z + dz / dist * clampto',
+    '                    if victim.Physics ~= nil then',
+    '                        victim.Physics:Teleport(nx, vy, nz)',
+    '                    else',
+    '                        victim.Transform:SetPosition(nx, vy, nz)',
+    '                    end',
+    '                end',
     '            end',
-    '            victim.components.rooted:AddSource(user)',
-    '            victim:DoTaskInTime(cage.rooted, function()',
-    '                if victim.components.rooted ~= nil then',
-    '                    victim.components.rooted:RemoveSource(user)',
+    '        end',
+    '    end)',
+    '',
+    '    TheWorld:DoTaskInTime(cage.duration, function()',
+    '        ended = true',
+    '        contain:Cancel()',
+    '        for i, bar in ipairs(bars) do',
+    '            TheWorld:DoTaskInTime(i * CAGE_RISE_DELAY, function()',
+    '                if bar:IsValid() and bar.Dismiss ~= nil then',
+    '                    bar:Dismiss()',
     '                end',
     '            end)',
-    '        end',
-    '    end',
-    '',
-    '    user:DoTaskInTime(cage.rooted, function()',
-    '        for _, pillar in ipairs(pillars) do',
-    '            if pillar:IsValid() then',
-    '                pillar:Remove()',
-    '            end',
     '        end',
     '    end)',
     'end',
@@ -660,9 +863,54 @@ function desintegrateHelperFunctionBlock(): string[] {
     '        marker.Transform:SetPosition(x, 0, z)',
     '    end',
     '',
-    '    user:DoTaskInTime(desintegrate.casttime, function()',
+    // A star that visibly falls toward the mark for the entire windup, then
+    // strikes exactly as the damage lands — the fx's own authored "pre"+
+    // "fall" clips are stretched (AnimState:SetDeltaTimeMultiplier) to fill
+    // whatever casttime is configured to, instead of playing once at native
+    // speed and idling early. "explode"/"pst" always play at native (1x)
+    // speed — a quick impact, not something that should visually drag out.
+    '    local fx',
+    '    if desintegrate.fx ~= nil then',
+    '        fx = SpawnPrefab(desintegrate.fx)',
+    '        if fx ~= nil then',
+    '            fx.Transform:SetPosition(x, 0, z)',
+    '            if desintegrate.fxscale ~= nil then',
+    '                fx.Transform:SetScale(desintegrate.fxscale, desintegrate.fxscale, desintegrate.fxscale)',
+    '            end',
+    '            if desintegrate.fxleadin ~= nil and desintegrate.casttime > 0 then',
+    '                fx.AnimState:SetDeltaTimeMultiplier(desintegrate.fxleadin / desintegrate.casttime)',
+    '            end',
+    '            fx.AnimState:PlayAnimation("pre")',
+    '            fx.AnimState:PushAnimation("fall", false)',
+    '        end',
+    '    end',
+    '',
+    // Scheduled on TheWorld, not the caster: a caster's own tasks are
+    // cancelled when she dies or leaves, which used to leave the marker
+    // and the falling star stuck forever with the strike never landing.
+    // Once cast, the star falls no matter what happens to her.
+    '    TheWorld:DoTaskInTime(desintegrate.casttime, function()',
     '        if marker ~= nil and marker:IsValid() then',
     '            marker:Remove()',
+    '        end',
+    '',
+    '        if fx ~= nil and fx:IsValid() then',
+    '            fx.AnimState:SetDeltaTimeMultiplier(1)',
+    '            fx.AnimState:PlayAnimation("explode")',
+    // Confirmed real convention (prefabs/willow_flame_fx.lua's shadowfn):
+    // one shared "animover" handler, branching on IsCurrentAnimation, to
+    // sequence a non-looping clip into the next one and only remove at the
+    // very end — avoids relying on unclear PushAnimation/"animover" queue
+    // semantics across more than one queued clip.
+    '            fx:ListenForEvent("animover", function()',
+    '                if not fx:IsValid() then',
+    '                    return',
+    '                elseif fx.AnimState:IsCurrentAnimation("explode") then',
+    '                    fx.AnimState:PlayAnimation("pst")',
+    '                elseif fx.AnimState:IsCurrentAnimation("pst") then',
+    '                    fx:Remove()',
+    '                end',
+    '            end)',
     '        end',
     '',
     '        local victims = TheSim:FindEntities(x, y, z, desintegrate.radius, nil, { "INLIMBO", "player" })',
@@ -670,7 +918,7 @@ function desintegrateHelperFunctionBlock(): string[] {
     '            local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user',
     '            if victim.components.health ~= nil and not victim.components.health:IsDead() and not isowncompanion then',
     '                local damage = (desintegrate.overheatdamage ~= nil and user._customoverheat) and desintegrate.overheatdamage or desintegrate.damage',
-    '                victim.components.health:DoDelta(-damage, false, "desintegrate", false, user)',
+    '                victim.components.health:DoDelta(-damage, false, "desintegrate", false, user:IsValid() and user or nil)',
     '            end',
     '        end',
     '    end)',
@@ -788,7 +1036,8 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
       lines.push('    end')
     }
     if (spell.beam !== undefined) {
-      lines.push(`    StartSpellBeam(user, ${spellBeamLuaTable(spell.beam)})`)
+      lines.push('    DoSpellCastPose(user)')
+      lines.push(`    StartSpellBeam(user, ${spellBeamLuaTable(spell.beam)}, pos)`)
     }
     if (spell.nova !== undefined) {
       lines.push(`    DoSpellNova(user, pos, ${spellNovaLuaTable(spell.nova)})`)
@@ -871,13 +1120,33 @@ function staticSpellbookFunctionBlock(spells: SpellbookSpell[]): string[] {
       if (spell.beam !== undefined) {
         lines.push('            inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"')
         lines.push('            inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"')
+        // Confirmed against the real prefabs/spear_gungnir.lua (Wigfrid's
+        // spear — the same "reticuleline" shape): a directional-line
+        // reticule needs its OWN targetfn/mousetargetfn (rescaled to a FIXED
+        // distance, not merely clamped) plus updatepositionfn (parks the
+        // reticule's origin AT the caster and rotates it to face the aim
+        // point) — without these it'd fall back to the generic dot-reticule
+        // behavior (placed AT the mouse position, never oriented), reproduced
+        // in-game as "should start from the character and rotate around her".
+        lines.push('            inst.components.aoetargeting.reticule.targetfn = spell_aoe_linetargetfn')
+        lines.push('            inst.components.aoetargeting.reticule.mousetargetfn = spell_aoe_linemousetargetfn')
+        lines.push('            inst.components.aoetargeting.reticule.updatepositionfn = spell_aoe_lineupdatepositionfn')
       } else if (spell.nova !== undefined || spell.cage !== undefined || spell.desintegrate !== undefined) {
         const { reticuleprefab, pingprefab } = aoeReticuleNames((spell.nova ?? spell.cage ?? spell.desintegrate)!.radius)
         lines.push(`            inst.components.aoetargeting.reticule.reticuleprefab = ${luaString(reticuleprefab)}`)
         lines.push(`            inst.components.aoetargeting.reticule.pingprefab = ${luaString(pingprefab)}`)
+        // Reset back from any previous beam selection in the same wheel —
+        // reticule state is mutated in place on the shared aoetargeting
+        // component (same reasoning as reticuleprefab/pingprefab above).
+        lines.push('            inst.components.aoetargeting.reticule.targetfn = spell_aoe_reticuletargetfn')
+        lines.push('            inst.components.aoetargeting.reticule.mousetargetfn = spell_aoe_mousetargetfn')
+        lines.push('            inst.components.aoetargeting.reticule.updatepositionfn = nil')
       } else {
         lines.push('            inst.components.aoetargeting.reticule.reticuleprefab = "reticule"')
         lines.push('            inst.components.aoetargeting.reticule.pingprefab = nil')
+        lines.push('            inst.components.aoetargeting.reticule.targetfn = spell_aoe_reticuletargetfn')
+        lines.push('            inst.components.aoetargeting.reticule.mousetargetfn = spell_aoe_mousetargetfn')
+        lines.push('            inst.components.aoetargeting.reticule.updatepositionfn = nil')
       }
       // Confirmed against the real prefabs/ghostcommand_defs.lua: onselect
       // runs on BOTH client and server (it's what the wheel widget calls
@@ -988,17 +1257,19 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('        local label, manacost, healthdelta, sanitydelta, hungerdelta, summonprefab,')
   lines.push('            isaimed, beamdamage, beamtickinterval, beamrange, beamduration, beamtelegraph,')
   lines.push('            novadamage, novaradius, novastun, refractionradius, refractionduration,')
-  lines.push('            flashbangradius, flashbangstun, cageprefab, cageradius, cagecount, cagerooted,')
+  lines.push('            flashbangradius, flashbangstun, cagefx, cageradius, cagespacing, cageduration,')
   lines.push('            desintegrateradius, desintegratedamage, desintegratecasttime,')
   lines.push('            geardropprefabs, geardropradius, temperaturedelta, healtotal, healpersecond,')
-  lines.push('            desintegrateoverheatdamage =')
+  lines.push('            desintegrateoverheatdamage, beamfx, beamfxscale, beamfxspeed,')
+  lines.push('            desintegratefx, desintegratefxscale, desintegratefxleadin =')
   lines.push('            fields[1], fields[2], fields[3], fields[4], fields[5], fields[6],')
   lines.push('            fields[7], fields[8], fields[9], fields[10], fields[11], fields[12],')
   lines.push('            fields[13], fields[14], fields[15], fields[16], fields[17],')
   lines.push('            fields[18], fields[19], fields[20], fields[21], fields[22], fields[23],')
   lines.push('            fields[24], fields[25], fields[26],')
   lines.push('            fields[27], fields[28], fields[29], fields[30], fields[31],')
-  lines.push('            fields[32]')
+  lines.push('            fields[32], fields[33], fields[34], fields[35],')
+  lines.push('            fields[36], fields[37], fields[38]')
   lines.push('        table.insert(items, {')
   lines.push('            label = label,')
   // Same real widgets/wheel.lua checkenabled convention, and the same
@@ -1047,13 +1318,17 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('                        end')
   lines.push('                    end')
   lines.push('                    if beamdamage ~= "" then')
+  lines.push('                        DoSpellCastPose(user)')
   lines.push('                        StartSpellBeam(user, {')
   lines.push('                            damage = tonumber(beamdamage),')
   lines.push('                            tickinterval = tonumber(beamtickinterval),')
   lines.push('                            range = tonumber(beamrange),')
   lines.push('                            duration = tonumber(beamduration),')
   lines.push('                            telegraph = beamtelegraph ~= "" and tonumber(beamtelegraph) or nil,')
-  lines.push('                        })')
+  lines.push('                            fx = beamfx ~= "" and beamfx or nil,')
+  lines.push('                            fxscale = beamfxscale ~= "" and tonumber(beamfxscale) or nil,')
+  lines.push('                            fxspeed = beamfxspeed ~= "" and tonumber(beamfxspeed) or nil,')
+  lines.push('                        }, pos)')
   lines.push('                    end')
   lines.push('                    if novadamage ~= "" then')
   lines.push('                        DoSpellNova(user, pos, { damage = tonumber(novadamage), radius = tonumber(novaradius), stun = tonumber(novastun) })')
@@ -1064,13 +1339,19 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('                    if flashbangradius ~= "" then')
   lines.push('                        DoSpellFlashbang(user, { radius = tonumber(flashbangradius), stun = tonumber(flashbangstun) })')
   lines.push('                    end')
-  lines.push('                    if cageprefab ~= "" then')
-  lines.push('                        DoSpellCage(user, pos, { prefab = cageprefab, radius = tonumber(cageradius), count = tonumber(cagecount), rooted = tonumber(cagerooted) })')
+  lines.push('                    if cagefx ~= "" then')
+  lines.push('                        DoSpellCage(user, pos, { fx = cagefx, radius = tonumber(cageradius), spacing = tonumber(cagespacing), duration = tonumber(cageduration) })')
   lines.push('                    end')
   lines.push('                    if desintegrateradius ~= "" then')
-  lines.push(
-    '                        DoSpellDesintegrate(user, pos, { radius = tonumber(desintegrateradius), damage = tonumber(desintegratedamage), casttime = tonumber(desintegratecasttime), overheatdamage = desintegrateoverheatdamage ~= "" and tonumber(desintegrateoverheatdamage) or nil })',
-  )
+  lines.push('                        DoSpellDesintegrate(user, pos, {')
+  lines.push('                            radius = tonumber(desintegrateradius),')
+  lines.push('                            damage = tonumber(desintegratedamage),')
+  lines.push('                            casttime = tonumber(desintegratecasttime),')
+  lines.push('                            overheatdamage = desintegrateoverheatdamage ~= "" and tonumber(desintegrateoverheatdamage) or nil,')
+  lines.push('                            fx = desintegratefx ~= "" and desintegratefx or nil,')
+  lines.push('                            fxscale = desintegratefxscale ~= "" and tonumber(desintegratefxscale) or nil,')
+  lines.push('                            fxleadin = desintegratefxleadin ~= "" and tonumber(desintegratefxleadin) or nil,')
+  lines.push('                        })')
   lines.push('                    end')
   lines.push('                    if geardropprefabs ~= "" then')
   lines.push('                        local dropprefabs = {}')
@@ -1105,9 +1386,12 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('                    if beamdamage ~= "" then')
   lines.push('                        inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"')
   lines.push('                        inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"')
-  lines.push('                    elseif novadamage ~= "" or cageprefab ~= "" or desintegrateradius ~= "" then')
+  lines.push('                        inst.components.aoetargeting.reticule.targetfn = spell_aoe_linetargetfn')
+  lines.push('                        inst.components.aoetargeting.reticule.mousetargetfn = spell_aoe_linemousetargetfn')
+  lines.push('                        inst.components.aoetargeting.reticule.updatepositionfn = spell_aoe_lineupdatepositionfn')
+  lines.push('                    elseif novadamage ~= "" or cagefx ~= "" or desintegrateradius ~= "" then')
   lines.push(
-    '                        local aoeradius = tonumber(novadamage ~= "" and novaradius or (cageprefab ~= "" and cageradius or desintegrateradius))',
+    '                        local aoeradius = tonumber(novadamage ~= "" and novaradius or (cagefx ~= "" and cageradius or desintegrateradius))',
   )
   lines.push('                        if aoeradius ~= nil and aoeradius <= 6 then')
   lines.push('                            inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe_1_6"')
@@ -1116,9 +1400,15 @@ function linkedContainerSpellbookFunctionBlock(containerItemId: string): string[
   lines.push('                            inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"')
   lines.push('                            inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"')
   lines.push('                        end')
+  lines.push('                        inst.components.aoetargeting.reticule.targetfn = spell_aoe_reticuletargetfn')
+  lines.push('                        inst.components.aoetargeting.reticule.mousetargetfn = spell_aoe_mousetargetfn')
+  lines.push('                        inst.components.aoetargeting.reticule.updatepositionfn = nil')
   lines.push('                    else')
   lines.push('                        inst.components.aoetargeting.reticule.reticuleprefab = "reticule"')
   lines.push('                        inst.components.aoetargeting.reticule.pingprefab = nil')
+  lines.push('                        inst.components.aoetargeting.reticule.targetfn = spell_aoe_reticuletargetfn')
+  lines.push('                        inst.components.aoetargeting.reticule.mousetargetfn = spell_aoe_mousetargetfn')
+  lines.push('                        inst.components.aoetargeting.reticule.updatepositionfn = nil')
   lines.push('                    end')
   // See the static-spellbook onselect's own comment: aoespell is server-only,
   // but onselect runs on both sides (confirmed via ghostcommand_defs.lua),
@@ -1489,7 +1779,16 @@ function aimedSpellSharedLines(): string[] {
   return [
     '    inst:AddComponent("aoetargeting")',
     '    inst.components.aoetargeting.reticule.targetfn = spell_aoe_reticuletargetfn',
+    '    inst.components.aoetargeting.reticule.mousetargetfn = spell_aoe_mousetargetfn',
     '    inst.components.aoetargeting.reticule.mouseenabled = true',
+    // Confirmed real convention (prefabs/ghostcommand_defs.lua's own aimed
+    // wendy ghost commands: `aoetargeting.reticule.twinstickmode = 1` +
+    // `twinstickrange`) — without it, a connected controller's right stick
+    // never actually rotates the reticule at all (targetfn above only ever
+    // returns ONE static point, snapshotted once); mode 1 is the "reticule
+    // orbits the caster, pushed out by the stick" twinstick style, matching
+    // "should rotate around the character" for gamepad too, not just mouse.
+    '    inst.components.aoetargeting.reticule.twinstickmode = 1',
   ]
 }
 
@@ -1607,10 +1906,10 @@ function containerComponentBlock(item: ItemDef): string[] {
       '                    refraction ~= nil and tostring(refraction.duration) or "",',
       '                    flashbang ~= nil and tostring(flashbang.radius) or "",',
       '                    flashbang ~= nil and tostring(flashbang.stun) or "",',
-      '                    cage ~= nil and cage.prefab or "",',
+      '                    cage ~= nil and cage.fx or "",',
       '                    cage ~= nil and tostring(cage.radius) or "",',
-      '                    cage ~= nil and tostring(cage.count) or "",',
-      '                    cage ~= nil and tostring(cage.rooted) or "",',
+      '                    cage ~= nil and tostring(cage.spacing) or "",',
+      '                    cage ~= nil and tostring(cage.duration) or "",',
       '                    desintegrate ~= nil and tostring(desintegrate.radius) or "",',
       '                    desintegrate ~= nil and tostring(desintegrate.damage) or "",',
       '                    desintegrate ~= nil and tostring(desintegrate.casttime) or "",',
@@ -1620,6 +1919,12 @@ function containerComponentBlock(item: ItemDef): string[] {
       '                    healovertime ~= nil and tostring(healovertime.total) or "",',
       '                    healovertime ~= nil and tostring(healovertime.persecond) or "",',
       '                    (desintegrate ~= nil and desintegrate.overheatdamage ~= nil) and tostring(desintegrate.overheatdamage) or "",',
+      '                    beam ~= nil and (beam.fx or "") or "",',
+      '                    (beam ~= nil and beam.fxscale ~= nil) and tostring(beam.fxscale) or "",',
+      '                    (beam ~= nil and beam.fxspeed ~= nil) and tostring(beam.fxspeed) or "",',
+      '                    desintegrate ~= nil and (desintegrate.fx or "") or "",',
+      '                    (desintegrate ~= nil and desintegrate.fxscale ~= nil) and tostring(desintegrate.fxscale) or "",',
+      '                    (desintegrate ~= nil and desintegrate.fxleadin ~= nil) and tostring(desintegrate.fxleadin) or "",',
       '                }, "\\31"))',
       '            end',
       '        end',
@@ -2325,6 +2630,240 @@ function generateChainReturnProjectilePrefab(item: ItemDef): string {
   return lines.join('\n') + '\n'
 }
 
+// Reused (id + build are the same string) across every beam that sets this
+// exact fxBuild — a plain visual, no components, so a fresh copy per beam
+// caster is cheap and there's nothing to configure per-item. Confirmed real
+// pre/loop/pst convention (see spellbookSpellSchema.beam.fxBuild's own
+// comment); AddNetwork()+SetPristine() alone is enough for its AnimState to
+// replicate normally to every nearby client, same as any other plain FX
+// prefab (e.g. the vanilla "reticule" this same file already spawns) — no
+// ismastersim split needed since there's no server-only component here.
+export function generateBeamFxPrefab(fxBuild: string): string {
+  const lines: string[] = []
+  lines.push('local assets =')
+  lines.push('{')
+  lines.push(`    Asset("ANIM", "anim/${fxBuild}.zip"),`)
+  lines.push('}')
+  lines.push('')
+  lines.push('local prefabs = {}')
+  lines.push('')
+  lines.push('local function fn()')
+  lines.push('    local inst = CreateEntity()')
+  lines.push('')
+  lines.push('    inst.entity:AddTransform()')
+  lines.push('    inst.entity:AddAnimState()')
+  lines.push('    inst.entity:AddNetwork()')
+  lines.push('')
+  lines.push(`    inst.AnimState:SetBank(${luaString(fxBuild)})`)
+  lines.push(`    inst.AnimState:SetBuild(${luaString(fxBuild)})`)
+  lines.push('    inst.AnimState:PlayAnimation("pre")')
+  lines.push('    inst.AnimState:PushAnimation("loop", true)')
+  // Confirmed against the real prefabs/reticuleline.lua (the "reticuleline"
+  // reticule prefab itself, which we already know rotates correctly
+  // on-screen): without this, AnimState defaults to a camera-facing
+  // billboard, and Transform:SetRotation doesn't visibly turn the sprite to
+  // face the aimed direction — this, not the rotation angle math, was why
+  // two prior rotation-formula fixes both failed in-game.
+  lines.push('    inst.AnimState:SetOrientation(ANIM_ORIENTATION.OnGround)')
+  // Reported in-game: the beam flickered/strobed instead of reading as a
+  // steady laser. reticuleline.lua always pairs OnGround orientation with an
+  // explicit layer + sort order; without them an OnGround sprite has no
+  // stable draw position relative to the ground tiles and other world-layer
+  // FX, so it z-fights and flickers as the camera/other objects redraw each
+  // frame — not an animation-content problem.
+  lines.push('    inst.AnimState:SetLayer(LAYER_WORLD_BACKGROUND)')
+  lines.push('    inst.AnimState:SetSortOrder(3)')
+  lines.push('')
+  lines.push('    inst:AddTag("FX")')
+  lines.push('    inst:AddTag("NOCLICK")')
+  lines.push('')
+  lines.push('    inst.persists = false')
+  lines.push('')
+  lines.push('    inst.entity:SetPristine()')
+  lines.push('    if not TheWorld.ismastersim then')
+  lines.push('        return inst')
+  lines.push('    end')
+  lines.push('')
+  lines.push('    return inst')
+  lines.push('end')
+  lines.push('')
+  lines.push(`return Prefab(${luaString(fxBuild)}, fn, assets, prefabs)`)
+
+  return lines.join('\n') + '\n'
+}
+
+// Same base setup as generateBeamFxPrefab (assets/bank/build/orientation/
+// layer/sortorder/tags/persists), but deliberately does NOT auto-play
+// anything in fn() — unlike a beam's fixed pre→loop→pst, desintegrate's own
+// caster code (DoSpellDesintegrate) drives this fx through an authored
+// pre→fall→explode→pst sequence with the "pre"+"fall" portion stretched to
+// match a configurable castTimeSeconds, timing that only the caster (which
+// knows casttime) can compute — baking a fixed PlayAnimation call in here
+// would just get immediately overridden anyway.
+export function generateDesintegrateFxPrefab(fxBuild: string): string {
+  const lines: string[] = []
+  lines.push('local assets =')
+  lines.push('{')
+  lines.push(`    Asset("ANIM", "anim/${fxBuild}.zip"),`)
+  lines.push('}')
+  lines.push('')
+  lines.push('local prefabs = {}')
+  lines.push('')
+  lines.push('local function fn()')
+  lines.push('    local inst = CreateEntity()')
+  lines.push('')
+  lines.push('    inst.entity:AddTransform()')
+  lines.push('    inst.entity:AddAnimState()')
+  lines.push('    inst.entity:AddNetwork()')
+  lines.push('')
+  lines.push(`    inst.AnimState:SetBank(${luaString(fxBuild)})`)
+  lines.push(`    inst.AnimState:SetBuild(${luaString(fxBuild)})`)
+  lines.push('    inst.AnimState:SetOrientation(ANIM_ORIENTATION.OnGround)')
+  lines.push('    inst.AnimState:SetLayer(LAYER_WORLD_BACKGROUND)')
+  lines.push('    inst.AnimState:SetSortOrder(3)')
+  lines.push('')
+  lines.push('    inst:AddTag("FX")')
+  lines.push('    inst:AddTag("NOCLICK")')
+  lines.push('')
+  lines.push('    inst.persists = false')
+  lines.push('')
+  lines.push('    inst.entity:SetPristine()')
+  lines.push('    if not TheWorld.ismastersim then')
+  lines.push('        return inst')
+  lines.push('    end')
+  lines.push('')
+  lines.push('    return inst')
+  lines.push('end')
+  lines.push('')
+  lines.push(`return Prefab(${luaString(fxBuild)}, fn, assets, prefabs)`)
+
+  return lines.join('\n') + '\n'
+}
+
+// Every distinct fxBuild used by any beam on this item — a spellDef item has
+// at most one beam of its own; a static spellbook item can define several
+// spells, each with its own beam. Deduplicated (Set) since two spells could
+// reuse the same fxBuild.
+export function beamFxBuildIds(item: ItemDef): string[] {
+  const ids = new Set<string>()
+  if (item.spellDef?.beam?.fxBuild !== undefined) ids.add(item.spellDef.beam.fxBuild)
+  if (item.spellbook?.source === 'static') {
+    for (const spell of item.spellbook.spells) {
+      if (spell.beam?.fxBuild !== undefined) ids.add(spell.beam.fxBuild)
+    }
+  }
+  return [...ids]
+}
+
+// Same reasoning as beamFxBuildIds, for cage's own bar build.
+export function cageFxBuildIds(item: ItemDef): string[] {
+  const ids = new Set<string>()
+  if (item.spellDef?.cage !== undefined) ids.add(item.spellDef.cage.fxBuild)
+  if (item.spellbook?.source === 'static') {
+    for (const spell of item.spellbook.spells) {
+      if (spell.cage !== undefined) ids.add(spell.cage.fxBuild)
+    }
+  }
+  return [...ids]
+}
+
+// The two bar shapes of a cage (see spellbookSpellSchema.cage), in one
+// prefab file named after the build: <build>_tall (the "post" clips, with
+// a small light) and <build>_short (the "short" clips). Each is a solid
+// obstacle (MakeObstaclePhysics, radius 0.3) — the same static body real
+// walls use — and untargetable/unclickable. Dismiss drops the collider
+// first so nothing snags on a bar that's already sinking, then plays the
+// _pst clip; the timed Remove is a fallback for a bar far from any player,
+// whose animation (and so its "animover") doesn't advance while asleep.
+export function generateCageBarPrefab(fxBuild: string): string {
+  const shape = (name: string, clipPrefix: string, lit: boolean): string[] => {
+    const lines = [
+      `local function ${name}fn()`,
+      '    local inst = CreateEntity()',
+      '',
+      '    inst.entity:AddTransform()',
+      '    inst.entity:AddAnimState()',
+    ]
+    if (lit) lines.push('    inst.entity:AddLight()')
+    lines.push(
+      '    inst.entity:AddNetwork()',
+      '',
+      '    MakeObstaclePhysics(inst, .3)',
+      '',
+      `    inst.AnimState:SetBank(${luaString(fxBuild)})`,
+      `    inst.AnimState:SetBuild(${luaString(fxBuild)})`,
+      `    inst.AnimState:PlayAnimation(${luaString(clipPrefix + '_pre')})`,
+      `    inst.AnimState:PushAnimation(${luaString(clipPrefix + '_idle')}, true)`,
+      '    inst.AnimState:SetBloomEffectHandle("shaders/anim.ksh")',
+      '    inst.AnimState:SetLightOverride(0.5)',
+    )
+    if (lit) {
+      lines.push(
+        '',
+        '    inst.Light:SetRadius(1.2)',
+        '    inst.Light:SetIntensity(0.6)',
+        '    inst.Light:SetFalloff(0.8)',
+        '    inst.Light:SetColour(1, 0.82, 0.4)',
+        '    inst.Light:Enable(true)',
+      )
+    }
+    lines.push(
+      '',
+      '    inst:AddTag("NOCLICK")',
+      '    inst:AddTag("notarget")',
+      '',
+      '    inst.entity:SetPristine()',
+      '    if not TheWorld.ismastersim then',
+      '        return inst',
+      '    end',
+      '',
+      '    inst.persists = false',
+      `    inst._pstclip = ${luaString(clipPrefix + '_pst')}`,
+      '    inst.Dismiss = Dismiss',
+      '',
+      '    return inst',
+      'end',
+      '',
+    )
+    return lines
+  }
+  const lines: string[] = [
+    'local assets =',
+    '{',
+    `    Asset("ANIM", "anim/${fxBuild}.zip"),`,
+    '}',
+    '',
+    'local function Dismiss(inst)',
+    '    if inst._dismissed then',
+    '        return',
+    '    end',
+    '    inst._dismissed = true',
+    '    RemovePhysicsColliders(inst)',
+    '    inst.AnimState:PlayAnimation(inst._pstclip)',
+    '    inst:ListenForEvent("animover", inst.Remove)',
+    '    inst:DoTaskInTime(3, inst.Remove)',
+    'end',
+    '',
+    ...shape('tall', 'post', true),
+    ...shape('short', 'short', false),
+    `return Prefab(${luaString(fxBuild + '_tall')}, tallfn, assets),`,
+    `    Prefab(${luaString(fxBuild + '_short')}, shortfn, assets)`,
+  ]
+  return lines.join('\n') + '\n'
+}
+
+// Same reasoning as beamFxBuildIds, for desintegrate's own fxBuild.
+export function desintegrateFxBuildIds(item: ItemDef): string[] {
+  const ids = new Set<string>()
+  if (item.spellDef?.desintegrate?.fxBuild !== undefined) ids.add(item.spellDef.desintegrate.fxBuild)
+  if (item.spellbook?.source === 'static') {
+    for (const spell of item.spellbook.spells) {
+      if (spell.desintegrate?.fxBuild !== undefined) ids.add(spell.desintegrate.fxBuild)
+    }
+  }
+  return [...ids]
+}
+
 export function generateItemFiles(item: ItemDef): Record<string, string> {
   const files: Record<string, string> = {
     [`scripts/prefabs/${item.id}.lua`]: generateItemPrefab(item),
@@ -2337,6 +2876,15 @@ export function generateItemFiles(item: ItemDef): Record<string, string> {
   }
   if (item.weapon?.chainReturn !== undefined) {
     files[`scripts/prefabs/${chakramProjectileId(item)}.lua`] = generateChainReturnProjectilePrefab(item)
+  }
+  for (const fxBuild of beamFxBuildIds(item)) {
+    files[`scripts/prefabs/${fxBuild}.lua`] = generateBeamFxPrefab(fxBuild)
+  }
+  for (const fxBuild of desintegrateFxBuildIds(item)) {
+    files[`scripts/prefabs/${fxBuild}.lua`] = generateDesintegrateFxPrefab(fxBuild)
+  }
+  for (const fxBuild of cageFxBuildIds(item)) {
+    files[`scripts/prefabs/${fxBuild}.lua`] = generateCageBarPrefab(fxBuild)
   }
   return files
 }

@@ -86,17 +86,23 @@ export const viana: ModProject = {
       },
     },
     {
+      // id kept from the old Ember Wisp so existing saves/recipes still line up.
       id: 'emberwispspell',
-      displayName: 'Ember Wisp Spell',
-      description: 'Bind this in the Sun Codex to summon a warm, floating ember of light where she aims.',
+      displayName: 'Golden Bloom Spell',
+      description: 'Bind this in the Sun Codex to grow a Golden Flower where she aims — every so often it lets loose a Sun Moth that lights the way for whoever walks by.',
       category: 'generic',
-      animation: { source: 'vanilla', build: 'papyrus' },
-      spellDef: { label: 'Ember Wisp', summonPrefab: 'emberlight', temperatureDelta: 10, manaCost: 40, aimed: true },
+      // User-supplied scroll art, used for both looks: the inventory icon
+      // (squared + converted via scripts/png_to_ktex.py) and, for now, the
+      // ground sprite too (a one-frame "idle" Spriter build compiled to
+      // anim/<id>.zip, sized ~180px tall like vanilla papyrus' ~200px).
+      animation: { source: 'custom' },
+      hasCustomIcon: true,
+      spellDef: { label: 'Golden Bloom', summonPrefab: 'goldflower', temperatureDelta: 15, manaCost: 100, aimed: true },
       recipe: {
         ingredients: [
-          { prefab: 'papyrus', amount: 1 },
-          { prefab: 'torch', amount: 1 },
-          { prefab: 'charcoal', amount: 5 },
+          { prefab: 'papyrus', amount: 2 },
+          { prefab: 'butterflywings', amount: 20 },
+          { prefab: 'yellowgem', amount: 2 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
@@ -174,7 +180,23 @@ export const viana: ModProject = {
         label: 'Solar Beam',
         manaCost: 50,
         temperatureDelta: 10,
-        beam: { damagePerTick: 35, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3, telegraphSeconds: 0.5 },
+        // fxScale: starting guess (2x native size) since there's no way to
+        // preview the raw Spriter-authored pixel size in-engine from here -
+        // tune this directly based on how it actually looks in-game.
+        // fxSpeed: reported in-game as flickering/restarting rather than a
+        // steady laser at native (1x) speed - trying half speed (the "loop"
+        // clip is 16 frames / ~0.53s at 1x) to see whether a slower cycle
+        // reads as a smoother shimmer instead of a strobe. Tune from here.
+        beam: {
+          damagePerTick: 35,
+          tickIntervalSeconds: 0.5,
+          range: 10,
+          durationSeconds: 3,
+          telegraphSeconds: 0.5,
+          fxBuild: 'lightbeam',
+          fxScale: 2,
+          fxSpeed: 0.5,
+        },
       },
       recipe: {
         ingredients: [
@@ -254,19 +276,30 @@ export const viana: ModProject = {
     {
       id: 'solarcagespell',
       displayName: 'Solar Cage Spell',
-      description: 'Bind this in the Sun Codex to ring an area with pillars of light where she aims, trapping any enemy caught inside until they burn out.',
+      description: 'Bind this in the Sun Codex to raise a ring of golden bars where she aims — nothing inside can get out, and nothing outside can get in, until they fade.',
       category: 'generic',
-      animation: { source: 'vanilla', build: 'papyrus' },
+      // User-supplied scroll art, used for both looks: the inventory icon
+      // (squared + converted via scripts/png_to_ktex.py) and, for now, the
+      // ground sprite too (a one-frame "idle" Spriter build compiled to
+      // anim/<id>.zip, sized ~180px tall like vanilla papyrus' ~200px).
+      animation: { source: 'custom' },
+      hasCustomIcon: true,
       spellDef: {
         label: 'Solar Cage',
-        manaCost: 40,
-        cage: { pillarPrefab: 'lightpillar', radius: 7, pillarCount: 8, rootedSeconds: 15 },
+        manaCost: 60,
+        temperatureDelta: 20,
+        // fxBuild: the user's own Spriter "sungate" build (mods/viana-assets/
+        // anim/sungate.zip). Bars measured at ~2.8 (tall) / ~2.0 (short)
+        // world units high and only ~0.15-0.3 wide, so at the default 0.8
+        // spacing the ring reads as cage bars with gaps, while the bars'
+        // own 0.3-radius bodies still leave only a 0.2 physical gap. Radius
+        // 7 => 56 bars.
+        cage: { fxBuild: 'sungate', radius: 7, durationSeconds: 10 },
       },
       recipe: {
         ingredients: [
-          { prefab: 'papyrus', amount: 3 },
-          { prefab: 'nightmarefuel', amount: 10 },
-          { prefab: 'fence_item', amount: 6 },
+          { prefab: 'papyrus', amount: 2 },
+          { prefab: 'sun_pillar_shard', amount: 1 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
@@ -277,17 +310,34 @@ export const viana: ModProject = {
       displayName: 'Desintegration Spell',
       description: 'Bind this in the Sun Codex to mark an area with a searing light — after a long, visible wind-up, anything still caught inside is obliterated.',
       category: 'generic',
-      animation: { source: 'vanilla', build: 'papyrus' },
+      // User-supplied scroll art, used for both looks: the inventory icon
+      // (squared + converted via scripts/png_to_ktex.py) and, for now, the
+      // ground sprite too (a one-frame "idle" Spriter build compiled to
+      // anim/<id>.zip, sized ~180px tall like vanilla papyrus' ~200px).
+      animation: { source: 'custom' },
+      hasCustomIcon: true,
       spellDef: {
         label: 'Desintegration',
         manaCost: 150,
-        desintegrate: { radius: 6, damage: 2000, overheatDamage: 5000, castTimeSeconds: 10 },
+        // fxLeadInSeconds: the "starfall" build's own authored "pre"+"fall"
+        // clip lengths added up (0.33s + 1.782s), used to stretch that fall
+        // to fill the entire castTimeSeconds windup instead of finishing
+        // in ~2.1s and idling. fxScale: starting guess, tune from here.
+        desintegrate: {
+          radius: 6,
+          damage: 2000,
+          overheatDamage: 5000,
+          castTimeSeconds: 7,
+          fxBuild: 'starfall',
+          fxScale: 1,
+          fxLeadInSeconds: 2.112,
+        },
       },
       recipe: {
         ingredients: [
-          { prefab: 'papyrus', amount: 4 },
-          { prefab: 'alterguardianhatshard', amount: 1 },
-          { prefab: 'purebrilliance', amount: 5 },
+          { prefab: 'papyrus', amount: 5 },
+          { prefab: 'alterguardianhatshard', amount: 5 },
+          { prefab: 'shadowheart_infused', amount: 1 },
         ],
         techLevel: 'MAGIC_TWO',
         filters: ['MAGIC'],
@@ -441,6 +491,19 @@ export const viana: ModProject = {
         filters: ['MAGIC'],
       },
     },
+    // Solar Cage's crafting material — never crafted, only dropped by the
+    // Antlion (always 1 per kill, on top of its own loot, see dropsFrom).
+    // Placeholder look: the vanilla Moon Glass shard, until it gets its
+    // own art.
+    {
+      id: 'sun_pillar_shard',
+      displayName: 'Sun Pillar Shard',
+      description: 'A splinter of the pillar the Antlion kept buried under the sands. It still hums with trapped sunlight.',
+      category: 'generic',
+      animation: { source: 'vanilla', build: 'moonglass', idleClip: 'f1' },
+      stackable: { maxSize: 40 },
+      dropsFrom: [{ prefab: 'antlion', chance: 1, amount: 1 }],
+    },
   ],
   characters: [
     {
@@ -486,6 +549,57 @@ export const viana: ModProject = {
     },
   ],
   creatures: [
+    // Golden Bloom's flower (user-made Spriter build, mods/viana-assets/anim/
+    // goldflower.zip): permanent until hammered, releases one Sun Moth at a
+    // time, only at dusk/night (the moth fades at dawn). releaseFrame 16 = the flash in the "release" clip's core, per the
+    // artist's own notes. Light values are the artist's suggested ones.
+    {
+      id: 'goldflower',
+      displayName: 'Golden Flower',
+      description: 'A flower grown from pure sunlight. Every so often it shudders and lets a Sun Moth loose.',
+      animation: {
+        source: 'custom',
+        build: 'goldflower',
+        clips: { idle: 'idle_loop', walk: 'idle_loop', atk: 'idle_loop', hit: 'idle_loop', death: 'destroy', spawn: 'grow' },
+      },
+      stats: { health: 100, damage: 0, attackPeriod: 2, walkSpeed: 0.1 },
+      loot: [],
+      behavior: 'passive',
+      tags: [],
+      panicCauses: [],
+      invincible: true,
+      hammerable: true,
+      glow: 0.5,
+      light: { radius: 1.3, intensity: 0.6, falloff: 0.8, colour: { r: 255, g: 209, b: 102 } },
+      childSpawner: { prefab: 'sunmoth', intervalSeconds: 60, releaseClip: 'release', releaseFrame: 16, onlyWhenNotDay: true },
+    },
+    // The Golden Flower's moth (user-made Spriter build, mods/viana-assets/
+    // anim/sunmoth_cauda.zip): purely a light — invincible, never fights —
+    // hovering by the flower until a player passes within acquireRadius,
+    // then following that player until it fades at dawn. Light values match
+    // the artist's own sunmoth.lua.
+    {
+      id: 'sunmoth',
+      displayName: 'Sun Moth',
+      description: 'A little piece of the sun that learned to fly.',
+      animation: {
+        source: 'custom',
+        build: 'sunmoth_cauda',
+        clips: { idle: 'idle_loop', walk: 'flight_loop', atk: 'atk', hit: 'hit', death: 'death', spawn: 'spawn' },
+      },
+      stats: { health: 20, damage: 0, attackPeriod: 2, walkSpeed: 4 },
+      loot: [],
+      behavior: 'passive',
+      tags: ['insect', 'smallcreature'],
+      panicCauses: [],
+      companion: { followDistance: 3, tasks: [], acquireRadius: 6 },
+      invincible: true,
+      flying: true,
+      twoFaced: true,
+      glow: 0.6,
+      vanishAtDawn: true,
+      light: { radius: 2.2, intensity: 0.65, falloff: 0.75, colour: { r: 255, g: 209, b: 102 } },
+    },
     {
       id: 'sunorb',
       displayName: 'Sun Orb',
@@ -509,23 +623,6 @@ export const viana: ModProject = {
       sanityAura: 10,
       heatAura: 40,
       invincible: true,
-    },
-    {
-      id: 'lightpillar',
-      displayName: 'Light Pillar',
-      description: 'A column of solidified sunlight, rooted to the spot where it was raised — it burns anything that strays too close.',
-      animation: {
-        source: 'vanilla',
-        build: 'flameball_fx',
-        clips: { idle: 'idle_loop', walk: 'idle_loop', atk: 'idle_loop', hit: 'idle_loop', death: 'post' },
-      },
-      stats: { health: 200, damage: 20, attackPeriod: 1.5, walkSpeed: 0.1 },
-      loot: [],
-      behavior: 'neutral',
-      tags: [],
-      panicCauses: [],
-      sentry: { radius: 6 },
-      light: { radius: 8, intensity: 0.8, falloff: 0.8, colour: { r: 255, g: 220, b: 150 } },
     },
     {
       id: 'solarpillar',
@@ -566,6 +663,47 @@ export const viana: ModProject = {
       // Vanishes on its own if never stepped through — see
       // SpellPortalTeleporter:Activate (creature.ts) for the "used" half.
       expireIfAliveSeconds: 10,
+    },
+  ],
+  // Third-shard experiment (scripts/test-three-shards.ps1): a pair of
+  // portals between the Master and a secondary shard named "Solar". Only
+  // active on a cluster that actually has a "Solar" shard; anywhere else
+  // they stay inactive (no MIGRATE action). Cheap, no-tech recipes on
+  // purpose while this is a prototype. Placeholder look: the Science
+  // Machine build, the only vanilla structure shape confirmed to follow the
+  // bank === build, clip "idle" convention the generator assumes.
+  structures: [
+    {
+      id: 'solarrift',
+      displayName: 'Solar Rift',
+      description: 'A tear toward the Solar realm. Step through to cross over.',
+      animation: { source: 'vanilla', build: 'researchlab' },
+      loot: [],
+      shardPortal: { shardName: 'Solar' },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 1 },
+          { prefab: 'rocks', amount: 2 },
+        ],
+        techLevel: 'NONE',
+        filters: ['MAGIC'],
+      },
+    },
+    {
+      id: 'solarreturn',
+      displayName: 'Homeward Rift',
+      description: 'Leads back out of the Solar realm, to the world above.',
+      animation: { source: 'vanilla', build: 'researchlab' },
+      loot: [],
+      shardPortal: { shardName: 'Master' },
+      recipe: {
+        ingredients: [
+          { prefab: 'goldnugget', amount: 1 },
+          { prefab: 'rocks', amount: 2 },
+        ],
+        techLevel: 'NONE',
+        filters: ['MAGIC'],
+      },
     },
   ],
 }

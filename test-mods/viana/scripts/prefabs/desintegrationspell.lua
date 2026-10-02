@@ -1,6 +1,8 @@
 local assets =
 {
-    -- Build "papyrus" reaproveitado do jogo base, sem asset próprio necessário.
+    Asset("ANIM", "anim/desintegrationspell.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)
+    Asset("ATLAS", "images/inventoryimages/desintegrationspell.xml"),
+    Asset("IMAGE", "images/inventoryimages/desintegrationspell.tex"),
 }
 
 local prefabs = {}
@@ -14,8 +16,8 @@ local function fn()
 
     MakeInventoryPhysics(inst)
 
-    inst.AnimState:SetBank("papyrus")
-    inst.AnimState:SetBuild("papyrus")
+    inst.AnimState:SetBank("desintegrationspell")
+    inst.AnimState:SetBuild("desintegrationspell")
     inst.AnimState:PlayAnimation("idle")
 
     inst:AddTag("item")
@@ -28,7 +30,6 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
-    inst.components.inventoryitem.imagename = "papyrus"
 
     inst.spell_label = "Desintegration"
     inst.spell_summonprefab = nil
@@ -37,7 +38,7 @@ local function fn()
     inst.spell_sanitydelta = nil
     inst.spell_hungerdelta = nil
     inst.spell_temperaturedelta = nil
-    inst.spell_desintegrate = { radius = 6, damage = 2000, casttime = 10, overheatdamage = 5000 }
+    inst.spell_desintegrate = { radius = 6, damage = 2000, casttime = 7, overheatdamage = 5000, fx = "starfall", fxscale = 1, fxleadin = 2.112 }
 
     return inst
 end

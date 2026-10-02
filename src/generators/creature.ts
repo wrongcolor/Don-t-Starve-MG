@@ -2,7 +2,12 @@ import type { CreatureDef } from '../types/modProject'
 import { luaString, sanitizeLuaComment, toUpperSnake } from './luaUtils'
 import { generateStategraph } from './stategraph'
 import { generateBrain } from './brain'
-import { resolveCreatureAnimation, isVanillaCreatureAnimation, isIslandAdventuresShipwreckedAnimation } from './creatureAnimation'
+import {
+  resolveCreatureAnimation,
+  isVanillaCreatureAnimation,
+  isIslandAdventuresShipwreckedAnimation,
+  hasNamedCustomCreatureBuild,
+} from './creatureAnimation'
 import { groundAttackFunctionBlock } from './groundAttack'
 
 function needsHerd(creature: CreatureDef): boolean {
@@ -252,6 +257,74 @@ function generateSpellPortalTeleporterComponent(): string {
   ].join('\n')
 }
 
+// A stationary home releasing one child at a time (creatureDefSchema
+// .childSpawner). The periodic check only asks the stategraph to enter its
+// "release" state (see stategraph.ts) — the actual SpawnChild happens from
+// that state's own timeline, on the release clip's beat, so the child
+// appears exactly when the clip "lets it go". inst._child is deliberately
+// not saved: children don't persist (child.persists = false), so after a
+// reload the home just releases a fresh one.
+function childSpawnerFunctionBlock(creature: CreatureDef): string[] {
+  const spawner = creature.childSpawner!
+  return [
+    'local function CanSpawnChild(inst)',
+    '    return (inst._child == nil or not inst._child:IsValid())',
+    '        and inst.components.health ~= nil and not inst.components.health:IsDead()',
+    'end',
+    '',
+    'local function SpawnChild(inst)',
+    '    if not CanSpawnChild(inst) then',
+    '        return',
+    '    end',
+    `    local child = SpawnPrefab(${luaString(spawner.prefab)})`,
+    '    if child ~= nil then',
+    '        local x, y, z = inst.Transform:GetWorldPosition()',
+    '        child.Transform:SetPosition(x, 0, z)',
+    '        child.persists = false',
+    '        inst._child = child',
+    '    end',
+    'end',
+    '',
+    'local function TryReleaseChild(inst)',
+    ...(spawner.onlyWhenNotDay ? ['    if TheWorld.state.isday then', '        return', '    end'] : []),
+    '    if CanSpawnChild(inst) and inst.sg:HasStateTag("idle") then',
+    '        inst.sg:GoToState("release")',
+    '    end',
+    'end',
+    '',
+  ]
+}
+
+// Health:ForceKill (confirmed in the real components/health.lua) bypasses
+// SetInvincible, so the hammer works even on an invincible creature; the
+// normal "death" event then drives the stategraph's own death clip.
+function hammerFunctionBlock(): string[] {
+  return [
+    'local function OnHammered(inst)',
+    '    if inst.components.health ~= nil and not inst.components.health:IsDead() then',
+    '        inst.components.health:ForceKill()',
+    '    end',
+    'end',
+    '',
+  ]
+}
+
+function vanishAtDawnFunctionBlock(): string[] {
+  return [
+    'local function OnIsDay(inst, isday)',
+    '    if not isday then',
+    '        return',
+    '    end',
+    '    inst:DoTaskInTime(math.random() * 5, function(inst)',
+    '        if inst:IsValid() and not (inst.components.health ~= nil and inst.components.health:IsDead()) then',
+    '            inst.sg:GoToState("vanish")',
+    '        end',
+    '    end)',
+    'end',
+    '',
+  ]
+}
+
 function squadAlertFunctionBlock(creature: CreatureDef): string[] {
   const upper = toUpperSnake(creature.id)
   return [
@@ -323,6 +396,8 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
     lines.push(`    -- Build "${sanitizeLuaComment(build)}" reaproveitado do mod "Island Adventures - Shipwrecked", sem asset próprio necessário.`)
   } else if (isVanillaCreatureAnimation(creature)) {
     lines.push(`    -- Build "${sanitizeLuaComment(build)}" reaproveitado do jogo base, sem asset próprio necessário.`)
+  } else if (hasNamedCustomCreatureBuild(creature)) {
+    lines.push(`    Asset("ANIM", "anim/${build}.zip"),`)
   } else {
     lines.push(`    Asset("ANIM", "anim/${creature.id}.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)`)
   }
@@ -330,7 +405,10 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   lines.push('')
   // "bufferedmapaction" is the base game's own prefab, spawned by
   // spellportalteleporter's StartMapAction — see needsMapActionCreature.
-  lines.push(needsMapActionCreature(creature) ? 'local prefabs = { "bufferedmapaction" }' : 'local prefabs = {}')
+  const prefabs: string[] = []
+  if (needsMapActionCreature(creature)) prefabs.push('bufferedmapaction')
+  if (creature.childSpawner !== undefined) prefabs.push(creature.childSpawner.prefab)
+  lines.push(prefabs.length > 0 ? `local prefabs = { ${prefabs.map(luaString).join(', ')} }` : 'local prefabs = {}')
   lines.push('')
   if (creature.groundAttack !== undefined) {
     lines.push(...groundAttackFunctionBlock(creature.id, creature.groundAttack))
@@ -362,6 +440,15 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   if (creature.sentry !== undefined) {
     lines.push(...sentryFunctionBlock(creature))
   }
+  if (creature.childSpawner !== undefined) {
+    lines.push(...childSpawnerFunctionBlock(creature))
+  }
+  if (creature.hammerable) {
+    lines.push(...hammerFunctionBlock())
+  }
+  if (creature.vanishAtDawn) {
+    lines.push(...vanishAtDawnFunctionBlock())
+  }
   lines.push('local function fn()')
   lines.push('    local inst = CreateEntity()')
   lines.push('')
@@ -371,11 +458,24 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   if (creature.light !== undefined) lines.push('    inst.entity:AddLight()')
   lines.push('    inst.entity:AddNetwork()')
   lines.push('')
-  lines.push('    MakeCharacterPhysics(inst, 50, .5)')
+  if (creature.flying) {
+    lines.push('    MakeFlyingCharacterPhysics(inst, 1, .5)')
+  } else if (creature.childSpawner !== undefined) {
+    // A home never moves — a static obstacle (like a structure), so players
+    // can't shove it around the way they can a mass-50 character body.
+    lines.push('    MakeObstaclePhysics(inst, .3)')
+  } else {
+    lines.push('    MakeCharacterPhysics(inst, 50, .5)')
+  }
   lines.push('')
+  if (creature.twoFaced) lines.push('    inst.Transform:SetTwoFaced()')
   lines.push(`    inst.AnimState:SetBank(${luaString(bank)})`)
   lines.push(`    inst.AnimState:SetBuild(${luaString(build)})`)
-  lines.push(`    inst.AnimState:PlayAnimation(${luaString(clips.idle)})`)
+  lines.push(`    inst.AnimState:PlayAnimation(${luaString(clips.spawn ?? clips.idle)})`)
+  if (creature.glow !== undefined) {
+    lines.push('    inst.AnimState:SetBloomEffectHandle("shaders/anim.ksh")')
+    lines.push(`    inst.AnimState:SetLightOverride(${creature.glow})`)
+  }
   lines.push('')
   if (creature.light !== undefined) {
     lines.push(`    inst.Light:SetRadius(TUNING.${upper}_LIGHT_RADIUS)`)
@@ -387,6 +487,7 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   }
   lines.push(`    inst:AddTag("${creature.behavior === 'hostile' ? 'monster' : 'animal'}")`)
   if (creature.behavior === 'hostile') lines.push('    inst:AddTag("hostile")')
+  if (creature.flying) lines.push('    inst:AddTag("flying")')
   for (const tag of creature.tags) lines.push(`    inst:AddTag(${luaString(tag)})`)
   if (needsHerd(creature) || creature.squadAlert !== undefined) lines.push(`    inst:AddTag(${luaString(creature.id)})`)
   lines.push('')
@@ -423,6 +524,21 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   }
   if (needsMapActionCreature(creature)) {
     lines.push('', '    inst:AddComponent("spellportalteleporter")')
+  }
+  if (creature.childSpawner !== undefined) {
+    lines.push('', '    inst.SpawnChild = SpawnChild', `    inst:DoPeriodicTask(${creature.childSpawner.intervalSeconds}, TryReleaseChild)`)
+  }
+  if (creature.hammerable) {
+    lines.push(
+      '',
+      '    inst:AddComponent("workable")',
+      '    inst.components.workable:SetWorkAction(ACTIONS.HAMMER)',
+      '    inst.components.workable:SetWorkLeft(3)',
+      '    inst.components.workable:SetOnFinishCallback(OnHammered)',
+    )
+  }
+  if (creature.vanishAtDawn) {
+    lines.push('', '    inst:WatchWorldState("isday", OnIsDay)')
   }
   if (creature.expireIfAliveSeconds !== undefined) {
     lines.push(
@@ -519,6 +635,13 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   lines.push('')
   lines.push(`    inst:SetStateGraph("SG${creature.id}")`)
   lines.push(`    inst:SetBrain(require("brains/${creature.id}brain"))`)
+  if (clips.spawn !== undefined) {
+    // The stategraph starts in "spawn" (the being-born clip) — right for a
+    // fresh spawn, wrong for one coming back from a save, so skip straight
+    // to idle when loading. OnLoad runs on every load (entityscript.lua's
+    // SetPersistData), even with no saved data.
+    lines.push('', '    inst.OnLoad = function(inst)', '        inst.sg:GoToState("idle")', '    end')
+  }
   lines.push('')
   lines.push('    return inst')
   lines.push('end')

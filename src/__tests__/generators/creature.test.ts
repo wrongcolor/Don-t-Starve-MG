@@ -499,4 +499,100 @@ describe('generateCreatureFiles', () => {
 
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
+
+  describe('golden flower / sun moth features', () => {
+    const flower: CreatureDef = {
+      ...creature,
+      id: 'goldflower',
+      behavior: 'passive',
+      companion: undefined,
+      kiting: undefined,
+      groundAttack: undefined,
+      squadAlert: undefined,
+      herd: undefined,
+      animation: {
+        source: 'custom',
+        build: 'goldflower',
+        clips: { idle: 'idle_loop', walk: 'idle_loop', atk: 'idle_loop', hit: 'idle_loop', death: 'destroy', spawn: 'grow' },
+      },
+      invincible: true,
+      hammerable: true,
+      glow: 0.5,
+      childSpawner: { prefab: 'sunmoth', intervalSeconds: 60, releaseClip: 'release', releaseFrame: 16 },
+    }
+    const moth: CreatureDef = {
+      ...creature,
+      id: 'sunmoth',
+      behavior: 'passive',
+      kiting: undefined,
+      groundAttack: undefined,
+      squadAlert: undefined,
+      herd: undefined,
+      animation: {
+        source: 'custom',
+        build: 'sunmoth_cauda',
+        clips: { idle: 'idle_loop', walk: 'flight_loop', atk: 'atk', hit: 'hit', death: 'death', spawn: 'spawn' },
+      },
+      companion: { followDistance: 3, tasks: [], acquireRadius: 6 },
+      flying: true,
+      twoFaced: true,
+      vanishAtDawn: true,
+    }
+
+    it('declares a named custom build as a real asset and plays its spawn clip first', () => {
+      const code = generateCreaturePrefab(flower)
+      expect(code).toContain('Asset("ANIM", "anim/goldflower.zip"),')
+      expect(code).not.toContain('PLACEHOLDER')
+      expect(code).toContain('inst.AnimState:PlayAnimation("grow")')
+      expect(code).toContain('inst.AnimState:SetLightOverride(0.5)')
+      expect(code).toContain('inst.OnLoad = function(inst)')
+      expect(generateStategraph(flower)).toContain('return StateGraph("SGgoldflower", states, events, "spawn")')
+      expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+    })
+
+    it('releases one child at a time from the release state, on the release frame', () => {
+      const code = generateCreaturePrefab(flower)
+      expect(code).toContain('local prefabs = { "sunmoth" }')
+      expect(code).toContain('MakeObstaclePhysics(inst, .3)')
+      expect(code).toContain('inst:DoPeriodicTask(60, TryReleaseChild)')
+      expect(code).toContain('child.persists = false')
+      expect(code).not.toContain('TheWorld.state.isday')
+      const nightOnly = generateCreaturePrefab({ ...flower, childSpawner: { ...flower.childSpawner!, onlyWhenNotDay: true } })
+      expect(nightOnly).toContain('    if TheWorld.state.isday then')
+      const sg = generateStategraph(flower)
+      expect(sg).toContain('name = "release"')
+      expect(sg).toContain('TimeEvent(16 * FRAMES, function(inst)')
+      expect(sg).toContain('if inst.sg:HasStateTag("busy") then')
+      expect(() => parse(sg, { luaVersion: '5.1' })).not.toThrow()
+    })
+
+    it('lets a hammer finish an invincible creature via ForceKill', () => {
+      const code = generateCreaturePrefab(flower)
+      expect(code).toContain('inst.components.workable:SetWorkAction(ACTIONS.HAMMER)')
+      expect(code).toContain('inst.components.health:ForceKill()')
+    })
+
+    it('flies, faces both ways and vanishes at dawn', () => {
+      const code = generateCreaturePrefab(moth)
+      expect(code).toContain('MakeFlyingCharacterPhysics(inst, 1, .5)')
+      expect(code).not.toContain('MakeCharacterPhysics(inst, 50, .5)')
+      expect(code).toContain('inst:AddTag("flying")')
+      expect(code).toContain('inst.Transform:SetTwoFaced()')
+      expect(code).toContain('inst:WatchWorldState("isday", OnIsDay)')
+      const sg = generateStategraph(moth)
+      expect(sg).toContain('name = "vanish"')
+      expect(sg).toContain('EventHandler("animover", function(inst) inst:Remove() end)')
+      expect(sg).toContain('tags = { "busy", "nointerrupt" },')
+      expect(sg).toContain('if not inst.components.health:IsDead() and not inst.sg:HasStateTag("nointerrupt") then')
+      expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+      expect(() => parse(sg, { luaVersion: '5.1' })).not.toThrow()
+    })
+
+    it('keeps existing creatures on the plain idle start with no busy guard', () => {
+      const sg = generateStategraph(creature)
+      expect(sg).toContain('return StateGraph("SGtestmob", states, events, "idle")')
+      expect(sg).not.toContain('HasStateTag("busy")')
+      expect(sg).not.toContain('nointerrupt')
+    })
+  })
 })

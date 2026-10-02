@@ -467,6 +467,12 @@ function componentBlock(structure: StructureDef): string {
     lines.push('    LinkTeleportPair(inst)')
   }
 
+  if (structure.shardPortal) {
+    lines.push('')
+    lines.push('    inst:AddComponent("worldmigrator")')
+    lines.push(`    inst.components.worldmigrator.shard_name = ${luaString(structure.shardPortal.shardName)}`)
+  }
+
   if (needsDaySpawner(structure)) {
     lines.push('')
     lines.push('    inst:ListenForEvent("phasechanged", trydayspawn, TheWorld)')
@@ -606,20 +612,19 @@ export function generateStructurePlacerPrefab(structure: StructureDef): string {
   const lines: string[] = []
   const build = resolveAnimationBuild(structure)
 
-  lines.push('local assets =')
-  lines.push('{')
+  // MakePlacer (prefabutil.lua) already returns a finished Prefab — the base
+  // game returns it straight from the file (tent.lua, scienceprototyper.lua).
+  // Wrapping it in another Prefab's fn made SpawnPrefab get a Prefab where it
+  // expects an entity: reproduced in-game as a client crash the moment the
+  // player picked the recipe ("attempt to call method 'SetPrefabName'",
+  // mainfunctions.lua:366). The build's own anim asset is declared by the
+  // structure prefab itself, which the placer shares.
   if (isVanillaAnimation(structure)) {
-    lines.push(`    -- Build "${sanitizeLuaComment(build)}" reaproveitado do jogo base, sem asset próprio necessário.`)
+    lines.push(`-- Build "${sanitizeLuaComment(build)}" reaproveitado do jogo base, sem asset próprio necessário.`)
   } else {
-    lines.push(`    Asset("ANIM", "anim/${structure.id}.zip"), -- PLACEHOLDER: mesmo build da estrutura, ver README`)
+    lines.push('-- Mesmo build da estrutura (anim/<id>.zip, declarado no prefab dela), ver README.')
   }
-  lines.push('}')
-  lines.push('')
-  lines.push('local function fn()')
-  lines.push(`    return MakePlacer(${luaString(structure.id + '_placer')}, ${luaString(build)}, ${luaString(build)}, "idle")`)
-  lines.push('end')
-  lines.push('')
-  lines.push(`return Prefab("${structure.id}_placer", fn, assets)`)
+  lines.push(`return MakePlacer(${luaString(structure.id + '_placer')}, ${luaString(build)}, ${luaString(build)}, "idle")`)
   return lines.join('\n') + '\n'
 }
 

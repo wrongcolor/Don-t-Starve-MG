@@ -596,11 +596,98 @@ describe('generateItemFiles', () => {
     expect(code).toContain('v.components.health:DoDelta(-beam.damage, false, "solarbeam", false, user)')
     expect(code).toContain('local function StartSpellBeam(user, beam)')
     expect(code).toContain('task = user:DoPeriodicTask(beam.tickinterval, function()')
-    expect(code).toContain('user:DoTaskInTime(beam.duration, function()')
+    expect(code).toContain('TheWorld:DoTaskInTime(beam.duration, function()')
+    // Reported in-game: the beam fired instantly with no cast gesture and
+    // Viana stayed free to walk. DoSpellCastPose reuses the real vanilla
+    // "castspell" stategraph state (staff windup + locomotor:Stop() +
+    // disabled playercontroller, from stategraphs/SGwilson.lua) as a
+    // guaranteed fallback, guarded so it only fires from idle/running (same
+    // "safe to interrupt" idiom as the real components/channelcaster.lua).
+    expect(code).toContain('local function DoSpellCastPose(user)')
+    expect(code).toContain('user.components.locomotor:Stop()')
+    expect(code).toContain('user.sg:HasAnyStateTag("idle", "running")')
+    expect(code).toContain('user.sg:GoToState("castspell")')
+    expect(code).toContain('    DoSpellCastPose(user)')
     expect(code).toContain(
-      'StartSpellBeam(user, { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = nil })',
+      'StartSpellBeam(user, { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = nil, fx = nil, fxscale = nil, fxspeed = nil }, pos)',
     )
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  // Reproduced in-game: a beam dealt real damage with zero visual — this
+  // channels a caller-supplied anim build (mods/<slug>-assets/anim/<id>.zip,
+  // same real Klei-compiled build convention as a character/item's own
+  // vanilla-reused build) attached to the caster for the beam's duration,
+  // then plays its "pst" clip and removes itself once that finishes.
+  it('generates a companion FX prefab for a beam with fxBuild, tracks the caster as a standalone entity (not AddChild), and registers it as a PrefabFile', () => {
+    const beamStaff: ItemDef = {
+      ...trinket,
+      id: 'testfxbeamstaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          {
+            label: 'Solar Beam',
+            beam: { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3, fxBuild: 'lightbeam' },
+          },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(beamStaff)
+    expect(code).toContain(
+      'StartSpellBeam(user, { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = nil, fx = "lightbeam", fxscale = nil, fxspeed = nil }, pos)',
+    )
+    expect(code).toContain('if beam.fx ~= nil then')
+    expect(code).toContain('fx = SpawnPrefab(beam.fx)')
+    // Reproduced in-game (three times): AddChild'd the fx faced the wrong
+    // direction and even drifted as the caster walked around during the
+    // beam, since the caster's own rotation keeps live-updating (autoface)
+    // and a child's angle isn't a fixed local offset from it. Every real
+    // aimed FX in the game's own scripts (reticuleline.lua, willow_ember.lua's
+    // willow_shadow_flame) spawns as a standalone entity instead — rotation
+    // set once, position refreshed on each damage tick to keep following.
+    expect(code).not.toContain('user:AddChild(fx)')
+    expect(code).toContain('local ux, uy, uz = user.Transform:GetWorldPosition()')
+    expect(code).toContain('fx.Transform:SetPosition(ux, 0, uz)')
+    expect(code).toContain('local worldangle = -math.atan2(pz - uz, px - ux) / DEGREES')
+    expect(code).toContain('fx.Transform:SetRotation(worldangle)')
+    expect(code).toContain('local fux, fuy, fuz = user.Transform:GetWorldPosition()')
+    expect(code).toContain('fx.Transform:SetPosition(fux, 0, fuz)')
+    expect(code).toContain('fx.AnimState:PlayAnimation("pst")')
+    expect(code).toContain('fx:ListenForEvent("animover", fx.Remove)')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+
+    const files = generateItemFiles(beamStaff)
+    expect(files['scripts/prefabs/lightbeam.lua']).toBeDefined()
+    const fxCode = files['scripts/prefabs/lightbeam.lua']
+    expect(fxCode).toContain('Asset("ANIM", "anim/lightbeam.zip")')
+    expect(fxCode).toContain('inst.AnimState:SetBank("lightbeam")')
+    expect(fxCode).toContain('inst.AnimState:PlayAnimation("pre")')
+    expect(fxCode).toContain('inst.AnimState:PushAnimation("loop", true)')
+    // Confirmed against the real reticuleline.lua: without OnGround
+    // orientation, the camera-facing billboard default silently ignores
+    // Transform:SetRotation — this is what actually broke the aimed FX
+    // direction, not the rotation angle formula.
+    expect(fxCode).toContain('inst.AnimState:SetOrientation(ANIM_ORIENTATION.OnGround)')
+    // Reported in-game: the beam flickered/strobed instead of reading as a
+    // steady laser. reticuleline.lua always pairs OnGround orientation with
+    // an explicit layer + sort order — without them an OnGround sprite
+    // z-fights against the ground tiles and other world-layer FX.
+    expect(fxCode).toContain('inst.AnimState:SetLayer(LAYER_WORLD_BACKGROUND)')
+    expect(fxCode).toContain('inst.AnimState:SetSortOrder(3)')
+    expect(fxCode).toContain('return Prefab("lightbeam", fn, assets, prefabs)')
+    expect(() => parse(fxCode, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('omits the fx field (nil) and the companion FX prefab when a beam has no fxBuild', () => {
+    const beamStaff: ItemDef = {
+      ...trinket,
+      id: 'testnofxbeamstaff',
+      spellDef: { label: 'Solar Beam', beam: { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3 } },
+    }
+    expect(generateItemPrefab(beamStaff)).toContain('inst.spell_beam = { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = nil, fx = nil, fxscale = nil, fxspeed = nil }')
+    expect(Object.keys(generateItemFiles(beamStaff))).toEqual(['scripts/prefabs/testnofxbeamstaff.lua'])
   })
 
   // Confirmed against the real game scripts (components/aoespell.lua,
@@ -747,11 +834,12 @@ describe('generateItemFiles', () => {
     expect(code).toContain('if beam.telegraph == nil then')
     expect(code).toContain('local marker = SpawnPrefab("reticule")')
     expect(code).toContain('marker.Transform:SetPosition(x + math.cos(angle) * 3, 0, z - math.sin(angle) * 3)')
-    expect(code).toContain('user:DoTaskInTime(beam.telegraph, function()')
+    expect(code).toContain('TheWorld:DoTaskInTime(beam.telegraph, function()')
+    expect(code).toContain('        if user:IsValid() then')
     expect(code).toContain('marker:Remove()')
     expect(code).toContain('StartSpellBeamTicking(user, beam)')
     expect(code).toContain(
-      'StartSpellBeam(user, { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = 0.5 })',
+      'StartSpellBeam(user, { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = 0.5, fx = nil, fxscale = nil, fxspeed = nil }, pos)',
     )
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
@@ -762,7 +850,7 @@ describe('generateItemFiles', () => {
       id: 'testnotelegraphspell',
       spellDef: { label: 'Solar Beam', beam: { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3 } },
     })
-    expect(code).toContain('inst.spell_beam = { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = nil }')
+    expect(code).toContain('inst.spell_beam = { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = nil, fx = nil, fxscale = nil, fxspeed = nil }')
   })
 
   // Confirmed real APIs: TheSim:FindEntities(..., radius, {"hostile"}) for the
@@ -962,31 +1050,33 @@ describe('generateItemFiles', () => {
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
-  // Confirmed real mechanism (Waxwell's own "Shadow Pillars" — prefabs/
-  // shadow_pillar.lua's DoPillarsTarget): rings pillar props evenly around a
-  // circle and locks every enemy caught inside with the real
-  // components/rooted.lua component — an actual movement lock, not a slow.
-  // Always aimed, like nova and beam — needs a point to center on.
-  it('wires a static spell\'s cage as an aimed ring of pillars that roots every non-player creature caught inside', () => {
+  // A ring of solid obstacle bars (MakeObstaclePhysics, like walls) plus a
+  // containment tick for flyers, whose physics never collide with
+  // obstacles (see spellbookSpellSchema.cage). Always aimed, like nova and
+  // beam — needs a point to center on.
+  it('wires a static spell\'s cage as an aimed ring of pillars -solid-bars version: a ring of obstacle bars plus a containment tick', () => {
     const cageStaff: ItemDef = {
       ...trinket,
       id: 'testcagestaff',
       spellbook: {
         source: 'static',
         spells: [
-          { label: 'Solar Cage', cage: { pillarPrefab: 'lightpillar', radius: 6, pillarCount: 8, rootedSeconds: 8 } },
+          { label: 'Solar Cage', cage: { fxBuild: 'sungate', radius: 6, durationSeconds: 8 } },
           { label: 'Free Spark', summonPrefab: 'firefly' },
         ],
       },
     }
     const code = generateItemPrefab(cageStaff)
     expect(code).toContain('local function DoSpellCage(user, pos, cage)')
-    expect(code).toContain('local angle = TWOPI * (i - 1) / cage.count')
-    expect(code).toContain('local victims = TheSim:FindEntities(x, y, z, cage.radius, nil, { "INLIMBO", "player" })')
-    expect(code).toContain('local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user')
-    expect(code).toContain('if victim.components.locomotor ~= nil and not isowncompanion then')
-    expect(code).toContain('victim.components.rooted:AddSource(user)')
-    expect(code).toContain('DoSpellCage(user, pos, { prefab = "lightpillar", radius = 6, count = 8, rooted = 8 })')
+    expect(code).toContain('local count = math.max(8, math.floor(TWOPI * cage.radius / cage.spacing))')
+    expect(code).toContain('local bar = SpawnPrefab(cage.fx .. (i % 2 == 0 and "_tall" or "_short"))')
+    expect(code).toContain('local contain = TheWorld:DoPeriodicTask(CAGE_TICK, function()')
+    expect(code).toContain('victim.Physics:Teleport(nx, vy, nz)')
+    expect(code).not.toContain('rooted')
+    // bars still rising when the cage ends are skipped, not left as invisible walls
+    expect(code).toContain('        ended = true')
+    expect(code).toContain('            if ended then')
+    expect(code).toContain('DoSpellCage(user, pos, { fx = "sungate", radius = 6, spacing = 0.8, duration = 8 })')
 
     // Aimed: needs aoetargeting/aoespell and ForceFacePoint, unlike flashbang/refraction.
     expect(code).toContain('aoetargeting')
@@ -998,6 +1088,18 @@ describe('generateItemFiles', () => {
     expect(cageEntry).toContain('execute = StartAOETargeting,')
 
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  it('generates the cage bar prefab file (tall + short, solid, non-persistent) for the cage fxBuild', () => {
+    const cageSpell: ItemDef = { ...trinket, id: 'testcagebars', spellDef: { label: 'Cage', cage: { fxBuild: 'sungate', radius: 6, durationSeconds: 8 } } }
+    const bars = generateItemFiles(cageSpell)['scripts/prefabs/sungate.lua']
+    expect(bars).toContain('Asset("ANIM", "anim/sungate.zip"),')
+    expect(bars).toContain('MakeObstaclePhysics(inst, .3)')
+    expect(bars).toContain('inst.AnimState:PlayAnimation("post_pre")')
+    expect(bars).toContain('inst.AnimState:PushAnimation("short_idle", true)')
+    expect(bars).toContain('inst.persists = false')
+    expect(bars).toContain('return Prefab("sungate_tall", tallfn, assets),')
+    expect(() => parse(bars, { luaVersion: '5.1' })).not.toThrow()
   })
 
   it('omits the cage helper function from a static spellbook when no spell in it uses cage', () => {
@@ -1013,9 +1115,9 @@ describe('generateItemFiles', () => {
     const cageSpell: ItemDef = {
       ...trinket,
       id: 'testcagespell',
-      spellDef: { label: 'Solar Cage', cage: { pillarPrefab: 'lightpillar', radius: 6, pillarCount: 8, rootedSeconds: 8 } },
+      spellDef: { label: 'Solar Cage', cage: { fxBuild: 'sungate', radius: 6, durationSeconds: 8 } },
     }
-    expect(generateItemPrefab(cageSpell)).toContain('inst.spell_cage = { prefab = "lightpillar", radius = 6, count = 8, rooted = 8 }')
+    expect(generateItemPrefab(cageSpell)).toContain('inst.spell_cage = { fx = "sungate", radius = 6, spacing = 0.8, duration = 8 }')
 
     const linked: ItemDef = {
       ...trinket,
@@ -1024,9 +1126,9 @@ describe('generateItemFiles', () => {
     }
     const code = generateItemPrefab(linked)
     expect(code).toContain('local function DoSpellCage(user, pos, cage)')
-    expect(code).toContain('if cageprefab ~= "" then')
+    expect(code).toContain('if cagefx ~= "" then')
     expect(code).toContain(
-      'DoSpellCage(user, pos, { prefab = cageprefab, radius = tonumber(cageradius), count = tonumber(cagecount), rooted = tonumber(cagerooted) })',
+      'DoSpellCage(user, pos, { fx = cagefx, radius = tonumber(cageradius), spacing = tonumber(cagespacing), duration = tonumber(cageduration) })',
     )
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
@@ -1053,7 +1155,7 @@ describe('generateItemFiles', () => {
         spells: [
           { label: 'Beam', beam: { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3 } },
           { label: 'Nova', nova: { damage: 40, radius: 5, stunSeconds: 3 } },
-          { label: 'Cage', cage: { pillarPrefab: 'lightpillar', radius: 8, pillarCount: 8, rootedSeconds: 8 } },
+          { label: 'Cage', cage: { fxBuild: 'sungate', radius: 8, durationSeconds: 8 } },
           { label: 'Summon', summonPrefab: 'firefly', aimed: true },
         ],
       },
@@ -1061,11 +1163,23 @@ describe('generateItemFiles', () => {
     const beamEntry = code.slice(code.indexOf('label = "Beam"'), code.indexOf('label = "Nova"'))
     expect(beamEntry).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"')
     expect(beamEntry).toContain('inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"')
+    // Reproduced in-game: without these, the line reticule fell back to the
+    // generic dot-reticule behavior (placed AT the mouse, never oriented) —
+    // "should start from the character and rotate around her instead".
+    expect(beamEntry).toContain('inst.components.aoetargeting.reticule.targetfn = spell_aoe_linetargetfn')
+    expect(beamEntry).toContain('inst.components.aoetargeting.reticule.mousetargetfn = spell_aoe_linemousetargetfn')
+    expect(beamEntry).toContain('inst.components.aoetargeting.reticule.updatepositionfn = spell_aoe_lineupdatepositionfn')
 
     // radius 5 <= 6: gets the one confirmed sized variant.
     const novaEntry = code.slice(code.indexOf('label = "Nova"'), code.indexOf('label = "Cage"'))
     expect(novaEntry).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe_1_6"')
     expect(novaEntry).toContain('inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping_1_6"')
+    // Reset from any previous beam selection in the same wheel.
+    expect(novaEntry).toContain('inst.components.aoetargeting.reticule.targetfn = spell_aoe_reticuletargetfn')
+    expect(novaEntry).toContain('inst.components.aoetargeting.reticule.mousetargetfn = spell_aoe_mousetargetfn')
+    // reticule.lua passes nil when the cursor isn't over the ground
+    expect(code).toContain(['local function spell_aoe_mousetargetfn(inst, pos)', '    if pos == nil then', '        return nil', '    end'].join('\n'))
+    expect(novaEntry).toContain('inst.components.aoetargeting.reticule.updatepositionfn = nil')
 
     // radius 8 > 6: no confirmed variant that size, falls back to generic.
     const cageEntry = code.slice(code.indexOf('label = "Cage"'), code.indexOf('label = "Summon"'))
@@ -1086,9 +1200,15 @@ describe('generateItemFiles', () => {
       spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
     }
     const code = generateItemPrefab(linked)
+    expect(code).toContain('local function spell_aoe_linetargetfn(inst)')
+    expect(code).toContain('local function spell_aoe_linemousetargetfn(inst, pos)')
+    expect(code).toContain('local function spell_aoe_lineupdatepositionfn(inst, pos, reticule, ease, smoothing, dt)')
     expect(code).toContain('if beamdamage ~= "" then')
     expect(code).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"')
     expect(code).toContain('inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"')
+    expect(code).toContain('inst.components.aoetargeting.reticule.targetfn = spell_aoe_linetargetfn')
+    expect(code).toContain('inst.components.aoetargeting.reticule.mousetargetfn = spell_aoe_linemousetargetfn')
+    expect(code).toContain('inst.components.aoetargeting.reticule.updatepositionfn = spell_aoe_lineupdatepositionfn')
     expect(code).toContain('elseif novadamage ~= "" or cageprefab ~= "" or desintegrateradius ~= "" then')
     expect(code).toContain(
       'local aoeradius = tonumber(novadamage ~= "" and novaradius or (cageprefab ~= "" and cageradius or desintegrateradius))',
@@ -1124,15 +1244,17 @@ describe('generateItemFiles', () => {
     const code = generateItemPrefab(desintegrateStaff)
     expect(code).toContain('local function DoSpellDesintegrate(user, pos, desintegrate)')
     expect(code).toContain('local marker = SpawnPrefab("reticule")')
-    expect(code).toContain('user:DoTaskInTime(desintegrate.casttime, function()')
+    expect(code).toContain('TheWorld:DoTaskInTime(desintegrate.casttime, function()')
     expect(code).toContain('local victims = TheSim:FindEntities(x, y, z, desintegrate.radius, nil, { "INLIMBO", "player" })')
     expect(code).toContain('local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user')
     expect(code).toContain('if victim.components.health ~= nil and not victim.components.health:IsDead() and not isowncompanion then')
     expect(code).toContain(
       'local damage = (desintegrate.overheatdamage ~= nil and user._customoverheat) and desintegrate.overheatdamage or desintegrate.damage',
     )
-    expect(code).toContain('victim.components.health:DoDelta(-damage, false, "desintegrate", false, user)')
-    expect(code).toContain('DoSpellDesintegrate(user, pos, { radius = 6, damage = 2000, casttime = 3, overheatdamage = nil })')
+    expect(code).toContain('victim.components.health:DoDelta(-damage, false, "desintegrate", false, user:IsValid() and user or nil)')
+    expect(code).toContain(
+      'DoSpellDesintegrate(user, pos, { radius = 6, damage = 2000, casttime = 3, overheatdamage = nil, fx = nil, fxscale = nil, fxleadin = nil })',
+    )
 
     // Aimed: needs aoetargeting/aoespell and ForceFacePoint, and radius 6
     // lands on the same confirmed sized reticule as nova/cage (patterns.md#77).
@@ -1146,6 +1268,68 @@ describe('generateItemFiles', () => {
     expect(desintegrateEntry).toContain('inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe_1_6"')
 
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  // The starfall build's own authored clips are a non-looping
+  // pre→fall→explode→pst sequence (a star visibly falling toward the mark,
+  // then striking) — unlike beam's pre→loop→pst, "fall" is stretched via
+  // AnimState:SetDeltaTimeMultiplier(fxleadin / casttime) so it spans the
+  // whole windup and lands exactly when the real damage does, regardless of
+  // how long castTimeSeconds is configured to be.
+  it('stretches a desintegrate fx\'s fall to fill the whole cast time, then plays explode/pst at native speed once damage lands', () => {
+    const desintegrateStaff: ItemDef = {
+      ...trinket,
+      id: 'testfxdesintegratestaff',
+      spellbook: {
+        source: 'static',
+        spells: [
+          {
+            label: 'Desintegration',
+            desintegrate: {
+              radius: 6,
+              damage: 2000,
+              castTimeSeconds: 10,
+              fxBuild: 'starfall',
+              fxScale: 1,
+              fxLeadInSeconds: 2.112,
+            },
+          },
+          { label: 'Free Spark', summonPrefab: 'firefly' },
+        ],
+      },
+    }
+    const code = generateItemPrefab(desintegrateStaff)
+    expect(code).toContain(
+      'DoSpellDesintegrate(user, pos, { radius = 6, damage = 2000, casttime = 10, overheatdamage = nil, fx = "starfall", fxscale = 1, fxleadin = 2.112 })',
+    )
+    expect(code).toContain('if desintegrate.fx ~= nil then')
+    expect(code).toContain('fx = SpawnPrefab(desintegrate.fx)')
+    expect(code).toContain('fx.Transform:SetPosition(x, 0, z)')
+    expect(code).toContain('if desintegrate.fxleadin ~= nil and desintegrate.casttime > 0 then')
+    expect(code).toContain('fx.AnimState:SetDeltaTimeMultiplier(desintegrate.fxleadin / desintegrate.casttime)')
+    expect(code).toContain('fx.AnimState:PlayAnimation("pre")')
+    expect(code).toContain('fx.AnimState:PushAnimation("fall", false)')
+    expect(code).toContain('fx.AnimState:SetDeltaTimeMultiplier(1)')
+    expect(code).toContain('fx.AnimState:PlayAnimation("explode")')
+    expect(code).toContain('fx.AnimState:IsCurrentAnimation("explode")')
+    expect(code).toContain('fx.AnimState:PlayAnimation("pst")')
+    expect(code).toContain('fx.AnimState:IsCurrentAnimation("pst")')
+    expect(code).toContain('fx:Remove()')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+
+    const files = generateItemFiles(desintegrateStaff)
+    expect(files['scripts/prefabs/starfall.lua']).toBeDefined()
+    const fxCode = files['scripts/prefabs/starfall.lua']
+    expect(fxCode).toContain('Asset("ANIM", "anim/starfall.zip")')
+    expect(fxCode).toContain('inst.AnimState:SetBank("starfall")')
+    expect(fxCode).toContain('inst.AnimState:SetOrientation(ANIM_ORIENTATION.OnGround)')
+    expect(fxCode).toContain('inst.AnimState:SetLayer(LAYER_WORLD_BACKGROUND)')
+    expect(fxCode).toContain('inst.AnimState:SetSortOrder(3)')
+    // Unlike the beam fx prefab, nothing here should auto-play an
+    // animation — the caster stages pre/fall/explode/pst itself.
+    expect(fxCode).not.toContain('PlayAnimation')
+    expect(fxCode).toContain('return Prefab("starfall", fn, assets, prefabs)')
+    expect(() => parse(fxCode, { luaVersion: '5.1' })).not.toThrow()
   })
 
   it('omits the desintegrate helper function from a static spellbook when no spell in it uses desintegrate', () => {
@@ -1164,7 +1348,7 @@ describe('generateItemFiles', () => {
       spellDef: { label: 'Desintegration', desintegrate: { radius: 6, damage: 2000, castTimeSeconds: 3 } },
     }
     expect(generateItemPrefab(desintegrateSpell)).toContain(
-      'inst.spell_desintegrate = { radius = 6, damage = 2000, casttime = 3, overheatdamage = nil }',
+      'inst.spell_desintegrate = { radius = 6, damage = 2000, casttime = 3, overheatdamage = nil, fx = nil, fxscale = nil, fxleadin = nil }',
     )
 
     const linked: ItemDef = {
@@ -1175,9 +1359,11 @@ describe('generateItemFiles', () => {
     const code = generateItemPrefab(linked)
     expect(code).toContain('local function DoSpellDesintegrate(user, pos, desintegrate)')
     expect(code).toContain('if desintegrateradius ~= "" then')
-    expect(code).toContain(
-      'DoSpellDesintegrate(user, pos, { radius = tonumber(desintegrateradius), damage = tonumber(desintegratedamage), casttime = tonumber(desintegratecasttime), overheatdamage = desintegrateoverheatdamage ~= "" and tonumber(desintegrateoverheatdamage) or nil })',
-    )
+    expect(code).toContain('radius = tonumber(desintegrateradius),')
+    expect(code).toContain('overheatdamage = desintegrateoverheatdamage ~= "" and tonumber(desintegrateoverheatdamage) or nil,')
+    expect(code).toContain('fx = desintegratefx ~= "" and desintegratefx or nil,')
+    expect(code).toContain('fxscale = desintegratefxscale ~= "" and tonumber(desintegratefxscale) or nil,')
+    expect(code).toContain('fxleadin = desintegratefxleadin ~= "" and tonumber(desintegratefxleadin) or nil,')
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
@@ -1463,9 +1649,32 @@ describe('generateItemFiles', () => {
     const code = generateItemPrefab(linked)
     expect(code).toContain('local function DoSpellBeamDamage(user, beam)')
     expect(code).toContain('local function StartSpellBeam(user, beam)')
+    expect(code).toContain('local function DoSpellCastPose(user)')
     expect(code).toContain('if beamdamage ~= "" then')
     expect(code).toContain('user:ForceFacePoint(pos:Get())')
+    expect(code).toContain('                        DoSpellCastPose(user)')
     expect(code).toContain('StartSpellBeam(user, {')
+    expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
+  })
+
+  // Reproduced in-game: the beam's visual FX played from the reticule/
+  // telegraph marker fine, but the beam itself never showed its own effect
+  // when cast through a linkedContainer codex — the decoded `beamfx` field
+  // was never actually threaded into the StartSpellBeam(user, {...}) call
+  // built here (it was only wired for the static-spellbook/spellDef paths),
+  // so `beam.fx` was always nil for a codex-bound beam regardless of the
+  // spell's own fxBuild.
+  it('decodes and threads the beam fx field through to StartSpellBeam for a linkedContainer spellbook', () => {
+    const linked: ItemDef = {
+      ...trinket,
+      id: 'testlinkedfxstaff',
+      spellbook: { source: 'linkedContainer', containerItemId: 'testcodex' },
+    }
+    const code = generateItemPrefab(linked)
+    expect(code).toContain('beamfx, beamfxscale, beamfxspeed,')
+    expect(code).toContain('fx = beamfx ~= "" and beamfx or nil,')
+    expect(code).toContain('fxscale = beamfxscale ~= "" and tonumber(beamfxscale) or nil,')
+    expect(code).toContain('fxspeed = beamfxspeed ~= "" and tonumber(beamfxspeed) or nil,')
     expect(() => parse(code, { luaVersion: '5.1' })).not.toThrow()
   })
 
@@ -1573,6 +1782,12 @@ describe('generateItemFiles', () => {
     expect(code).toContain(
       '(desintegrate ~= nil and desintegrate.overheatdamage ~= nil) and tostring(desintegrate.overheatdamage) or ""',
     )
+    expect(code).toContain('beam ~= nil and (beam.fx or "") or ""')
+    expect(code).toContain('(beam ~= nil and beam.fxscale ~= nil) and tostring(beam.fxscale) or ""')
+    expect(code).toContain('(beam ~= nil and beam.fxspeed ~= nil) and tostring(beam.fxspeed) or ""')
+    expect(code).toContain('desintegrate ~= nil and (desintegrate.fx or "") or ""')
+    expect(code).toContain('(desintegrate ~= nil and desintegrate.fxscale ~= nil) and tostring(desintegrate.fxscale) or ""')
+    expect(code).toContain('(desintegrate ~= nil and desintegrate.fxleadin ~= nil) and tostring(desintegrate.fxleadin) or ""')
     expect(code).toContain('inst.spell_contents:set(table.concat(parts, "\\30"))')
     expect(code).toContain('inst:ListenForEvent("itemget", UpdateSpellContents)')
     expect(code).toContain('inst:ListenForEvent("itemlose", UpdateSpellContents)')
@@ -1610,7 +1825,7 @@ describe('generateItemFiles', () => {
       spellDef: { label: 'Solar Beam', beam: { damagePerTick: 20, tickIntervalSeconds: 0.5, range: 10, durationSeconds: 3 } },
     }
     const code = generateItemPrefab(beamSpell)
-    expect(code).toContain('inst.spell_beam = { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = nil }')
+    expect(code).toContain('inst.spell_beam = { damage = 20, tickinterval = 0.5, range = 10, duration = 3, telegraph = nil, fx = nil, fxscale = nil, fxspeed = nil }')
 
     const noBeam: ItemDef = { ...trinket, id: 'testnobeamspell', spellDef: { label: 'Sunbeam', summonPrefab: 'stafflight' } }
     expect(generateItemPrefab(noBeam)).not.toContain('spell_beam')

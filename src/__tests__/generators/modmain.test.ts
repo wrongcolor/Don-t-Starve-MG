@@ -37,12 +37,24 @@ describe('generateModMain', () => {
     const withCharacterCost = {
       ...sampleProject,
       items: [
-        { ...sampleProject.items[0], recipe: { ...sampleProject.items[0].recipe, characterCost: { type: 'health' as const, amount: 20 } } },
+        { ...sampleProject.items[0], recipe: { ...sampleProject.items[0].recipe!, characterCost: { type: 'health' as const, amount: 20 } } },
         ...sampleProject.items.slice(1),
       ],
     }
     const characterCostCode = generateModMain(withCharacterCost)
     expect(characterCostCode).toContain('Ingredient(CHARACTER_INGREDIENT.HEALTH, 20)')
+  })
+
+  it('adds an item with dropsFrom to that prefab loot, once per amount, and skips its missing recipe', () => {
+    const { recipe: _recipe, ...noRecipe } = sampleProject.items[0]
+    const withDrop = {
+      ...sampleProject,
+      items: [{ ...noRecipe, id: 'bossshard', dropsFrom: [{ prefab: 'antlion', chance: 1, amount: 2 }] }],
+    }
+    const dropCode = generateModMain(withDrop)
+    expect(dropCode).toContain('AddPrefabPostInit("antlion", function(inst)')
+    expect(dropCode.split('inst.components.lootdropper:AddChanceLoot("bossshard", 1)').length - 1).toBe(2)
+    expect(dropCode).not.toContain('AddRecipe2("bossshard"')
   })
 
   it('does not add a CHARACTER_INGREDIENT ingredient when no item recipe has a characterCost', () => {

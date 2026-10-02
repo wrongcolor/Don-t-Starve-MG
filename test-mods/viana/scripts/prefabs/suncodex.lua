@@ -17,8 +17,24 @@ local function onunequip(inst, owner)
     owner.AnimState:Show("ARM_normal")
 end
 
-local function spell_aoe_reticuletargetfn()
-    return Vector3(ThePlayer.entity:LocalToWorldSpace(5, 0.001, 0))
+local function spell_aoe_mousetargetfn(inst, pos)
+    if pos == nil then
+        return nil
+    end
+    local range = inst.components.aoetargeting ~= nil and inst.components.aoetargeting.range or 8
+    local x, y, z = ThePlayer.Transform:GetWorldPosition()
+    local dx, dz = pos.x - x, pos.z - z
+    local distsq = dx * dx + dz * dz
+    if distsq > range * range then
+        local scale = range / math.sqrt(distsq)
+        return Vector3(x + dx * scale, y, z + dz * scale)
+    end
+    return pos
+end
+
+local function spell_aoe_reticuletargetfn(inst)
+    local range = inst.components.aoetargeting ~= nil and inst.components.aoetargeting.range or 8
+    return Vector3(ThePlayer.entity:LocalToWorldSpace(range, 0.001, 0))
 end
 
 local function StartAOETargeting(inst)
@@ -46,21 +62,92 @@ local function DoSpellBeamDamage(user, beam)
     end
 end
 
-local function StartSpellBeamTicking(user, beam)
+local function DoSpellCastPose(user)
+    if user.components.locomotor ~= nil then
+        user.components.locomotor:Stop()
+    end
+    if user.sg ~= nil and user.sg:HasAnyStateTag("idle", "running") then
+        user.sg:GoToState("castspell")
+    end
+end
+
+local function spell_aoe_linetargetfn(inst)
+    local range = inst.components.aoetargeting ~= nil and inst.components.aoetargeting.range or 8
+    return Vector3(ThePlayer.entity:LocalToWorldSpace(range, 0, 0))
+end
+
+local function spell_aoe_linemousetargetfn(inst, pos)
+    if pos == nil then
+        return nil
+    end
+    local range = inst.components.aoetargeting ~= nil and inst.components.aoetargeting.range or 8
+    local x, y, z = inst.Transform:GetWorldPosition()
+    local dx, dz = pos.x - x, pos.z - z
+    local distsq = dx * dx + dz * dz
+    if distsq <= 0 then
+        return inst.components.reticule ~= nil and inst.components.reticule.targetpos or pos
+    end
+    local scale = range / math.sqrt(distsq)
+    return Vector3(x + dx * scale, 0, z + dz * scale)
+end
+
+local function spell_aoe_lineupdatepositionfn(inst, pos, reticule, ease, smoothing, dt)
+    local x, y, z = inst.Transform:GetWorldPosition()
+    reticule.Transform:SetPosition(x, 0, z)
+    local rot = -math.atan2(pos.z - z, pos.x - x) / DEGREES
+    if ease and dt ~= nil then
+        local rot0 = reticule.Transform:GetRotation()
+        local drot = rot - rot0
+        rot = Lerp((drot > 180 and rot0 + 360) or (drot < -180 and rot0 - 360) or rot0, rot, dt * smoothing)
+    end
+    reticule.Transform:SetRotation(rot)
+end
+
+local function StartSpellBeamTicking(user, beam, pos)
+    local fx
+    if beam.fx ~= nil then
+        fx = SpawnPrefab(beam.fx)
+        if fx ~= nil then
+            local ux, uy, uz = user.Transform:GetWorldPosition()
+            fx.Transform:SetPosition(ux, 0, uz)
+            if pos ~= nil then
+                local px, py, pz = pos:Get()
+                local worldangle = -math.atan2(pz - uz, px - ux) / DEGREES
+                fx.Transform:SetRotation(worldangle)
+            else
+                fx.Transform:SetRotation(user.Transform:GetRotation())
+            end
+            if beam.fxscale ~= nil then
+                fx.Transform:SetScale(beam.fxscale, beam.fxscale, beam.fxscale)
+            end
+            if beam.fxspeed ~= nil then
+                fx.AnimState:SetDeltaTimeMultiplier(beam.fxspeed)
+            end
+        end
+    end
     local task
     task = user:DoPeriodicTask(beam.tickinterval, function()
         DoSpellBeamDamage(user, beam)
+        if fx ~= nil and fx:IsValid() then
+            local fux, fuy, fuz = user.Transform:GetWorldPosition()
+            fx.Transform:SetPosition(fux, 0, fuz)
+        end
     end)
-    user:DoTaskInTime(beam.duration, function()
+    TheWorld:DoTaskInTime(beam.duration, function()
         if task ~= nil then
             task:Cancel()
+        end
+        if fx ~= nil and fx:IsValid() then
+            fx.AnimState:PlayAnimation("pst")
+            fx:ListenForEvent("animover", fx.Remove)
+            fx:DoTaskInTime(3, fx.Remove)
         end
     end)
 end
 
-local function StartSpellBeam(user, beam)
+local function StartSpellBeam(user, beam, pos)
     if beam.telegraph == nil then
-        StartSpellBeamTicking(user, beam)
+        StartSpellBeamTicking(user, beam, pos)
         return
     end
 
@@ -70,11 +157,13 @@ local function StartSpellBeam(user, beam)
     if marker ~= nil then
         marker.Transform:SetPosition(x + math.cos(angle) * 3, 0, z - math.sin(angle) * 3)
     end
-    user:DoTaskInTime(beam.telegraph, function()
+    TheWorld:DoTaskInTime(beam.telegraph, function()
         if marker ~= nil and marker:IsValid() then
             marker:Remove()
         end
-        StartSpellBeamTicking(user, beam)
+        if user:IsValid() then
+            StartSpellBeamTicking(user, beam, pos)
+        end
     end)
 end
 
@@ -117,39 +206,88 @@ local function DoSpellFlashbang(user, flashbang)
     end
 end
 
+local CAGE_RISE_DELAY = 0.035
+local CAGE_TICK = 0.1
+local CAGE_MARGIN = 0.6
+local CAGE_CANT_TAGS = { "INLIMBO", "player", "playerghost", "FX", "NOCLICK", "notarget", "wall" }
+
+local function IsCageable(victim, user)
+    if victim.components.locomotor == nil then
+        return false
+    end
+    local leader = victim.components.follower ~= nil and victim.components.follower:GetLeader() or nil
+    return leader == nil or not leader:HasTag("player")
+end
+
 local function DoSpellCage(user, pos, cage)
     local x, y, z = pos:Get()
-    local pillars = {}
-    for i = 1, cage.count do
-        local angle = TWOPI * (i - 1) / cage.count
-        local pillar = SpawnPrefab(cage.prefab)
-        if pillar ~= nil then
-            pillar.Transform:SetPosition(x + math.cos(angle) * cage.radius, 0, z - math.sin(angle) * cage.radius)
-            table.insert(pillars, pillar)
+    local count = math.max(8, math.floor(TWOPI * cage.radius / cage.spacing))
+    if count % 2 == 1 then
+        count = count + 1
+    end
+
+    local bars = {}
+    local ended = false
+    for i = 0, count - 1 do
+        local angle = PI / 2 + i / count * TWOPI
+        local bx, bz = x + math.cos(angle) * cage.radius, z + math.sin(angle) * cage.radius
+        TheWorld:DoTaskInTime(i * CAGE_RISE_DELAY, function()
+            if ended then
+                return
+            end
+            local bar = SpawnPrefab(cage.fx .. (i % 2 == 0 and "_tall" or "_short"))
+            if bar ~= nil then
+                bar.Transform:SetPosition(bx, 0, bz)
+                table.insert(bars, bar)
+            end
+        end)
+    end
+
+    local inside = {}
+    for _, victim in ipairs(TheSim:FindEntities(x, y, z, cage.radius, nil, CAGE_CANT_TAGS)) do
+        if IsCageable(victim, user) then
+            inside[victim] = true
         end
     end
 
-    local victims = TheSim:FindEntities(x, y, z, cage.radius, nil, { "INLIMBO", "player" })
-    for _, victim in ipairs(victims) do
-        local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user
-        if victim.components.locomotor ~= nil and not isowncompanion then
-            if victim.components.rooted == nil then
-                victim:AddComponent("rooted")
+    local inner, outer = cage.radius - CAGE_MARGIN, cage.radius + CAGE_MARGIN
+    local contain = TheWorld:DoPeriodicTask(CAGE_TICK, function()
+        for _, victim in ipairs(TheSim:FindEntities(x, y, z, outer + 2, nil, CAGE_CANT_TAGS)) do
+            if victim:IsValid() and IsCageable(victim, user) then
+                local vx, vy, vz = victim.Transform:GetWorldPosition()
+                local dx, dz = vx - x, vz - z
+                local dist = math.sqrt(dx * dx + dz * dz)
+                local clampto
+                if inside[victim] then
+                    if dist > inner then
+                        clampto = inner
+                    end
+                elseif dist < inner - CAGE_MARGIN then
+                    inside[victim] = true
+                elseif dist < outer then
+                    clampto = outer
+                end
+                if clampto ~= nil and dist > 0.001 then
+                    local nx, nz = x + dx / dist * clampto, z + dz / dist * clampto
+                    if victim.Physics ~= nil then
+                        victim.Physics:Teleport(nx, vy, nz)
+                    else
+                        victim.Transform:SetPosition(nx, vy, nz)
+                    end
+                end
             end
-            victim.components.rooted:AddSource(user)
-            victim:DoTaskInTime(cage.rooted, function()
-                if victim.components.rooted ~= nil then
-                    victim.components.rooted:RemoveSource(user)
+        end
+    end)
+
+    TheWorld:DoTaskInTime(cage.duration, function()
+        ended = true
+        contain:Cancel()
+        for i, bar in ipairs(bars) do
+            TheWorld:DoTaskInTime(i * CAGE_RISE_DELAY, function()
+                if bar:IsValid() and bar.Dismiss ~= nil then
+                    bar:Dismiss()
                 end
             end)
-        end
-    end
-
-    user:DoTaskInTime(cage.rooted, function()
-        for _, pillar in ipairs(pillars) do
-            if pillar:IsValid() then
-                pillar:Remove()
-            end
         end
     end)
 end
@@ -161,9 +299,39 @@ local function DoSpellDesintegrate(user, pos, desintegrate)
         marker.Transform:SetPosition(x, 0, z)
     end
 
-    user:DoTaskInTime(desintegrate.casttime, function()
+    local fx
+    if desintegrate.fx ~= nil then
+        fx = SpawnPrefab(desintegrate.fx)
+        if fx ~= nil then
+            fx.Transform:SetPosition(x, 0, z)
+            if desintegrate.fxscale ~= nil then
+                fx.Transform:SetScale(desintegrate.fxscale, desintegrate.fxscale, desintegrate.fxscale)
+            end
+            if desintegrate.fxleadin ~= nil and desintegrate.casttime > 0 then
+                fx.AnimState:SetDeltaTimeMultiplier(desintegrate.fxleadin / desintegrate.casttime)
+            end
+            fx.AnimState:PlayAnimation("pre")
+            fx.AnimState:PushAnimation("fall", false)
+        end
+    end
+
+    TheWorld:DoTaskInTime(desintegrate.casttime, function()
         if marker ~= nil and marker:IsValid() then
             marker:Remove()
+        end
+
+        if fx ~= nil and fx:IsValid() then
+            fx.AnimState:SetDeltaTimeMultiplier(1)
+            fx.AnimState:PlayAnimation("explode")
+            fx:ListenForEvent("animover", function()
+                if not fx:IsValid() then
+                    return
+                elseif fx.AnimState:IsCurrentAnimation("explode") then
+                    fx.AnimState:PlayAnimation("pst")
+                elseif fx.AnimState:IsCurrentAnimation("pst") then
+                    fx:Remove()
+                end
+            end)
         end
 
         local victims = TheSim:FindEntities(x, y, z, desintegrate.radius, nil, { "INLIMBO", "player" })
@@ -171,7 +339,7 @@ local function DoSpellDesintegrate(user, pos, desintegrate)
             local isowncompanion = victim.components.follower ~= nil and victim.components.follower:GetLeader() == user
             if victim.components.health ~= nil and not victim.components.health:IsDead() and not isowncompanion then
                 local damage = (desintegrate.overheatdamage ~= nil and user._customoverheat) and desintegrate.overheatdamage or desintegrate.damage
-                victim.components.health:DoDelta(-damage, false, "desintegrate", false, user)
+                victim.components.health:DoDelta(-damage, false, "desintegrate", false, user:IsValid() and user or nil)
             end
         end
     end)
@@ -234,17 +402,19 @@ local function rebuild_spellbook_items(user)
         local label, manacost, healthdelta, sanitydelta, hungerdelta, summonprefab,
             isaimed, beamdamage, beamtickinterval, beamrange, beamduration, beamtelegraph,
             novadamage, novaradius, novastun, refractionradius, refractionduration,
-            flashbangradius, flashbangstun, cageprefab, cageradius, cagecount, cagerooted,
+            flashbangradius, flashbangstun, cagefx, cageradius, cagespacing, cageduration,
             desintegrateradius, desintegratedamage, desintegratecasttime,
             geardropprefabs, geardropradius, temperaturedelta, healtotal, healpersecond,
-            desintegrateoverheatdamage =
+            desintegrateoverheatdamage, beamfx, beamfxscale, beamfxspeed,
+            desintegratefx, desintegratefxscale, desintegratefxleadin =
             fields[1], fields[2], fields[3], fields[4], fields[5], fields[6],
             fields[7], fields[8], fields[9], fields[10], fields[11], fields[12],
             fields[13], fields[14], fields[15], fields[16], fields[17],
             fields[18], fields[19], fields[20], fields[21], fields[22], fields[23],
             fields[24], fields[25], fields[26],
             fields[27], fields[28], fields[29], fields[30], fields[31],
-            fields[32]
+            fields[32], fields[33], fields[34], fields[35],
+            fields[36], fields[37], fields[38]
         table.insert(items, {
             label = label,
             checkenabled = function(owner) return manacost == "" or owner.mana_current == nil or owner.mana_current:value() >= tonumber(manacost) end,
@@ -281,13 +451,17 @@ local function rebuild_spellbook_items(user)
                         end
                     end
                     if beamdamage ~= "" then
+                        DoSpellCastPose(user)
                         StartSpellBeam(user, {
                             damage = tonumber(beamdamage),
                             tickinterval = tonumber(beamtickinterval),
                             range = tonumber(beamrange),
                             duration = tonumber(beamduration),
                             telegraph = beamtelegraph ~= "" and tonumber(beamtelegraph) or nil,
-                        })
+                            fx = beamfx ~= "" and beamfx or nil,
+                            fxscale = beamfxscale ~= "" and tonumber(beamfxscale) or nil,
+                            fxspeed = beamfxspeed ~= "" and tonumber(beamfxspeed) or nil,
+                        }, pos)
                     end
                     if novadamage ~= "" then
                         DoSpellNova(user, pos, { damage = tonumber(novadamage), radius = tonumber(novaradius), stun = tonumber(novastun) })
@@ -298,11 +472,19 @@ local function rebuild_spellbook_items(user)
                     if flashbangradius ~= "" then
                         DoSpellFlashbang(user, { radius = tonumber(flashbangradius), stun = tonumber(flashbangstun) })
                     end
-                    if cageprefab ~= "" then
-                        DoSpellCage(user, pos, { prefab = cageprefab, radius = tonumber(cageradius), count = tonumber(cagecount), rooted = tonumber(cagerooted) })
+                    if cagefx ~= "" then
+                        DoSpellCage(user, pos, { fx = cagefx, radius = tonumber(cageradius), spacing = tonumber(cagespacing), duration = tonumber(cageduration) })
                     end
                     if desintegrateradius ~= "" then
-                        DoSpellDesintegrate(user, pos, { radius = tonumber(desintegrateradius), damage = tonumber(desintegratedamage), casttime = tonumber(desintegratecasttime), overheatdamage = desintegrateoverheatdamage ~= "" and tonumber(desintegrateoverheatdamage) or nil })
+                        DoSpellDesintegrate(user, pos, {
+                            radius = tonumber(desintegrateradius),
+                            damage = tonumber(desintegratedamage),
+                            casttime = tonumber(desintegratecasttime),
+                            overheatdamage = desintegrateoverheatdamage ~= "" and tonumber(desintegrateoverheatdamage) or nil,
+                            fx = desintegratefx ~= "" and desintegratefx or nil,
+                            fxscale = desintegratefxscale ~= "" and tonumber(desintegratefxscale) or nil,
+                            fxleadin = desintegratefxleadin ~= "" and tonumber(desintegratefxleadin) or nil,
+                        })
                     end
                     if geardropprefabs ~= "" then
                         local dropprefabs = {}
@@ -327,8 +509,11 @@ local function rebuild_spellbook_items(user)
                     if beamdamage ~= "" then
                         inst.components.aoetargeting.reticule.reticuleprefab = "reticuleline"
                         inst.components.aoetargeting.reticule.pingprefab = "reticulelineping"
-                    elseif novadamage ~= "" or cageprefab ~= "" or desintegrateradius ~= "" then
-                        local aoeradius = tonumber(novadamage ~= "" and novaradius or (cageprefab ~= "" and cageradius or desintegrateradius))
+                        inst.components.aoetargeting.reticule.targetfn = spell_aoe_linetargetfn
+                        inst.components.aoetargeting.reticule.mousetargetfn = spell_aoe_linemousetargetfn
+                        inst.components.aoetargeting.reticule.updatepositionfn = spell_aoe_lineupdatepositionfn
+                    elseif novadamage ~= "" or cagefx ~= "" or desintegrateradius ~= "" then
+                        local aoeradius = tonumber(novadamage ~= "" and novaradius or (cagefx ~= "" and cageradius or desintegrateradius))
                         if aoeradius ~= nil and aoeradius <= 6 then
                             inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe_1_6"
                             inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping_1_6"
@@ -336,9 +521,15 @@ local function rebuild_spellbook_items(user)
                             inst.components.aoetargeting.reticule.reticuleprefab = "reticuleaoe"
                             inst.components.aoetargeting.reticule.pingprefab = "reticuleaoeping"
                         end
+                        inst.components.aoetargeting.reticule.targetfn = spell_aoe_reticuletargetfn
+                        inst.components.aoetargeting.reticule.mousetargetfn = spell_aoe_mousetargetfn
+                        inst.components.aoetargeting.reticule.updatepositionfn = nil
                     else
                         inst.components.aoetargeting.reticule.reticuleprefab = "reticule"
                         inst.components.aoetargeting.reticule.pingprefab = nil
+                        inst.components.aoetargeting.reticule.targetfn = spell_aoe_reticuletargetfn
+                        inst.components.aoetargeting.reticule.mousetargetfn = spell_aoe_mousetargetfn
+                        inst.components.aoetargeting.reticule.updatepositionfn = nil
                     end
                     if TheWorld.ismastersim then
                         inst.components.aoespell:SetSpellFn(cast)
@@ -396,7 +587,9 @@ local function fn()
 
     inst:AddComponent("aoetargeting")
     inst.components.aoetargeting.reticule.targetfn = spell_aoe_reticuletargetfn
+    inst.components.aoetargeting.reticule.mousetargetfn = spell_aoe_mousetargetfn
     inst.components.aoetargeting.reticule.mouseenabled = true
+    inst.components.aoetargeting.reticule.twinstickmode = 1
 
     inst.entity:SetPristine()
     if not TheWorld.ismastersim then
@@ -455,10 +648,10 @@ local function fn()
                     refraction ~= nil and tostring(refraction.duration) or "",
                     flashbang ~= nil and tostring(flashbang.radius) or "",
                     flashbang ~= nil and tostring(flashbang.stun) or "",
-                    cage ~= nil and cage.prefab or "",
+                    cage ~= nil and cage.fx or "",
                     cage ~= nil and tostring(cage.radius) or "",
-                    cage ~= nil and tostring(cage.count) or "",
-                    cage ~= nil and tostring(cage.rooted) or "",
+                    cage ~= nil and tostring(cage.spacing) or "",
+                    cage ~= nil and tostring(cage.duration) or "",
                     desintegrate ~= nil and tostring(desintegrate.radius) or "",
                     desintegrate ~= nil and tostring(desintegrate.damage) or "",
                     desintegrate ~= nil and tostring(desintegrate.casttime) or "",
@@ -468,6 +661,12 @@ local function fn()
                     healovertime ~= nil and tostring(healovertime.total) or "",
                     healovertime ~= nil and tostring(healovertime.persecond) or "",
                     (desintegrate ~= nil and desintegrate.overheatdamage ~= nil) and tostring(desintegrate.overheatdamage) or "",
+                    beam ~= nil and (beam.fx or "") or "",
+                    (beam ~= nil and beam.fxscale ~= nil) and tostring(beam.fxscale) or "",
+                    (beam ~= nil and beam.fxspeed ~= nil) and tostring(beam.fxspeed) or "",
+                    desintegrate ~= nil and (desintegrate.fx or "") or "",
+                    (desintegrate ~= nil and desintegrate.fxscale ~= nil) and tostring(desintegrate.fxscale) or "",
+                    (desintegrate ~= nil and desintegrate.fxleadin ~= nil) and tostring(desintegrate.fxleadin) or "",
                 }, "\31"))
             end
         end

@@ -1,11 +1,20 @@
 import type { ModProject, ItemDef, StructureDef, CharacterDef, CreatureDef, Container, GroundAttackConfig } from '../types/modProject'
 import { luaString, luaStringArray, toUpperSnake } from './luaUtils'
-import { containerColumns, containerSlotCount, containerCustomWidgetBuild, itemRecipeIcon, chakramProjectileId } from './item'
+import {
+  containerColumns,
+  containerSlotCount,
+  containerCustomWidgetBuild,
+  itemRecipeIcon,
+  chakramProjectileId,
+  beamFxBuildIds,
+  desintegrateFxBuildIds,
+  cageFxBuildIds,
+} from './item'
 import { structureRecipeIcon } from './structure'
 import { generateWorldEventBlock, isWorldScopedTrigger, pickRandomOnlinePlayerBlock, worldEventTuningBlock } from './worldEvent'
 import { characterPortraitAssets } from './character'
 
-function itemRecipeBlock(item: ItemDef): string {
+function itemRecipeBlock(item: ItemDef & { recipe: NonNullable<ItemDef['recipe']> }): string {
   const itemIngredients = item.recipe.ingredients.map((i) => `Ingredient(${luaString(i.prefab)}, ${i.amount})`)
   const characterCost = item.recipe.characterCost
   const ingredients = [
@@ -435,6 +444,22 @@ function altOpenContainerActionBlock(): string[] {
     '        table.insert(actions, ACTIONS.OPENCODEX)',
     '    end',
     'end)',
+    '',
+    // Reported in-game as "the container isn't opening": the item's own
+    // description says "hold Alt and click", but the INVENTORY handler above
+    // only wins that race when right-clicking the item's own ICON in the
+    // inventory bar — it's never in the candidate list at all for the
+    // EQUIPPED action button (the plain click most players reach for first,
+    // and the same click spellbookEquippedActionBlock's own "Use Spell Book"
+    // already answers). Same self-targeted convention as that handler
+    // (target == doer — the action button pressed at nothing/yourself, not
+    // pointed at some other target) so this doesn't fight the item's own
+    // ATTACK/other EQUIPPED actions when actually aimed at something.
+    'AddComponentAction("EQUIPPED", "container", function(inst, doer, target, actions, right)',
+    '    if target == doer and TheInput:IsKeyDown(KEY_ALT) then',
+    '        table.insert(actions, ACTIONS.OPENCODEX)',
+    '    end',
+    'end)',
   ]
 }
 
@@ -735,6 +760,9 @@ export function generateModMain(project: ModProject): string {
     // itself, reproduced as "Can't find prefab solarchakram_proj" every time
     // something tried to reference it.
     if (item.weapon?.chainReturn !== undefined) prefabFiles.push(chakramProjectileId(item))
+    prefabFiles.push(...beamFxBuildIds(item))
+    prefabFiles.push(...desintegrateFxBuildIds(item))
+    prefabFiles.push(...cageFxBuildIds(item))
   }
   for (const structure of project.structures) {
     prefabFiles.push(structure.id, structure.deployMode === 'deployableItem' ? `${structure.id}_item` : `${structure.id}_placer`)
@@ -755,8 +783,20 @@ export function generateModMain(project: ModProject): string {
   sections.push('local TUNING = GLOBAL.TUNING')
   sections.push('local TECH = GLOBAL.TECH')
   sections.push('local Ingredient = GLOBAL.Ingredient')
+  // Reproduced in-game (real crash, the whole mod failed to load): "attempt
+  // to index global 'CHARACTER_INGREDIENT' (a nil value)" — modmain.lua runs
+  // in a sandboxed environment where real engine globals aren't directly
+  // visible, same reason every other global above is aliased from GLOBAL
+  // first (see TECH/Ingredient/STRINGS/TUNING, all pre-existing).
+  if (project.items.some((item) => item.recipe?.characterCost !== undefined)) {
+    sections.push('local CHARACTER_INGREDIENT = GLOBAL.CHARACTER_INGREDIENT')
+  }
   sections.push('')
-  sections.push(`PrefabFiles = ${luaStringArray(prefabFiles)}`)
+  // Deduplicated: two different beams (on the same or different items) can
+  // legitimately reuse the same fxBuild id (beamFxBuildIds above) — nothing
+  // else here should ever collide in practice, but listing the same prefab
+  // file twice would be pure waste (or a stray load-order warning) for free.
+  sections.push(`PrefabFiles = ${luaStringArray([...new Set(prefabFiles)])}`)
 
   // Confirmed against a real published character mod (e00dan/naruto-dont-
   // starve-together's modmain.lua): bigportraits/avatars belong in modmain.lua's
@@ -783,7 +823,25 @@ export function generateModMain(project: ModProject): string {
     sections.push('')
     sections.push('-- Items: recipes')
     for (const item of project.items) {
-      sections.push(itemRecipeBlock(item))
+      if (item.recipe !== undefined) sections.push(itemRecipeBlock({ ...item, recipe: item.recipe }))
+    }
+
+    const droppedItems = project.items.filter((item) => item.dropsFrom !== undefined && item.dropsFrom.length > 0)
+    if (droppedItems.length > 0) {
+      sections.push('')
+      sections.push('-- Items: extra drops on existing prefabs (components/lootdropper.lua AddChanceLoot)')
+      for (const item of droppedItems) {
+        for (const drop of item.dropsFrom!) {
+          sections.push(`AddPrefabPostInit(${luaString(drop.prefab)}, function(inst)`)
+          sections.push('    if not GLOBAL.TheWorld.ismastersim or inst.components.lootdropper == nil then')
+          sections.push('        return')
+          sections.push('    end')
+          for (let i = 0; i < drop.amount; i++) {
+            sections.push(`    inst.components.lootdropper:AddChanceLoot(${luaString(item.id)}, ${drop.chance})`)
+          }
+          sections.push('end)')
+        }
+      }
     }
 
     const customIconItems = project.items.filter((item) => item.hasCustomIcon)

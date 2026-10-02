@@ -203,7 +203,10 @@ export function generateBrain(creature: CreatureDef): string {
   // A map portal (docs/dst-knowledge/patterns.md#73) is stationary for the
   // same reason a sentry is — it just doesn't fight, it opens the map when
   // right-clicked instead.
-  const stationary = creature.sentry !== undefined || creature.mapPortal === true
+  // A child spawner (creatureDefSchema.childSpawner) is a home — it never
+  // leaves its spot either.
+  const stationary = creature.sentry !== undefined || creature.mapPortal === true || creature.childSpawner !== undefined
+  const acquireRadius = creature.companion?.acquireRadius
 
   if (creature.panicCauses.length > 0) {
     requires.push('require "behaviours/panic"')
@@ -267,9 +270,43 @@ export function generateBrain(creature: CreatureDef): string {
         `local FOLLOW_TARGET_DIST = ${creature.companion.followDistance}`,
         `local FOLLOW_MAX_DIST = ${creature.companion.followDistance + 4}`,
       )
-      behaviorNodes.push(
-        `        Follow(self.inst, function() return FindClosestPlayerToInst(self.inst, ${FOLLOW_SEARCH_DIST}, true) end, FOLLOW_MIN_DIST, FOLLOW_TARGET_DIST, FOLLOW_MAX_DIST),`,
-      )
+      if (acquireRadius !== undefined) {
+        // Locks onto whoever first comes within ACQUIRE_DIST and keeps that
+        // same player (stored on the instance) instead of re-picking the
+        // closest one every tick; lets go once they're dead/a ghost, gone,
+        // or further than the usual follow search distance.
+        localConstants.push(`local ACQUIRE_DIST = ${acquireRadius}`, `local LOSE_TARGET_DIST = ${FOLLOW_SEARCH_DIST}`)
+        localFunctions.push(
+          '',
+          'local function GetFollowTarget(inst)',
+          '    local target = inst._followtarget',
+          '    if target ~= nil and (not target:IsValid() or IsEntityDeadOrGhost(target) or not inst:IsNear(target, LOSE_TARGET_DIST)) then',
+          '        target = nil',
+          '    end',
+          '    if target == nil then',
+          '        target = FindClosestPlayerToInst(inst, ACQUIRE_DIST, true)',
+          '    end',
+          '    inst._followtarget = target',
+          '    return target',
+          'end',
+          '',
+          '-- Until someone walks by, drift around where it first appeared instead',
+          '-- of wandering off with no home at all.',
+          'local function GetIdleHomePos(inst)',
+          '    if inst._idlehome == nil then',
+          '        inst._idlehome = inst:GetPosition()',
+          '    end',
+          '    return inst._idlehome',
+          'end',
+        )
+        behaviorNodes.push(
+          '        Follow(self.inst, function() return GetFollowTarget(self.inst) end, FOLLOW_MIN_DIST, FOLLOW_TARGET_DIST, FOLLOW_MAX_DIST),',
+        )
+      } else {
+        behaviorNodes.push(
+          `        Follow(self.inst, function() return FindClosestPlayerToInst(self.inst, ${FOLLOW_SEARCH_DIST}, true) end, FOLLOW_MIN_DIST, FOLLOW_TARGET_DIST, FOLLOW_MAX_DIST),`,
+        )
+      }
     }
   }
 
@@ -287,7 +324,7 @@ export function generateBrain(creature: CreatureDef): string {
   }
 
   if (!orbiting && !stationary) {
-    behaviorNodes.push('        Wander(self.inst, GetHomePos, MAX_WANDER_DIST),')
+    behaviorNodes.push(`        Wander(self.inst, ${acquireRadius !== undefined ? 'GetIdleHomePos' : 'GetHomePos'}, MAX_WANDER_DIST),`)
   }
 
   // Reproduced in-game (real crash, killed the whole game): "attempt to

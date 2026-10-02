@@ -8,7 +8,12 @@ import { generateStructureFiles } from './structure'
 import { generateCharacterFiles } from './character'
 import { generateSpeechFile } from './speech'
 import { generateCreatureFiles } from './creature'
-import { resolveCreatureAnimation, isVanillaCreatureAnimation, isIslandAdventuresShipwreckedAnimation } from './creatureAnimation'
+import {
+  resolveCreatureAnimation,
+  isVanillaCreatureAnimation,
+  isIslandAdventuresShipwreckedAnimation,
+  hasNamedCustomCreatureBuild,
+} from './creatureAnimation'
 import { generateWorldContentFiles } from './worldContent'
 import { generateManaComponentFile, generateManaBadgeWidgetFile } from './mana'
 
@@ -116,6 +121,9 @@ function generateReadme(project: ModProject): string {
         lines.push(
           `  - \`${creature.id}\`: reaproveita o build "${build}" do jogo base — confirme em-jogo que as animações "${clips.idle}"/"${clips.walk}"/"${clips.atk}"/"${clips.hit}"/"${clips.death}" existem nesse build antes de publicar (não verificado por esta ferramenta).`,
         )
+      } else if (hasNamedCustomCreatureBuild(creature)) {
+        const { build } = resolveCreatureAnimation(creature)
+        lines.push(`  - \`${creature.id}\`: usa o build próprio \`anim/${build}.zip\` (projeto Spriter compilado), que já precisa estar na pasta \`anim/\` do mod.`)
       } else {
         lines.push(`  - \`${creature.id}\`: precisa de build/bank "${creature.id}" com pelo menos as animações idle/walk/atk/hit/death.`)
       }

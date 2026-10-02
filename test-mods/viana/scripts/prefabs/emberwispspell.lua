@@ -1,6 +1,8 @@
 local assets =
 {
-    -- Build "papyrus" reaproveitado do jogo base, sem asset próprio necessário.
+    Asset("ANIM", "anim/emberwispspell.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)
+    Asset("ATLAS", "images/inventoryimages/emberwispspell.xml"),
+    Asset("IMAGE", "images/inventoryimages/emberwispspell.tex"),
 }
 
 local prefabs = {}
@@ -14,8 +16,8 @@ local function fn()
 
     MakeInventoryPhysics(inst)
 
-    inst.AnimState:SetBank("papyrus")
-    inst.AnimState:SetBuild("papyrus")
+    inst.AnimState:SetBank("emberwispspell")
+    inst.AnimState:SetBuild("emberwispspell")
     inst.AnimState:PlayAnimation("idle")
 
     inst:AddTag("item")
@@ -28,15 +30,14 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
-    inst.components.inventoryitem.imagename = "papyrus"
 
-    inst.spell_label = "Ember Wisp"
-    inst.spell_summonprefab = "emberlight"
-    inst.spell_manacost = 40
+    inst.spell_label = "Golden Bloom"
+    inst.spell_summonprefab = "goldflower"
+    inst.spell_manacost = 100
     inst.spell_healthdelta = nil
     inst.spell_sanitydelta = nil
     inst.spell_hungerdelta = nil
-    inst.spell_temperaturedelta = 10
+    inst.spell_temperaturedelta = 15
     inst.spell_aimed = true
 
     return inst

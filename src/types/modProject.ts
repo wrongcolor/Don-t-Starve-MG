@@ -274,6 +274,32 @@ export const spellbookSpellSchema = z
         range: z.number().min(1).max(30),
         durationSeconds: z.number().min(0.5).max(30),
         telegraphSeconds: optionalFormNumber,
+        // Real anim build id (an anim/<id>.zip this project supplies via
+        // mods/<slug>-assets/anim/, same convention as a character/item's own
+        // vanilla-reused build) for a channeled visual while the beam ticks.
+        // Expected to define 3 clips — "pre" (plays once), "loop" (loops for
+        // the beam's own duration), "pst" (plays once on end, generator
+        // removes the FX on its "animover" event) — matching the real
+        // pre/loop/pst convention already confirmed for FX builds like
+        // "flameball_fx" (prefabs/stafflight.lua's own makestafflight calls).
+        // Left undefined, the beam still deals its damage with no visual at
+        // all, same as before this field existed.
+        fxBuild: z.string().min(1).optional(),
+        // Confirmed real API/convention (prefabs/stafflight.lua's own
+        // makestafflight always scales its FX, e.g. Transform:SetScale(.92,
+        // .92, .92) for emberlight) — a raw Spriter-authored FX build has no
+        // guaranteed real-world size, so this is left as a plain multiplier
+        // (1 = native pixel size) for the mod author to tune visually rather
+        // than guessed at here. Ignored when fxBuild isn't set.
+        fxScale: z.number().min(0.1).max(20).optional(),
+        // Reported in-game: the "loop" clip read as flickering/restarting
+        // rather than a steady laser. Real API (components/anchor.lua,
+        // prefabs/chum.lua etc. all confirmed calling
+        // AnimState:SetDeltaTimeMultiplier), 1 = native authored speed (the
+        // default if unset). A plain multiplier, same reasoning as fxScale —
+        // no reliable way to guess the "right" perceived speed here, left
+        // for the mod author to tune visually. Ignored when fxBuild isn't set.
+        fxSpeed: z.number().min(0.05).max(10).optional(),
       })
       .optional(),
     // Confirmed real APIs: TheSim:FindEntities(..., radius, {"hostile"}) is
@@ -318,27 +344,33 @@ export const spellbookSpellSchema = z
         stunSeconds: z.number().min(0.5).max(30),
       })
       .optional(),
-    // Confirmed real mechanism (Waxwell's own "Shadow Pillars" spell —
-    // prefabs/waxwelljournal.lua's PillarsSpellFn + prefabs/shadow_pillar.lua's
-    // DoPillarsTarget/DoPillars): rings a target with pillar props and adds
-    // the real components/rooted.lua component (Physics:Stop() +
-    // locomotor:SetExternalSpeedMultiplier(inst, "rooted", 0) — an actual
-    // movement lock, not just a slow) for a duration. Simplified from the
-    // real spell (which finds every enemy in an AOE and rings EACH one in
-    // its own individually-sized circle, `radius = target's own physics
-    // radius + padding`) down to ONE fixed-radius circle centered on the
-    // aimed point — every enemy caught inside it gets rooted, instead of
-    // one ring per enemy. `pillarPrefab` is a prefab id (e.g. a stationary
-    // creature already in this project) spawned pillarCount times evenly
-    // around the circle — no matching vanilla "light wall" prefab exists to
-    // default to, so this is deliberately left curated/user-supplied rather
-    // than picking one. Always aimed, like nova — needs a point to center on.
+    // A solid ring of bars around the aimed point that nothing can cross
+    // for durationSeconds — what's inside stays in, what's outside stays
+    // out. Two real mechanisms combined:
+    // - Each bar is its own entity with MakeObstaclePhysics (the same
+    //   static-obstacle body walls use, confirmed in standardcomponents.lua),
+    //   placed every postSpacing units around the circle, so walking and
+    //   giant creatures (COLLISION.CHARACTERS/GIANTS both collide with
+    //   OBSTACLES) physically bump into it.
+    // - Flyers don't: MakeFlyingCharacterPhysics' collision mask is only
+    //   WORLD/FLYERS (confirmed in the same file — real walls don't stop bees
+    //   either), and the ring takes a moment to close as its bars rise one
+    //   by one. So a 0.1s containment tick also clamps anything that tries
+    //   to cross the ring back to its own side (Physics:Teleport).
+    // fxBuild is a compiled build with two bar shapes alternating around
+    // the ring, each with <shape>_pre/_idle/_pst clips: "post" (tall, lit)
+    // and "short" — the convention of the user's own Spriter "sungate"
+    // build. Players and the caster's own companions are never clamped
+    // (players are still physically blocked by the bars, like any wall).
     cage: z
       .object({
-        pillarPrefab: z.string().min(1, 'Enter the prefab to ring the area with (e.g. lightpillar)'),
+        fxBuild: z.string().min(1, 'Enter the compiled bar build (e.g. sungate)'),
         radius: z.number().min(1).max(20),
-        pillarCount: z.number().int().min(3).max(16),
-        rootedSeconds: z.number().min(1).max(60),
+        durationSeconds: z.number().min(1).max(60),
+        // Distance between bar centers. Each bar's own obstacle body is
+        // 0.3 in radius, so 0.8 leaves a 0.2 gap — narrower than any
+        // walking creature's own body.
+        postSpacing: z.number().min(0.6).max(2).optional(),
       })
       .optional(),
     // Same telegraph idea beam.telegraphSeconds already uses (a reticule
@@ -364,6 +396,24 @@ export const spellbookSpellSchema = z
         // character.ts — not the unrelated real Temperature:IsOverheating(),
         // which uses a different, non-configurable vanilla threshold).
         overheatDamage: z.number().min(1).max(10000).optional(),
+        // Companion FX prefab, same fxBuild/fxScale convention as
+        // spellbookSpellSchema.beam above — but a different clip contract:
+        // an authored non-looping "pre"→"fall"→"explode"→"pst" sequence (a
+        // star visibly falling toward the marked point, then striking),
+        // instead of beam's "pre"→"loop"→"pst". Left undefined, the spell
+        // still works with just the plain reticule marker, same as before
+        // this field existed.
+        fxBuild: z.string().min(1).optional(),
+        fxScale: z.number().min(0.1).max(20).optional(),
+        // How long "pre"+"fall" together take to play at their native,
+        // authored speed (e.g. the raw Spriter clip lengths added up) — used
+        // to compute a AnimState:SetDeltaTimeMultiplier so that regardless
+        // of castTimeSeconds, the star's fall visually spans the ENTIRE
+        // windup and lands (starts "explode") exactly when the real damage
+        // lands, instead of finishing early and idling. Required whenever
+        // fxBuild is set, since there's no reliable way to read a compiled
+        // build's own clip lengths back out from Lua at runtime.
+        fxLeadInSeconds: z.number().min(0.1).max(30).optional(),
       })
       .optional(),
     // Confirmed real API (beefaloherd.lua/piratespawner.lua — the same
@@ -749,12 +799,32 @@ export const itemDefSchema = z
     // spellEffect/tameBomb/smokeBomb (mutually exclusive with all three — see
     // the refines below) — see groundAttackSchema for the real source.
     groundAttack: groundAttackSchema.optional(),
-    recipe: z.object({
-      ingredients: z.array(ingredientSchema).min(1, 'Add at least 1 ingredient'),
-      techLevel: z.enum(TECH_LEVELS),
-      filters: z.array(z.enum(RECIPE_FILTERS)).min(1, 'Select at least one tab'),
-      characterCost: characterCostSchema.optional(),
-    }),
+    // Extra loot this item adds to an existing (usually vanilla) prefab's
+    // own drops — e.g. a crafting material only obtainable by killing a
+    // boss. Confirmed in the real components/lootdropper.lua:
+    // AddChanceLoot(prefab, chance) appends to `chanceloot`, which
+    // GenerateLoot rolls in addition to the prefab's own SetChanceLootTable
+    // / random loot (so the boss keeps every drop it already had). Wired
+    // from modmain.lua with AddPrefabPostInit, server-side only.
+    dropsFrom: z
+      .array(
+        z.object({
+          prefab: z.string().min(1, 'Enter the prefab that drops it (e.g. antlion)'),
+          chance: z.number().min(0.01).max(1),
+          amount: z.number().int().min(1).max(20),
+        }),
+      )
+      .optional(),
+    // Optional: a material that only drops from something (see dropsFrom)
+    // has no crafting recipe of its own.
+    recipe: z
+      .object({
+        ingredients: z.array(ingredientSchema).min(1, 'Add at least 1 ingredient'),
+        techLevel: z.enum(TECH_LEVELS),
+        filters: z.array(z.enum(RECIPE_FILTERS)).min(1, 'Select at least one tab'),
+        characterCost: characterCostSchema.optional(),
+      })
+      .optional(),
   })
   .refine((item) => item.category !== 'tool' || item.toolAction !== undefined, {
     message: 'Select which action this tool performs (chop/mine/dig)',
@@ -956,6 +1026,22 @@ export const structureDefSchema = z.object({
   // RPC sync — too bespoke to generalize. Kept just the core idea: built
   // structures of this type link up two at a time, in build order.
   teleportPair: z.boolean().optional(),
+  // Confirmed in the base game's own prefabs/cave_exit.lua + cave_entrance.lua
+  // and components/worldmigrator.lua: AddComponent("worldmigrator") plus
+  // shard_name = "<shard>" is the whole mechanism behind a portal to another
+  // shard. shardnetworking.lua auto-binds the portal to the first connected
+  // shard whose [SHARD] name (server.ini) matches, and ACTIONS.MIGRATE is
+  // offered once the component sets the "migrator" tag (link active). The
+  // matching shard must exist in the cluster (e.g. "Solar" in
+  // scripts/test-three-shards.ps1); otherwise the portal just stays inactive.
+  // Arrival lands next to the destination's portal with the same id when one
+  // is linked back, else at that world's default spawn point
+  // (GetMigrationPortalLocation in componentutil.lua).
+  shardPortal: z
+    .object({
+      shardName: z.string().min(1, 'Enter the target shard name (e.g. Master, Caves)'),
+    })
+    .optional(),
   // Confirmed in the base game's own beefaloherd.lua: TheWorld:ListenForEvent
   // ("phasechanged", ...) + a math.random() chance check, gated on phase == "day",
   // is the standard "something happens once per day" pattern — same mechanism,
@@ -1270,10 +1356,24 @@ export const creatureAnimationClipsSchema = z.object({
   atk: z.string().min(1, 'Required'),
   hit: z.string().min(1, 'Required'),
   death: z.string().min(1, 'Required'),
+  // Optional one-shot "being born" clip (e.g. a Spriter-authored spawn/grow
+  // animation). When set, the stategraph starts in its own "spawn" state
+  // playing this, then settles into idle — unset keeps the plain idle start.
+  spawn: z.string().min(1).optional(),
 })
 
 export const creatureAnimationSchema = z.discriminatedUnion('source', [
-  z.object({ source: z.literal('custom') }),
+  // build/bank/clips are all optional: unset keeps the original placeholder
+  // convention (anim/<id>.zip with idle/walk/atk/hit/death). Set build when
+  // the real compiled Spriter build ships under its own name (bank defaults
+  // to the build — the autocompiler names the bank after the .scml's
+  // entity), and clips when its clip names differ from those defaults.
+  z.object({
+    source: z.literal('custom'),
+    build: z.string().min(1).optional(),
+    bank: z.string().min(1).optional(),
+    clips: creatureAnimationClipsSchema.optional(),
+  }),
   z.object({
     source: z.literal('vanilla'),
     build: z.string().min(1, 'Choose an animation'),
@@ -1365,6 +1465,11 @@ export const creatureDefSchema = z
         followDistance: z.number().min(2).max(20),
         tasks: z.array(z.enum(COMPANION_TASKS)),
         defendLeader: z.boolean().optional(),
+        // Instead of always trailing whichever player happens to be closest
+        // (within 30), stay put until a player comes within this radius, then
+        // lock onto THAT player and keep following them (until they die,
+        // leave, or get more than 30 away) — "follows whoever walks by".
+        acquireRadius: z.number().min(1).max(30).optional(),
         orbit: z
           .object({
             radius: z.number().min(1).max(15),
@@ -1436,6 +1541,44 @@ export const creatureDefSchema = z
     // Activate in creature.ts — so this timer is really just the "didn't use
     // it" fallback for that case).
     expireIfAliveSeconds: z.number().min(1).optional(),
+    // Confirmed in the base game's own bee.lua: a small airborne creature
+    // uses MakeFlyingCharacterPhysics(inst, 1, .5) plus the "flying" tag,
+    // instead of MakeCharacterPhysics (butterfly.lua does the same with the
+    // Tiny variant).
+    flying: z.boolean().optional(),
+    // Transform:SetTwoFaced() — the side-view build is mirrored left/right
+    // to face where it's going, instead of always facing one way.
+    twoFaced: z.boolean().optional(),
+    // AnimState:SetBloomEffectHandle("shaders/anim.ksh") + SetLightOverride
+    // (this value, 0-1): the build glows in the dark instead of being shaded
+    // like ordinary art — same pair real light creatures/FX use.
+    glow: z.number().min(0).max(1).optional(),
+    // Fades out with its death clip and removes itself (no loot) a few
+    // random seconds after the world turns to day — WatchWorldState("isday").
+    vanishAtDawn: z.boolean().optional(),
+    // Lets a player remove it with a hammer (workable HAMMER). The hammer
+    // finishes it with Health:ForceKill, which (confirmed in the real
+    // components/health.lua) bypasses SetInvincible — so this also works on
+    // an invincible creature, playing its normal death clip.
+    hammerable: z.boolean().optional(),
+    // A stationary "home" that periodically releases one creature of
+    // another prefab, never more than one alive at a time: every
+    // intervalSeconds, if its last child is gone, it plays releaseClip and
+    // spawns the child at releaseFrame (frames at 30fps) — so the child
+    // appears exactly on the clip's own "release" beat. Children don't
+    // persist across a save (the home simply releases a fresh one).
+    childSpawner: z
+      .object({
+        prefab: z.string().min(1, 'Enter the prefab to release (e.g. butterfly)'),
+        intervalSeconds: z.number().min(1),
+        releaseClip: z.string().min(1).optional(),
+        releaseFrame: z.number().int().min(0).optional(),
+        // Only release while it isn't day (TheWorld.state.isday false, i.e.
+        // dusk or night) — pairs with a child that vanishesAtDawn, so a child
+        // never ends up living through a whole day.
+        onlyWhenNotDay: z.boolean().optional(),
+      })
+      .optional(),
     // Confirmed real native API (prefabs/stafflight.lua, the same file the
     // emberlight/stafflight prefabs already reused for spellDef.summonPrefab):
     // entity:AddLight() + Light:SetRadius/SetFalloff/SetIntensity/SetColour/
@@ -1477,6 +1620,10 @@ export const creatureDefSchema = z
   .refine((creature) => creature.mapPortal === undefined || creature.companion === undefined, {
     message: "A map portal stays put — turn off \"follows the player\" first",
     path: ['mapPortal'],
+  })
+  .refine((creature) => creature.childSpawner === undefined || creature.companion === undefined, {
+    message: "A child spawner stays put — turn off \"follows the player\" first",
+    path: ['childSpawner'],
   })
   .refine((creature) => creature.mapPortal === undefined || creature.sentry === undefined, {
     message: 'A map portal and a sentry both make the creature stationary, for different reasons — turn one off first',
