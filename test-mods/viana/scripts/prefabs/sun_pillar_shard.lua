@@ -30,7 +30,7 @@ local function fn()
     inst.components.inventoryitem.imagename = "moonglass"
 
     inst:AddComponent("stackable")
-    inst.components.stackable:SetMaxSize(TUNING.SUN_PILLAR_SHARD_STACK_SIZE)
+    inst.components.stackable.maxsize = TUNING.SUN_PILLAR_SHARD_STACK_SIZE
 
     return inst
 end

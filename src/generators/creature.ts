@@ -179,10 +179,11 @@ function sentryFunctionBlock(creature: CreatureDef): string[] {
 }
 
 // The stategraph's one-shot "vanish" state (death clip, then removed — see
-// stategraph.ts): used at dawn by vanishAtDawn, and by a map portal to fade
-// out after being used or expiring instead of popping out of existence.
+// stategraph.ts): used at dawn by vanishAtDawn, by a map portal to fade out
+// after being used, and by anything with expireIfAliveSeconds to play its
+// death clip when it times out instead of popping out of existence.
 export function hasVanishState(creature: CreatureDef): boolean {
-  return creature.vanishAtDawn === true || creature.mapPortal === true
+  return creature.vanishAtDawn === true || creature.mapPortal === true || creature.expireIfAliveSeconds !== undefined
 }
 
 export function needsMapActionCreature(creature: CreatureDef): boolean {
@@ -535,6 +536,14 @@ export function generateCreaturePrefab(creature: CreatureDef): string {
   lines.push(`    inst.components.combat:SetAttackPeriod(TUNING.${upper}_ATTACK_PERIOD)`)
   if (creature.stats.attackRange !== undefined) {
     lines.push(`    inst.components.combat:SetRange(TUNING.${upper}_ATTACK_RANGE)`)
+  } else if (creature.sentry !== undefined) {
+    // The sentry's own scan finds targets anywhere in sentry.radius, but
+    // the real components/combat.lua DoAttack misses anything outside
+    // hitrange (CanHitTarget) — with the default range of 2 a sentry only
+    // ever hit what was touching it (reproduced headless: 0 damage to a
+    // spider 4 units from an 8-radius Solar Pillar). Its hit range has to
+    // match the scan radius.
+    lines.push(`    inst.components.combat:SetRange(${creature.sentry.radius})`)
   } else {
     lines.push('    inst.components.combat:SetRange(2)')
   }

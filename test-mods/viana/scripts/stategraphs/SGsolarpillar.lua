@@ -48,7 +48,7 @@ local states =
         tags = { "hit", "busy" },
         onenter = function(inst)
             inst.components.locomotor:StopMoving()
-            inst.AnimState:PlayAnimation("idle_loop")
+            inst.AnimState:PlayAnimation("hit")
         end,
         events =
         {
@@ -62,16 +62,49 @@ local states =
         onenter = function(inst)
             inst.components.locomotor:StopMoving()
             inst:RemoveComponent("locomotor")
-            inst.AnimState:PlayAnimation("post")
+            inst.AnimState:PlayAnimation("death")
             RemovePhysicsColliders(inst)
         end,
+    },
+
+    State{
+        name = "spawn",
+        tags = { "busy" },
+        onenter = function(inst)
+            inst.components.locomotor:StopMoving()
+            inst.AnimState:PlayAnimation("spawn")
+        end,
+        events =
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end),
+        },
+    },
+
+    State{
+        name = "vanish",
+        tags = { "busy", "nointerrupt" },
+        onenter = function(inst)
+            inst.components.locomotor:StopMoving()
+            inst.persists = false
+            inst:AddTag("NOCLICK")
+            inst.AnimState:PlayAnimation("death")
+            -- "animover" never fires while asleep (no player nearby), and
+            -- neither does the stategraph's own timeout (reproduced on a
+            -- headless server), so a plain scheduler task removes it
+            -- regardless.
+            inst:DoTaskInTime(5, inst.Remove)
+        end,
+        events =
+        {
+            EventHandler("animover", function(inst) inst:Remove() end),
+        },
     },
 }
 
 local events =
 {
     EventHandler("attacked", function(inst)
-        if not inst.components.health:IsDead() then
+        if not inst.components.health:IsDead() and not inst.sg:HasStateTag("nointerrupt") then
             inst.sg:GoToState("hit")
         end
     end),
@@ -79,6 +112,9 @@ local events =
         inst.sg:GoToState("death")
     end),
     EventHandler("locomote", function(inst)
+        if inst.sg:HasStateTag("busy") then
+            return
+        end
         local is_moving = inst.sg:HasStateTag("moving")
         local wants_to_move = inst.components.locomotor:WantsToMoveForward()
         if not is_moving and wants_to_move then
@@ -89,4 +125,4 @@ local events =
     end),
 }
 
-return StateGraph("SGsolarpillar", states, events, "idle")
+return StateGraph("SGsolarpillar", states, events, "spawn")

@@ -640,4 +640,9 @@ describe('generateCreatureFiles', () => {
       expect(() => parse(sg, { luaVersion: '5.1' })).not.toThrow()
     })
   })
+
+  it('gives a sentry a hit range equal to its scan radius (DoAttack misses outside hitrange)', () => {
+    const sentry: CreatureDef = { ...sampleProject.creatures[0], id: 'testsentry', behavior: 'neutral', companion: undefined, kiting: undefined, sentry: { radius: 8 } }
+    expect(generateCreaturePrefab(sentry)).toContain('inst.components.combat:SetRange(8)')
+  })
 })

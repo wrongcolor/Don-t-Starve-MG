@@ -1,6 +1,6 @@
 local assets =
 {
-    -- Build "flameball_fx" reaproveitado do jogo base, sem asset próprio necessário.
+    Asset("ANIM", "anim/solarpillar.zip"),
 }
 
 local prefabs = {}
@@ -33,9 +33,11 @@ local function fn()
 
     MakeCharacterPhysics(inst, 50, .5)
 
-    inst.AnimState:SetBank("flameball_fx")
-    inst.AnimState:SetBuild("flameball_fx")
-    inst.AnimState:PlayAnimation("idle_loop")
+    inst.AnimState:SetBank("solarpillar")
+    inst.AnimState:SetBuild("solarpillar")
+    inst.AnimState:PlayAnimation("spawn")
+    inst.AnimState:SetBloomEffectHandle("shaders/anim.ksh")
+    inst.AnimState:SetLightOverride(0.4)
 
     inst.Light:SetRadius(TUNING.SOLARPILLAR_LIGHT_RADIUS)
     inst.Light:SetFalloff(TUNING.SOLARPILLAR_LIGHT_FALLOFF)
@@ -59,11 +61,11 @@ local function fn()
     inst:AddComponent("combat")
     inst.components.combat:SetDefaultDamage(TUNING.SOLARPILLAR_DAMAGE)
     inst.components.combat:SetAttackPeriod(TUNING.SOLARPILLAR_ATTACK_PERIOD)
-    inst.components.combat:SetRange(2)
+    inst.components.combat:SetRange(8)
     inst:DoPeriodicTask(0.2, SentryTick)
     inst:DoTaskInTime(TUNING.SOLARPILLAR_EXPIRE_SECONDS, function(inst)
         if inst.components.health == nil or not inst.components.health:IsDead() then
-            inst:Remove()
+            inst.sg:GoToState("vanish")
         end
     end)
 
@@ -71,6 +73,10 @@ local function fn()
 
     inst:SetStateGraph("SGsolarpillar")
     inst:SetBrain(require("brains/solarpillarbrain"))
+
+    inst.OnLoad = function(inst)
+        inst.sg:GoToState("idle")
+    end
 
     return inst
 end

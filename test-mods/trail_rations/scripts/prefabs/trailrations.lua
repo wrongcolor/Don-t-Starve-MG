@@ -43,7 +43,7 @@ local function fn()
     inst.components.inventoryitem.imagename = "jerky"
 
     inst:AddComponent("stackable")
-    inst.components.stackable:SetMaxSize(TUNING.TRAILRATIONS_STACK_SIZE)
+    inst.components.stackable.maxsize = TUNING.TRAILRATIONS_STACK_SIZE
 
     inst:AddComponent("perishable")
     inst.components.perishable:SetPerishTime(TUNING.TRAILRATIONS_PERISH_TIME)

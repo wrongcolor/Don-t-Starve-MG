@@ -125,7 +125,8 @@ AddRecipe2("solargatespell", { Ingredient("papyrus", 3), Ingredient("purebrillia
         image = "solargatespell.tex",
     }, { "MAGIC" })
 AddRecipe2("solarbeamspell", { Ingredient("papyrus", 1), Ingredient("goldnugget", 10), Ingredient("yellowgem", 2) }, TECH.MAGIC_TWO, {
-        image = "papyrus.tex",
+        atlas = "images/inventoryimages/solarbeamspell.xml",
+        image = "solarbeamspell.tex",
     }, { "MAGIC" })
 AddRecipe2("refractionspell", { Ingredient("papyrus", 1), Ingredient("moonglass", 5), Ingredient("mandrake", 1) }, TECH.MAGIC_TWO, {
         image = "papyrus.tex",
@@ -182,6 +183,7 @@ GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/suncodex.xml", "suncod
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/emberwispspell.xml", "emberwispspell.tex")
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/solsticeblessingspell.xml", "solsticeblessingspell.tex")
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/solargatespell.xml", "solargatespell.tex")
+GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/solarbeamspell.xml", "solarbeamspell.tex")
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/solarcagespell.xml", "solarcagespell.tex")
 GLOBAL.RegisterInventoryItemAtlas("images/inventoryimages/desintegrationspell.xml", "desintegrationspell.tex")
 

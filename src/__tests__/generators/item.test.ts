@@ -1102,6 +1102,12 @@ describe('generateItemFiles', () => {
     expect(() => parse(bars, { luaVersion: '5.1' })).not.toThrow()
   })
 
+  it('sets a stackable max size through the maxsize property (there is no stackable:SetMaxSize)', () => {
+    const code = generateItemPrefab({ ...trinket, id: 'teststack', stackable: { maxSize: 40 } })
+    expect(code).toContain('inst.components.stackable.maxsize = TUNING.TESTSTACK_STACK_SIZE')
+    expect(code).not.toContain('stackable:SetMaxSize')
+  })
+
   it('omits the cage helper function from a static spellbook when no spell in it uses cage', () => {
     const code = generateItemPrefab({
       ...trinket,

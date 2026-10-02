@@ -1,6 +1,8 @@
 local assets =
 {
-    -- Build "papyrus" reaproveitado do jogo base, sem asset próprio necessário.
+    Asset("ANIM", "anim/solarbeamspell.zip"), -- PLACEHOLDER: substitua pelo build real (ver README)
+    Asset("ATLAS", "images/inventoryimages/solarbeamspell.xml"),
+    Asset("IMAGE", "images/inventoryimages/solarbeamspell.tex"),
 }
 
 local prefabs = {}
@@ -14,8 +16,8 @@ local function fn()
 
     MakeInventoryPhysics(inst)
 
-    inst.AnimState:SetBank("papyrus")
-    inst.AnimState:SetBuild("papyrus")
+    inst.AnimState:SetBank("solarbeamspell")
+    inst.AnimState:SetBuild("solarbeamspell")
     inst.AnimState:PlayAnimation("idle")
 
     inst:AddTag("item")
@@ -28,7 +30,6 @@ local function fn()
 
     inst:AddComponent("inspectable")
     inst:AddComponent("inventoryitem")
-    inst.components.inventoryitem.imagename = "papyrus"
 
     inst.spell_label = "Solar Beam"
     inst.spell_summonprefab = nil

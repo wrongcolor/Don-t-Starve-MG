@@ -1604,9 +1604,15 @@ function toolComponentBlock(item: ItemDef): string[] {
   return ['', '    inst:AddComponent("tool")', `    inst.components.tool:SetAction(ACTIONS.${item.toolAction})`]
 }
 
+// Confirmed in the real components/stackable.lua: the component has NO
+// SetMaxSize method — `maxsize` is a class property whose setter
+// (onmaxsize) forwards to the replica's own SetMaxSize. Calling
+// stackable:SetMaxSize crashed every stackable item the moment it spawned
+// ("attempt to call method 'SetMaxSize' (a nil value)", reproduced on a
+// headless server — e.g. the Antlion's sun_pillar_shard drop).
 function stackableComponentBlock(item: ItemDef): string[] {
   const upper = toUpperSnake(item.id)
-  return ['', '    inst:AddComponent("stackable")', `    inst.components.stackable:SetMaxSize(TUNING.${upper}_STACK_SIZE)`]
+  return ['', '    inst:AddComponent("stackable")', `    inst.components.stackable.maxsize = TUNING.${upper}_STACK_SIZE`]
 }
 
 export function chakramProjectileId(item: ItemDef): string {

@@ -30,7 +30,7 @@ local function fn()
 
     inst.AnimState:SetBank("armor_marble")
     inst.AnimState:SetBuild("armor_marble")
-    inst.AnimState:PlayAnimation("idle")
+    inst.AnimState:PlayAnimation("anim")
 
     inst:AddTag("item")
 

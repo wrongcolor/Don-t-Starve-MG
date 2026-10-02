@@ -16,7 +16,7 @@ caminhos abaixo, substituindo os placeholders:
   - `emberwispspell`: precisa de `anim/emberwispspell.zip` (build/bank "emberwispspell", animação "idle").
   - `solsticeblessingspell`: precisa de `anim/solsticeblessingspell.zip` (build/bank "solsticeblessingspell", animação "idle").
   - `solargatespell`: precisa de `anim/solargatespell.zip` (build/bank "solargatespell", animação "idle").
-  - `solarbeamspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
+  - `solarbeamspell`: precisa de `anim/solarbeamspell.zip` (build/bank "solarbeamspell", animação "idle").
   - `refractionspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `solarnovaspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
   - `flashbangspell`: reaproveita o build "papyrus" do jogo base — nenhum `anim/*.zip` próprio é necessário.
@@ -42,7 +42,7 @@ caminhos abaixo, substituindo os placeholders:
   - `goldflower`: usa o build próprio `anim/goldflower.zip` (projeto Spriter compilado), que já precisa estar na pasta `anim/` do mod.
   - `sunmoth`: usa o build próprio `anim/sunmoth_cauda.zip` (projeto Spriter compilado), que já precisa estar na pasta `anim/` do mod.
   - `sunorb`: reaproveita o build "flameball_fx" do jogo base — confirme em-jogo que as animações "idle_loop"/"idle_loop"/"idle_loop"/"idle_loop"/"post" existem nesse build antes de publicar (não verificado por esta ferramenta).
-  - `solarpillar`: reaproveita o build "flameball_fx" do jogo base — confirme em-jogo que as animações "idle_loop"/"idle_loop"/"idle_loop"/"idle_loop"/"post" existem nesse build antes de publicar (não verificado por esta ferramenta).
+  - `solarpillar`: usa o build próprio `anim/solarpillar.zip` (projeto Spriter compilado), que já precisa estar na pasta `anim/` do mod.
   - `sunportal`: usa o build próprio `anim/simbolo_solar.zip` (projeto Spriter compilado), que já precisa estar na pasta `anim/` do mod.
 
 Fala de personagem (`speech_<id>.lua`) usa fallback para `speech_wilson` — só as
