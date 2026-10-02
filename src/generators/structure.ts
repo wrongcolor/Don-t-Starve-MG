@@ -1,6 +1,6 @@
 import type { StructureDef, RoomSize, InteriorMaze, InteriorDecoration } from '../types/modProject'
 import { luaString, sanitizeLuaComment, toUpperSnake } from './luaUtils'
-import { containerCustomWidgetBuild, linkedDimensionAttachFunctionBlock } from './item'
+import { containerCustomWidgetBuild, containerSkinAssetLines, linkedDimensionAttachFunctionBlock } from './item'
 
 // A structure with no animation choice keeps the same default an item gets: a
 // custom build named after its own id, which the user must supply as
@@ -540,6 +540,7 @@ export function generateStructurePrefab(structure: StructureDef): string {
   if (structure.container?.source === 'own' && structure.container.widget.source === 'custom') {
     lines.push(`    Asset("ANIM", "anim/${containerCustomWidgetBuild(structure.id)}.zip"), -- PLACEHOLDER: art da UI do contêiner, ver README`)
   }
+  lines.push(...containerSkinAssetLines(structure.container))
   // A deployableItem structure is never craftable/hoverable directly — the item
   // half (generateStructureItemPrefab) owns the recipe icon, so only IT declares
   // an INV_IMAGE. A vanilla-sourced structure has no anim/<id>.zip of its own to

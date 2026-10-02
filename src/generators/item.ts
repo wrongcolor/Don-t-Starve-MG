@@ -36,6 +36,22 @@ export function linkedDimensionAttachFunctionBlock(dimension: string): string[] 
 
 // The UI build a 'custom' container widget needs — always named after its
 // host's own id, distinct from its inventory-icon build.
+// Assets a reused-widget container's custom skin needs loaded (see
+// containerWidgetSchema's vanilla `skin`): the panel's own anim build and the
+// slot image's atlas/texture. Declared on the container's own prefab, like
+// every other UI asset of a custom container.
+export function containerSkinAssetLines(container: ItemDef['container']): string[] {
+  if (container?.source !== 'own' || container.widget.source !== 'vanilla' || container.widget.skin === undefined) return []
+  const skin = container.widget.skin
+  const lines: string[] = []
+  if (skin.animBuild !== undefined) lines.push(`    Asset("ANIM", "anim/${skin.animBuild}.zip"),`)
+  if (skin.slotImage !== undefined) {
+    lines.push(`    Asset("ATLAS", "images/${skin.slotImage}.xml"),`)
+    lines.push(`    Asset("IMAGE", "images/${skin.slotImage}.tex"),`)
+  }
+  return lines
+}
+
 export function containerCustomWidgetBuild(id: string): string {
   return `ui_${id}`
 }
@@ -2223,6 +2239,7 @@ export function generateItemPrefab(item: ItemDef): string {
   if (item.container?.source === 'own' && item.container.widget.source === 'custom') {
     lines.push(`    Asset("ANIM", "anim/${containerCustomWidgetBuild(item.id)}.zip"), -- PLACEHOLDER: art da UI do contêiner, ver README`)
   }
+  lines.push(...containerSkinAssetLines(item.container))
   if (item.hasCustomIcon) {
     // Confirmed against a real published mod (e00dan/naruto-dont-starve-
     // together's kunai.lua/bunshinjutsu.lua): a hand-built, standalone

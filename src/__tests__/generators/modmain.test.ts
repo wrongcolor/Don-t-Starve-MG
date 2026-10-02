@@ -1,3 +1,4 @@
+import { generateItemPrefab } from '../../generators/item'
 import { describe, it, expect } from 'vitest'
 import { generateModMain } from '../../generators/modmain'
 import { sampleProject, sampleCharacter } from '../fixtures'
@@ -529,6 +530,35 @@ describe('generateModMain', () => {
     expect(containerCode).toContain('params.testbag.issidewidget = true')
     expect(containerCode).toContain('params.testbag.type = "testbag"')
     expect(containerCode).toContain('containers.MAXITEMSLOTS = math.max(containers.MAXITEMSLOTS, #params.testbag.widget.slotpos)')
+  })
+
+  it('applies a reused container widget skin: own panel build and a slot image for every slot', () => {
+    const withSkin = {
+      ...projectWithCharacter,
+      items: [
+        ...projectWithCharacter.items,
+        {
+          ...projectWithCharacter.items[0],
+          id: 'testbook',
+          container: {
+            source: 'own' as const,
+            widget: {
+              source: 'vanilla' as const,
+              reusePrefab: 'treasurechest',
+              skin: { animBuild: 'ui_testbook', slotImage: 'testbook_slot' },
+            },
+            sideWidget: false,
+          },
+        },
+      ],
+    }
+    const code = generateModMain(withSkin)
+    expect(code).toContain('params.testbook.widget.animbuild = "ui_testbook"')
+    expect(code).toContain('for i = 1, #params.testbook.widget.slotpos do')
+    expect(code).toContain('table.insert(params.testbook.widget.slotbg, { image = "testbook_slot.tex", atlas = "images/testbook_slot.xml" })')
+    const prefab = generateItemPrefab(withSkin.items[withSkin.items.length - 1])
+    expect(prefab).toContain('Asset("ANIM", "anim/ui_testbook.zip"),')
+    expect(prefab).toContain('Asset("ATLAS", "images/testbook_slot.xml"),')
   })
 
   it('unrolls a custom container grid into exactly `slots` table.insert calls, and wires itemtestfn for acceptsTag', () => {

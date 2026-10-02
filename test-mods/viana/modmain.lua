@@ -345,6 +345,11 @@ local containers = require("containers")
 local params = containers.params
 
 params.suncodex = GLOBAL.deepcopy(containers.params["treasurechest"])
+params.suncodex.widget.animbuild = "ui_suncodex"
+params.suncodex.widget.slotbg = {}
+for i = 1, #params.suncodex.widget.slotpos do
+    table.insert(params.suncodex.widget.slotbg, { image = "suncodex_slot.tex", atlas = "images/suncodex_slot.xml" })
+end
 params.suncodex.issidewidget = false
 params.suncodex.type = "suncodex"
 

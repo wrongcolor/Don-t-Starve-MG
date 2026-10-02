@@ -314,6 +314,17 @@ function containerParamsBlock(id: string, container: Extract<Container, { source
     // widget config (skin + exact slot grid) at runtime — no manual grid math,
     // works for any valid container prefab id, not just one curated preset.
     lines.push(`params.${id} = GLOBAL.deepcopy(containers.params[${luaString(widget.reusePrefab)}])`)
+    if (widget.skin?.animBuild !== undefined) {
+      lines.push(`params.${id}.widget.animbuild = ${luaString(widget.skin.animBuild)}`)
+    }
+    if (widget.skin?.slotImage !== undefined) {
+      lines.push(`params.${id}.widget.slotbg = {}`)
+      lines.push(`for i = 1, #params.${id}.widget.slotpos do`)
+      lines.push(
+        `    table.insert(params.${id}.widget.slotbg, { image = ${luaString(widget.skin.slotImage + '.tex')}, atlas = ${luaString(`images/${widget.skin.slotImage}.xml`)} })`,
+      )
+      lines.push('end')
+    }
   } else {
     const columns = containerColumns(container)
     const slots = containerSlotCount(container)

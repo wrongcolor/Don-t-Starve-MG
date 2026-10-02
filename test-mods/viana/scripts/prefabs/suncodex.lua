@@ -2,6 +2,9 @@ local assets =
 {
     -- Build "books" reaproveitado do jogo base, sem asset próprio necessário.
     -- ATENÇÃO: build vanilla escolhido para um item empunhável — confirme se "swap_books" existe no jogo base antes de publicar.
+    Asset("ANIM", "anim/ui_suncodex.zip"),
+    Asset("ATLAS", "images/suncodex_slot.xml"),
+    Asset("IMAGE", "images/suncodex_slot.tex"),
     Asset("ATLAS", "images/inventoryimages/suncodex.xml"),
     Asset("IMAGE", "images/inventoryimages/suncodex.tex"),
 }

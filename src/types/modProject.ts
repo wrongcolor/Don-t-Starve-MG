@@ -498,7 +498,25 @@ export const spellbookSchema = z.discriminatedUnion('source', [
 //    manual grid math needed. Works for any valid container prefab, not just
 //    one curated preset.
 export const containerWidgetSchema = z.discriminatedUnion('source', [
-  z.object({ source: z.literal('vanilla'), reusePrefab: z.string().min(1, 'Enter an existing container prefab id') }),
+  z.object({
+    source: z.literal('vanilla'),
+    reusePrefab: z.string().min(1, 'Enter an existing container prefab id'),
+    // A custom look on top of the reused layout. Confirmed in the real
+    // widgets/containerwidget.lua: the panel is a UIAnim built from
+    // widget.animbank + widget.animbuild (playing "open"/"open_loop"/
+    // "close"), and each slot is InvSlot(i, slotbg[i].atlas,
+    // slotbg[i].image), defaulting to images/hud.xml's inv_slot.tex.
+    // animBuild swaps only the BUILD (art) — the reused bank's own
+    // animations stay — so it must ship as anim/<animBuild>.zip with the
+    // same symbols as the reused build. slotImage is a standalone
+    // images/<slotImage>.xml/.tex pair used for every slot.
+    skin: z
+      .object({
+        animBuild: z.string().min(1).optional(),
+        slotImage: z.string().min(1).optional(),
+      })
+      .optional(),
+  }),
   // 'custom': a purely formulaic even grid (75px spacing) — NOT confirmed
   // against a working custom-art example, since every container mod we read
   // reused a vanilla skin. Needs a matching UI build (ui_<id>) supplied by

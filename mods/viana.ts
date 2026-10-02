@@ -68,7 +68,17 @@ export const viana: ModProject = {
       // centered) is never subject to that branch at all.
       container: {
         source: 'own',
-        widget: { source: 'vanilla', reusePrefab: 'treasurechest' },
+        // Treasure chest layout + a Sun Codex skin derived from it: the
+        // chest panel's carved wood recoloured to gold over an amber field
+        // with sun rays (anim/ui_suncodex.zip — same symbols as
+        // ui_chest_3x3, so the chest's open/close animations still play),
+        // and parchment slots with a gold rim and a faint sun
+        // (images/suncodex_slot).
+        widget: {
+          source: 'vanilla',
+          reusePrefab: 'treasurechest',
+          skin: { animBuild: 'ui_suncodex', slotImage: 'suncodex_slot' },
+        },
         sideWidget: false,
         acceptsTag: 'spell',
       },
